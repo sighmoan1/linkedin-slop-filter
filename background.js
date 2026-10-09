@@ -1,4 +1,4 @@
-import {DEFAULTS, requestFor, probability} from "./core.mjs";
+import {DEFAULTS, requestFor, probability, CACHE_PREFIX, cacheFresh, cacheEvictions} from "./core.mjs";
 // Content scripts never receive the API keys.
 chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
@@ -21,9 +21,9 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     const s = await chrome.storage.local.get(DEFAULTS);
     if (!s.enabled) return {disabled:true};
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify([s.provider,s.rule,text])));
-    const id = "cache:" + Array.from(new Uint8Array(digest), b=>b.toString(16).padStart(2,"0")).join("");
-    const cached = (await chrome.storage.session.get(id))[id];
-    if (cached !== undefined) return {probability:cached, threshold:s.threshold};
+    const id = CACHE_PREFIX + Array.from(new Uint8Array(digest), b=>b.toString(16).padStart(2,"0")).join("");
+    const cached = (await chrome.storage.local.get(id))[id];
+    if (cacheFresh(cached)) return {probability:cached.p, threshold:s.threshold};
     if (!pending.has(id)) {
       const job = chain.then(async () => {
         const current = await chrome.storage.local.get(DEFAULTS);
@@ -44,7 +44,8 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
           let p;
           try { p = probability(s.provider,await response.json()); }
           catch (error) { throw failure(error.message, "invalid answer"); }
-          await chrome.storage.session.set({[id]:p});
+          await chrome.storage.local.set({[id]:{p, t:Date.now()}});
+          await chrome.storage.local.remove(cacheEvictions(await chrome.storage.local.get(null)));
           await chrome.storage.local.remove("lastError");
           return {probability:p,threshold:s.threshold};
         } finally { clearTimeout(timeout); }

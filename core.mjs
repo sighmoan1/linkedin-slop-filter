@@ -72,3 +72,19 @@ export async function keyFingerprint(key) {
   const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode("lsf-key:" + key));
   return Array.from(new Uint8Array(digest).slice(0, 6), b => b.toString(16).padStart(2, "0")).join("");
 }
+
+// --- Persistent score cache ---------------------------------------------------
+// Entries live in chrome.storage.local as "cache:<sha256 of provider, rule, text>" -> {p, t}.
+// Only the hash and the score are stored, never the post text.
+export const CACHE_PREFIX = "cache:";
+export const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export const CACHE_MAX = 2000;
+export const cacheFresh = (entry, now = Date.now()) =>
+  !!entry && typeof entry.p === "number" && entry.p >= 0 && entry.p <= 1 && typeof entry.t === "number" && now - entry.t < CACHE_TTL_MS && entry.t <= now + 60000;
+// Which cache keys to delete: invalid or expired ones, then the oldest beyond the size cap.
+export function cacheEvictions(all, now = Date.now(), max = CACHE_MAX) {
+  const keys = Object.keys(all).filter(k => k.startsWith(CACHE_PREFIX));
+  const stale = keys.filter(k => !cacheFresh(all[k], now));
+  const live = keys.filter(k => cacheFresh(all[k], now)).sort((a, b) => all[a].t - all[b].t);
+  return [...stale, ...live.slice(0, Math.max(0, live.length - max))];
+}
