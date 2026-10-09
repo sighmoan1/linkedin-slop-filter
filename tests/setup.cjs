@@ -58,7 +58,7 @@ const ALLOWED_HOSTS=new Set(['openrouter.ai','platform.openai.com','developers.o
 
  // --- Settings page links into the guide, and names match what the guide tells people to click ---
  await page.goto('https://ext.test/options.html');
- await page.waitForFunction(()=>document.getElementById('threshold').value!=='');
+ await page.waitForFunction(()=>document.querySelectorAll('.cat').length>0);
  const options=await page.evaluate(()=>({
   links:[...document.querySelectorAll('a[href]')].map(a=>({href:a.getAttribute('href'),target:a.target,rel:a.rel})),
   buttons:[...document.querySelectorAll('button')].map(b=>b.textContent.trim()),

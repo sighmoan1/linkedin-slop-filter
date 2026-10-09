@@ -1,4 +1,4 @@
-import {DEFAULTS, requestFor, probability} from '../core.mjs';
+import {DEFAULTS, requestFor, validScores, categoryList, activeCategories} from '../core.mjs';
 
 const key = process.env.OPENROUTER_API_KEY;
 if (!key) {
@@ -12,7 +12,7 @@ try {
     body:JSON.stringify(req.body), redirect:'error', signal:AbortSignal.timeout(20000)
   });
   if (!response.ok) throw new Error('Jev HTTP '+response.status);
-  console.log(JSON.stringify({provider:'jev',probability:probability('jev',await response.json()),synthetic:true}));
+  console.log(JSON.stringify({provider:'jev',scores:validScores('jev',await response.json(),activeCategories(categoryList(DEFAULTS))),synthetic:true}));
 } catch (error) {
   console.error(error.name === 'TimeoutError' ? 'Jev timed out.' : 'Jev smoke test failed: '+(error.message.startsWith('Jev HTTP') ? error.message : 'network error or invalid response'));
   process.exit(1);

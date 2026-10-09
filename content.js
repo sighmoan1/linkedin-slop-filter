@@ -5,17 +5,17 @@
   const POST = '[role="listitem"][componentkey^="update-card"], .feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
   const TEXT = '[data-testid="expandable-text-box"], .update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
   const records = new Map();
-  let settings = {enabled:false,threshold:0.8};
+  let settings = {enabled:false,categories:[]};
   let timer;
   const isFeed = () => location.pathname === "/feed" || location.pathname.startsWith("/feed/");
-  // The strongest category that is set to fold and scored strictly above the threshold, if any.
-  function foldHit(record) {
-    let hit = null;
-    for (const c of record.categories || []) {
-      const p = record.scores?.[c.id];
-      if (c.fold && typeof p === "number" && p > settings.threshold && (!hit || p > hit.p)) hit = {id: c.id, name: c.name, p};
-    }
-    return hit;
+  const pct = p => Math.round(p * 100) + "%";
+  // Categories whose score is strictly above their own threshold, strongest first.
+  function applying(record) {
+    if (!record.scores) return [];
+    return settings.categories
+      .filter(c => typeof record.scores[c.id] === "number" && record.scores[c.id] > c.threshold)
+      .map(c => ({...c, p: record.scores[c.id]}))
+      .sort((a, b) => b.p - a.p);
   }
   function clearFold(post, record) {
     if (post.classList.contains("lsf-folded")) post.classList.remove("lsf-folded");
@@ -26,27 +26,28 @@
     record.badge?.remove();
     record.badge = null;
   }
+  function setHighlight(post, on) {
+    if (post.classList.contains("lsf-highlight") !== on) post.classList.toggle("lsf-highlight", on);
+  }
   // What the chip on an unfolded post should say right now.
-  function badgeFor(record) {
-    if (typeof record.probability === "number") {
-      const p = record.probability, pct = Math.round(p * 100);
-      const cats = record.categories || [];
-      // Other categories only get a mark on the chip when the model thinks they probably apply; the tooltip lists every score.
-      const notable = cats.filter(c => c.id !== "slop" && record.scores?.[c.id] >= 0.5).sort((a, b) => record.scores[b.id] - record.scores[a.id]);
-      const all = cats.filter(c => typeof record.scores?.[c.id] === "number").map(c => c.name + " " + Math.round(record.scores[c.id] * 100) + "%").join(", ");
+  function badgeFor(record, hits) {
+    if (record.scores) {
+      const local = record.provider === "ollama";
+      const all = settings.categories.filter(c => typeof record.scores[c.id] === "number").map(c => c.name + " " + pct(record.scores[c.id])).join(", ");
+      const level = hits.some(c => c.action === "hide") ? "lsf-c-hide" : hits.some(c => c.action === "highlight") ? "lsf-c-highlight" : hits.length ? "lsf-c-label" : "lsf-c-none";
       return {
-        text: (record.provider === "ollama" ? "Local slop confidence: " : "Slop likelihood: ") + pct + "%" + notable.map(c => " · " + c.name + " " + Math.round(record.scores[c.id] * 100) + "%").join(""),
-        level: p >= 0.65 ? "lsf-high" : p >= 0.35 ? "lsf-mid" : "lsf-low",
-        title: (record.provider === "ollama" ? "Local self-reported slop confidence, zero when judged useful; not a calibrated probability. " : "") + "Model estimate of low-value, formulaic writing, not proof of AI authorship. Posts above " + Math.round(settings.threshold * 100) + "% in a category set to fold are folded." + (cats.length > 1 && all ? " All scores: " + all + "." : "")
+        text: hits.length ? hits.map(c => c.name + " " + pct(c.p)).join(" · ") : "No category",
+        level,
+        title: (local ? "Local self-reported confidence, not a calibrated probability. " : "Model estimates, not proof of AI authorship. ") + "A category applies when its score is above its threshold." + (all ? " All scores: " + all + "." : "")
       };
     }
     if (record.pending) return {text: "Scoring…", level: "lsf-muted", title: "Waiting for the model's estimate."};
     if (record.error) return {text: "Not scored" + (record.short ? ": " + record.short : ""), level: "lsf-muted", title: record.error + " The post stays visible and will be retried."};
-    return {text: "Slop score: waiting", level: "lsf-muted", title: "Posts are scored as they come into view."};
+    return {text: "Waiting to score", level: "lsf-muted", title: "Posts are scored as they come into view."};
   }
   // Idempotent on purpose: touching the DOM here would retrigger the page-wide MutationObserver.
-  function renderBadge(post, record) {
-    const want = badgeFor(record);
+  function renderBadge(post, record, hits) {
+    const want = badgeFor(record, hits);
     if (!record.badge || record.badge.parentElement !== post) {
       record.badge?.remove();
       record.badge = document.createElement("div");
@@ -59,30 +60,34 @@
   }
   function apply(post, record) {
     if (!isFeed() || !settings.enabled) {
-      clearFold(post,record); clearBadge(record); return;
+      clearFold(post,record); clearBadge(record); setHighlight(post,false); return;
     }
-    const hit = foldHit(record);
-    if (record.revealed || !hit) {
-      clearFold(post,record); renderBadge(post,record); return;
+    const hits = applying(record);
+    const hide = hits.find(c => c.action === "hide");
+    setHighlight(post, !hide && hits.some(c => c.action === "highlight"));
+    if (record.revealed || !hide) {
+      clearFold(post,record); renderBadge(post,record,hits); return;
     }
     clearBadge(record);
-    if (!record.bar) {
+    const label = "Hidden as " + hide.name + " · " + pct(hide.p) + (record.provider === "ollama" ? " local self-reported confidence" : " model estimate");
+    if (record.bar?.dataset.label !== label) {
+      record.bar?.remove();
       const bar = document.createElement("div");
-      bar.className = "lsf-bar";
-      const label = document.createElement("span");
-      label.textContent = (hit.id === "slop" ? "Possible AI slop · " : "Possible " + hit.name + " · ") + Math.round(hit.p * 100) + (record.provider === "ollama" ? "% local self-reported confidence" : "% model estimate");
+      bar.className = "lsf-bar"; bar.dataset.label = label;
+      const text = document.createElement("span");
+      text.textContent = label;
       const button = document.createElement("button");
       button.type = "button"; button.textContent = "Show anyway";
       button.addEventListener("click",e => {e.preventDefault(); e.stopPropagation(); record.revealed=true; apply(post,record);});
-      bar.append(label,button); post.prepend(bar); record.bar=bar;
+      bar.append(text,button); post.prepend(bar); record.bar=bar;
     }
-    post.classList.add("lsf-folded");
+    if (!post.classList.contains("lsf-folded")) post.classList.add("lsf-folded");
   }
   const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {
       if (!entry.isIntersecting || !settings.enabled || !isFeed()) continue;
       const post=entry.target, record=records.get(post);
-      if (!record || record.pending || record.probability !== undefined || Date.now() < (record.retryAt || 0)) continue;
+      if (!record || record.pending || record.scores || Date.now() < (record.retryAt || 0)) continue;
       record.pending=true; apply(post,record);
       chrome.runtime.sendMessage({type:"classify",text:record.text}).then(result => {
         if (records.get(post) !== record) return;
@@ -92,15 +97,15 @@
           record.error=result.error || null; record.short=result.short || "";
           apply(post,record); return;
         }
-        if (typeof result?.probability !== "number" || !Number.isFinite(result.probability) || result.probability < 0 || result.probability > 1) {
+        const sc = result?.scores;
+        if (!sc || typeof sc !== "object" || !Object.keys(sc).length || !Object.values(sc).every(p => typeof p === "number" && Number.isFinite(p) && p >= 0 && p <= 1)) {
           record.retryAt=Date.now()+60000; record.error="The extension returned no score."; record.short="error";
           apply(post,record); return;
         }
         if (result.configuration && result.configuration !== settings.configuration) {record.retryAt=0;apply(post,record);return;}
+        if (Array.isArray(result.categories)) settings.categories=result.categories;
         record.provider=result.provider || settings.provider;
-        record.error=null; record.short=""; record.probability=result.probability;
-        record.scores=result.scores || {slop:result.probability};
-        record.categories=result.categories || [{id:"slop",name:"Slop",fold:true}];
+        record.error=null; record.short=""; record.scores=sc;
         apply(post,record);
       }).catch(()=>{
         if (records.get(post) !== record) return;
@@ -110,10 +115,13 @@
       });
     }
   },{rootMargin:"300px"});
+  function forget(post, record) {
+    clearFold(post,record); clearBadge(record); setHighlight(post,false);
+  }
   function scan() {
     for (const [post,record] of records) {
       if (!post.isConnected) {observer.unobserve(post); records.delete(post);}
-      else if (!isFeed()) {clearFold(post,record); clearBadge(record);}
+      else if (!isFeed()) forget(post,record);
     }
     if (!isFeed()) return;
     for (const candidate of document.querySelectorAll(POST)) {
@@ -126,7 +134,7 @@
       if (!text) continue;
       const old=records.get(post);
       if (old?.text === text) {apply(post,old); continue;}
-      if (old) {clearFold(post,old); clearBadge(old); observer.unobserve(post);}
+      if (old) {forget(post,old); observer.unobserve(post);}
       const record={text,revealed:false};
       records.set(post,record);
       apply(post,record);
@@ -138,9 +146,11 @@
   async function refresh() {
     try {
       const next=await chrome.runtime.sendMessage({type:"settings"}) || {enabled:false};
+      if (!Array.isArray(next.categories)) next.categories=[];
+      // New scoring settings need new scores. Display-only changes (name, action, threshold) reuse the scores already here.
       if (next.configuration !== settings.configuration) {
         for (const [post,record] of records) {
-          clearFold(post,record); clearBadge(record); observer.unobserve(post);
+          forget(post,record); observer.unobserve(post);
           records.set(post,{text:record.text,revealed:record.revealed});
         }
       }
@@ -149,7 +159,7 @@
     scan();
     // Re-observe unclassified cards when enabled, including cards already in view.
     for (const [post,record] of records) {
-      if (record.probability === undefined && !record.pending) {observer.unobserve(post);observer.observe(post);}
+      if (!record.scores && !record.pending) {observer.unobserve(post);observer.observe(post);}
     }
   }
   refresh(); setInterval(refresh,5000);

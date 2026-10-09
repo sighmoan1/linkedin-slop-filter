@@ -24,7 +24,7 @@ A Chrome Manifest V3 extension with no build step and no runtime dependencies.
 | File | Role |
 | --- | --- |
 | `manifest.json` | Extension manifest and host permissions |
-| `core.mjs` | Provider request and response handling, defaults, threshold rule |
+| `core.mjs`, `core/` | Settings, categories and migration (`core/settings.mjs`), provider requests and responses (`core/providers.mjs`), score cache (`core/cache.mjs`), key tests (`core/verify.mjs`). `core.mjs` re-exports them all. |
 | `background.js` | Service worker: holds API keys, queues and caches classification requests |
 | `content.js`, `content.css` | Finds posts on the LinkedIn feed, folds them, reveals them |
 | `options.html`, `options.js`, `options.css` | Settings page, also used as the toolbar popup |
@@ -43,8 +43,8 @@ npm test
 
 ## Rules that must keep holding
 
-- API keys never reach the LinkedIn content script. Settings replies include only `enabled`, the active provider's `threshold`, `provider` and a hashed `configuration` identifier, so provider switching and local confidence labels work without exposing credentials.
-- A post folds only when its probability is **strictly greater** than the threshold.
+- API keys never reach the LinkedIn content script. Settings replies include only `enabled`, `provider`, a hashed `configuration` identifier and, per switched-on category, its `id`, `name`, `action` and `threshold`. Category definitions and keys stay in the service worker.
+- A category applies only when its probability is **strictly greater** than that category's threshold. A post folds only when a category set to hide applies.
 - Any API error, refusal, timeout or invalid response leaves the post visible.
 - Only extracted feed post text is sent to the provider. Do not collect messages, comments, profile data or cookies.
 - No remote scripts, fonts or assets. Everything the extension runs ships in this repository.

@@ -33,7 +33,7 @@ const KEY='sk-or-SECRET-TEST-KEY';
    return {ok:m.status>=200&&m.status<300,status:m.status,json:async()=>url.includes('openai.com')?good.openai:good.jev};
   };
  });
- const open=async()=>{await page.goto('https://ext.test/options.html');await page.waitForFunction(()=>document.getElementById('threshold').value!=='');};
+ const open=async()=>{await page.goto('https://ext.test/options.html');await page.waitForFunction(()=>document.querySelectorAll('.cat').length>0);};
  const text=id=>page.locator('#'+id).innerText();
  await open();
 
@@ -59,6 +59,10 @@ const KEY='sk-or-SECRET-TEST-KEY';
  await page.waitForFunction(()=>/rejected/.test(document.getElementById('jevKeyStatus').textContent));
  assert.match(await text('jevKeyStatus'),/^✗ /);
  assert.match(await page.locator('#jevKeyStatus').getAttribute('class'),/\bbad\b/);
+ // Only the selected provider's key fields are shown.
+ assert.equal(await page.locator('#openaiKey').isVisible(),false);assert.equal(await page.locator('#ollamaEndpoint').isVisible(),false);
+ await page.selectOption('#provider','openai');
+ assert.equal(await page.locator('#jevKey').isVisible(),false);
  await page.fill('#openaiKey','sk-OPENAI-SECRET');
  await page.evaluate(()=>window.mode={status:402});
  await page.click('#openaiKeyTest');
@@ -69,6 +73,7 @@ const KEY='sk-or-SECRET-TEST-KEY';
 
  // The result is remembered for the saved key, and hidden once the key is edited.
  await page.evaluate(()=>window.mode={status:200});
+ await page.selectOption('#provider','jev');
  await page.click('#jevKeyTest');
  await page.waitForFunction(()=>/Key works/.test(document.getElementById('jevKeyStatus').textContent));
  await page.check('#enabled');
