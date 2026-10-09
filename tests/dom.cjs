@@ -117,6 +117,22 @@ const assert=require('node:assert/strict');
  assert.equal(await page.locator('#notcard .lsf-badge, #notcard .lsf-bar').count(),0,'list items that are not update cards are ignored');
  assert.equal(await page.locator('#notcard').evaluate(e=>e.classList.contains('lsf-folded')),false);
 
+ // A folded post must stay folded: its text reads the same whether or not it is rendered (no flicker, no repeat requests).
+ await page.evaluate(()=>{
+  const li=document.createElement('div');li.id='flick';li.setAttribute('role','listitem');li.setAttribute('componentkey','update-card-focus-9');
+  const box=document.createElement('div');box.setAttribute('data-testid','expandable-text-box');
+  box.innerHTML='SLOP first line<br><br>second   line<p>third paragraph</p>';li.append(box);document.getElementById('feed').append(li);
+ });
+ await page.waitForSelector('#flick.lsf-folded');
+ const flick=await page.evaluate(async()=>{
+  const el=document.getElementById('flick');const calls=window.calls.length;let flips=0,last=el.classList.contains('lsf-folded');
+  const mo=new MutationObserver(()=>{const now=el.classList.contains('lsf-folded');if(now!==last){flips++;last=now;}});
+  mo.observe(el,{attributes:true,attributeFilter:['class']});
+  await new Promise(r=>setTimeout(r,2000));mo.disconnect();
+  return {flips,newCalls:window.calls.length-calls,folded:el.classList.contains('lsf-folded')};
+ });
+ assert.deepEqual(flick,{flips:0,newCalls:0,folded:true},'folded post must not flicker or be re-scored');
+
  // Turning filtering off removes folds and every badge.
  await card('pause','SLOP pause me');await page.waitForSelector('#pause.lsf-folded');
  await page.evaluate(()=>window.mockEnabled=false);

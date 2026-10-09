@@ -102,7 +102,8 @@
       const post=candidate.closest(".feed-shared-update-v2") || candidate;
       if (post.parentElement?.closest(POST)) continue;
       const element=post.querySelector(TEXT);
-      const text=(element?.innerText || element?.textContent || "").trim();
+      // textContent, not innerText: innerText changes when the post is folded (display:none), which looked like a new post and re-triggered the fold.
+      const text=(element?.textContent || "").replace(/\s+/g," ").trim();
       if (!text) continue;
       const old=records.get(post);
       if (old?.text === text) {apply(post,old); continue;}
