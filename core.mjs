@@ -110,7 +110,7 @@ export function makeCategory(name, instructions, existing = []) {
   name = String(name ?? "").trim();
   instructions = String(instructions ?? "").trim();
   if (!name || name.length > 40 || !instructions || instructions.length > 2000) return null;
-  const base = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "category";
+  const base = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24).replace(/-+$/, "") || "category";
   const taken = new Set(existing.map(c => c.id));
   let id = base, n = 2;
   while (taken.has(id)) id = base + "-" + n++;

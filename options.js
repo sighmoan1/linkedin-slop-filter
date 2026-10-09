@@ -1,5 +1,5 @@
-import {DEFAULTS, KEY_FIELDS, PROVIDER_NAMES, verifyKey, keyFingerprint, CACHE_PREFIX,requestFor,thresholdFor} from "./core.mjs";
-const s=await chrome.storage.local.get(DEFAULTS);
+import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, normalizeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, keyFingerprint, CACHE_PREFIX,requestFor,thresholdFor} from "./core.mjs";
+const s=await chrome.storage.local.get({...DEFAULTS, categories:null});
 for (const id of Object.keys(DEFAULTS)) {
   const el=document.getElementById(id);
   if (id==="enabled") el.checked=s[id];
@@ -49,12 +49,55 @@ for (const provider of Object.keys(KEY_FIELDS)) {
     button.disabled=false;
   });
 }
+
+// Categories: edited in memory, written with the rest of the settings when Save is pressed.
+let cats=normalizeCategories(s.categories ?? DEFAULT_CATEGORIES, s.rule);
+const listEl=document.getElementById("categoryList"), catStatus=document.getElementById("catStatus");
+const ruleEl=document.getElementById("rule");
+function renderCats(){
+  listEl.replaceChildren();
+  for (const c of cats) {
+    const row=document.createElement("div");row.className="cat";row.dataset.id=c.id;
+    const head=document.createElement("div");head.className="cat-head";
+    const name=document.createElement("span");name.className="cat-name";name.textContent=c.name;
+    const foldLabel=document.createElement("label");foldLabel.className="cat-fold";
+    const fold=document.createElement("input");fold.type="checkbox";fold.checked=!!c.fold;
+    fold.addEventListener("change",()=>{c.fold=fold.checked;});
+    foldLabel.append(fold," Fold");
+    head.append(name,foldLabel);
+    row.append(head);
+    if (c.id==="slop") {
+      const note=document.createElement("p");note.className="note";note.textContent="Slop is always scored. Edit its definition in the field above.";row.append(note);
+    } else {
+      const text=document.createElement("textarea");text.rows=4;text.maxLength=2000;text.value=c.instructions;text.setAttribute("aria-label",c.name+" definition");
+      text.addEventListener("input",()=>{c.instructions=text.value;});
+      const remove=document.createElement("button");remove.type="button";remove.className="secondary cat-remove";remove.textContent="Remove";remove.setAttribute("aria-label","Remove "+c.name);
+      remove.addEventListener("click",()=>{cats=cats.filter(x=>x!==c);catStatus.textContent="Removed "+c.name+". Press Save settings to keep this.";renderCats();});
+      head.append(remove);row.append(text);
+    }
+    listEl.append(row);
+  }
+  document.getElementById("addCat").disabled=cats.length>=MAX_CATEGORIES;
+}
+renderCats();
+document.getElementById("addCat").addEventListener("click",()=>{
+  const nameEl=document.getElementById("newCatName"), ruleBox=document.getElementById("newCatRule");
+  const made=makeCategory(nameEl.value,ruleBox.value,cats);
+  if (!made) {catStatus.textContent="Give the category a name (up to 40 characters) and say what counts (up to 2,000).";return;}
+  cats=[...cats,made];nameEl.value="";ruleBox.value="";
+  catStatus.textContent="Added "+made.name+". Press Save settings to keep this.";renderCats();
+});
+document.getElementById("resetCats").addEventListener("click",()=>{
+  cats=normalizeCategories(DEFAULT_CATEGORIES.map(c=>({...c})),ruleEl.value.trim()||DEFAULTS.rule);
+  catStatus.textContent="Categories reset to the five defaults. Press Save settings to keep this.";renderCats();
+});
 document.getElementById("settings").addEventListener("submit",async event=>{
   event.preventDefault();
   const next={};
   for (const id of Object.keys(DEFAULTS)) next[id]=document.getElementById(id).value.trim();
   next.enabled=document.getElementById("enabled").checked;
   for (const id of ["threshold","openaiThreshold","localThreshold"]) next[id]=Number(next[id])/100;next.limit=Number(next.limit);
+  next.categories=normalizeCategories(cats,next.rule);
   if (next.enabled && next.provider!=="ollama" && !(next.provider==="jev" ? next.jevKey : next.openaiKey)) {
     document.getElementById("status").textContent="Add a key for the selected provider first.";return;
   }

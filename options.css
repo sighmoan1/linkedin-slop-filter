@@ -5,3 +5,9 @@ body{margin:0;background:#f6f5f1;color:#202521;font:14px/1.5 system-ui,sans-seri
 .key-help{display:block;margin:-10px 0 10px;font-size:13px;color:#0a58a8}
 .key-help+.key-test{margin-top:0}
 .note{font-size:12px;color:#59625b}#error{color:#9a332d}.toggle{display:flex;gap:8px;align-items:center}
+
+#categories{border:1px solid #b8c2bb;border-radius:8px;margin:16px 0;padding:4px 14px 14px}#categories legend{font-weight:600;padding:0 6px}
+.cat{border-top:1px solid #dde3de;padding:10px 0}.cat:first-child{border-top:0}
+.cat-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}.cat-name{font-weight:600;flex:1 1 auto;min-width:120px}
+.cat-fold{display:flex;align-items:center;gap:6px;margin:0;font-weight:400}.cat textarea{margin-top:8px}
+.cat-remove{padding:6px 10px;font-size:13px}.cat-add{border-top:1px solid #dde3de;margin-top:6px}.cat-add label{margin:12px 0}
