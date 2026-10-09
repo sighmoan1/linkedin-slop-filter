@@ -7,13 +7,16 @@ const local={...DEFAULTS,enabled:true,jevKey:'TEST-KEY',limit:3};
 const session={};
 const storage=data=>({get:async query=>typeof query==='string'?{[query]:data[query]}:{...query,...data},set:async value=>Object.assign(data,value),remove:async key=>delete data[key],setAccessLevel:async()=>{}});
 let handler,calls=0,mode='success',active=0,maxActive=0;
-const context=vm.createContext({DEFAULTS,requestFor,probability,crypto:webcrypto,TextEncoder,AbortController,setTimeout,clearTimeout,
+const context=vm.createContext({DEFAULTS,requestFor,probability,crypto:webcrypto,TextEncoder,AbortController,URL,setTimeout,clearTimeout,
  chrome:{storage:{local:storage(local),session:storage(session)},runtime:{onMessage:{addListener:h=>handler=h}}},
  fetch:async(url,req)=>{calls++;active++;maxActive=Math.max(maxActive,active);assert.equal(req.headers.Authorization,'Bearer TEST-KEY');await new Promise(r=>setTimeout(r,5));active--;return {ok:mode!=='fail',status:mode==='fail'?429:200,json:async()=>({answers:{slop:{type:'noul',noul:.95}}})};}
 });
 vm.runInContext(fs.readFileSync(new URL('../background.js',import.meta.url),'utf8').replace(/^import .*;\n/,''),context);
 const send=m=>new Promise(resolve=>handler(m,{url:'https://www.linkedin.com/feed/'},resolve));
 assert.equal(handler({type:'settings'},{url:'https://attacker.example'},()=>{}),false);
+for (const url of ['https://www.linkedin.com/feedfake','https://www.linkedin.com.evil.example/feed/',undefined,'bad-url']) {
+ assert.equal(handler({type:'settings'},{url},()=>{}),false);
+}
 const settings=await send({type:'settings'});
 assert.equal(settings.enabled,true);assert.equal(settings.jevKey,undefined);
 const [a,b]=await Promise.all([send({type:'classify',text:'same'}),send({type:'classify',text:'same'})]);
