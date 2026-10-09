@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
 import {webcrypto} from 'node:crypto';
-import {DEFAULTS,requestFor,probability,thresholdFor,classificationKey,localEndpoint,CACHE_PREFIX,cacheFresh,cacheEvictions} from '../core.mjs';
+import {DEFAULTS,requestFor,probability,scores,categoryList,thresholdFor,classificationKey,localEndpoint,CACHE_PREFIX,cacheFresh,cacheEvictions} from '../core.mjs';
 
 const settings={...DEFAULTS,provider:'ollama',enabled:true};
 const envelope=(slop=true,confidence=.95)=>({done:true,done_reason:'stop',message:{role:'assistant',content:JSON.stringify({slop,confidence})}});
@@ -30,7 +30,7 @@ assert.equal(thresholdFor({...settings,provider:'openai',openaiThreshold:.6}),.6
 const local={...settings,limit:100},session={};
 const storage=data=>({get:async q=>typeof q==='string'?{[q]:data[q]}:{...q,...data},set:async v=>Object.assign(data,v),remove:async keys=>{for(const k of [].concat(keys)) delete data[k];},setAccessLevel:async()=>{}});
 let handler,calls=0,active=0,maxActive=0,mode='success',release;
-const context=vm.createContext({DEFAULTS,requestFor,probability,thresholdFor,classificationKey,CACHE_PREFIX,cacheFresh,cacheEvictions,crypto:webcrypto,TextEncoder,AbortController,URL,setTimeout,clearTimeout,
+const context=vm.createContext({DEFAULTS,requestFor,probability,scores,categoryList,thresholdFor,classificationKey,CACHE_PREFIX,cacheFresh,cacheEvictions,crypto:webcrypto,TextEncoder,AbortController,URL,setTimeout,clearTimeout,
  chrome:{storage:{local:storage(local),session:storage(session)},runtime:{onMessage:{addListener:h=>handler=h}}},
  fetch:async(url,request)=>{
    calls++;active++;maxActive=Math.max(maxActive,active);
@@ -50,6 +50,7 @@ vm.runInContext(fs.readFileSync(new URL('../background.js',import.meta.url),'utf
 const send=text=>new Promise(resolve=>handler({type:'classify',text},{url:'https://www.linkedin.com/feed/'},resolve));
 const [a,b,c]=await Promise.all([send('same'),send('same'),send('other')]);
 assert.equal(a.probability,.95);assert.equal(b.probability,.95);assert.equal(c.probability,.95);assert.equal(calls,2);assert.equal(maxActive,1);
+assert.deepEqual(a.categories.map(c=>c.id),['slop'],'the local model is only asked the slop question');assert.equal(JSON.stringify(a.scores),'{"slop":0.95}');
 await send('same');assert.equal(calls,2);
 local.localThreshold=.99;assert.equal((await send('same')).threshold,.99);assert.equal(calls,2);
 local.ollamaModel='qwen3.5:2b-q4_K_M';await send('same');assert.equal(calls,3);
