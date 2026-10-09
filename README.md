@@ -12,6 +12,27 @@ A Chrome Manifest V3 extension with no runtime dependencies. Jev via OpenRouter 
 
 Get keys at https://openrouter.ai/settings/keys or https://platform.openai.com/api-keys. API billing is separate from ChatGPT subscriptions. No key is included in this download.
 
+### Install the Jev baseline while local development continues
+
+Use `main` in its own folder, separate from feature branches:
+
+```sh
+git clone --branch main git@github.com:sighmoan1/linkedin-slop-filter.git linkedin-slop-filter-jev
+```
+
+Load that folder in Chrome as above. Keep Jev selected, enter an OpenRouter key, ensure the account has credit and access to `typesafe/jev-1.13`, enable filtering and save. The default cutoff is strictly above 80%; exactly 80% stays visible. No npm installation or build is needed to use the extension. To pin an audited version, run `git checkout <main-commit>` in that folder using the commit supplied with the baseline PR.
+
+The Jev endpoint, model and Noul response match the [official OpenRouter examples](https://openrouter.ai/blog/insights/what-is-jev/) checked on 9 October 2026. Mocked tests do not establish that your key, billing or model access works. For an optional real call using synthetic text, in a local terminal (zsh):
+
+```sh
+read -rs 'OPENROUTER_API_KEY?OpenRouter key (hidden): '; echo
+export OPENROUTER_API_KEY
+npm run smoke:jev
+unset OPENROUTER_API_KEY
+```
+
+This command makes one billed provider request and prints only the numeric result. It never writes the key or post text to a file. Missing credentials exit with a prerequisite message. A successful smoke call verifies the API path, not signed-in LinkedIn selectors or filtering quality. Enter the key separately in the extension settings. HTTP 401 suggests a rejected key; 402 billing; 403/404 access or endpoint; 429 rate limits. Errors leave posts visible.
+
 ## Behaviour
 
 - Watches dynamically loaded feed cards. Checks posts entering the viewport or within 300px of it.

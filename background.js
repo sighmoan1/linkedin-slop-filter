@@ -6,7 +6,10 @@ const pending = new Map();
 // Errors carry a few words for the per-post badge; the full message goes to the settings page.
 const failure = (message, short) => Object.assign(new Error(message), {short});
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
-  if (!sender.url?.startsWith("https://www.linkedin.com/feed")) return false;
+  try {
+    const url = new URL(sender.url);
+    if (url.origin !== "https://www.linkedin.com" || !(url.pathname === "/feed" || url.pathname.startsWith("/feed/"))) return false;
+  } catch { return false; }
   if (message.type === "settings") {
     chrome.storage.local.get(DEFAULTS).then(s => respond({enabled:s.enabled, threshold:s.threshold}));
     return true;
