@@ -7,7 +7,7 @@ A Chrome Manifest V3 extension with no runtime dependencies. Jev via OpenRouter 
 1. Clone this repository or download and unzip it into a permanent folder.
 2. Open `chrome://extensions` in Chrome and enable **Developer mode**.
 3. Click **Load unpacked**, then select the **linkedin-slop-filter** folder containing `manifest.json`.
-4. Click the extension icon. Add an OpenRouter API key for Jev, or select OpenAI Decisions and add an OpenAI API key.
+4. Click the extension icon. Add an OpenRouter API key for Jev, or select OpenAI Decisions and add an OpenAI API key. The settings page links to a built-in **setup guide** (`setup.html`) that walks through getting a key from each provider and what to do if the key test fails.
 5. Press **Test key** under the key you entered. It tells you whether the key works, or why not (rejected key, no credit, no access to the model, rate limit, network problem).
 6. Enable filtering, save, and reload your LinkedIn feed.
 
@@ -76,9 +76,9 @@ npx playwright install chromium
 npm test
 ```
 
-`npm test` runs core request-schema, response-validation and strict threshold checks; key-verification checks for every failure class; mocked service-worker checks for credentials, caching, errors and request limits; JavaScript syntax checks; a Chromium simulated-feed test; and a Chromium test of the settings page. The browser tests use synthetic cards, mocked storage and mocked API responses, with no LinkedIn login, credentials or live provider calls. Playwright is a development dependency only.
+`npm test` runs core request-schema, response-validation and strict threshold checks; key-verification checks for every failure class; mocked service-worker checks for credentials, caching, errors and request limits; JavaScript syntax checks; a Chromium simulated-feed test; a Chromium test of the settings page, and a Chromium test of the setup guide that checks its links are safe and its button, field and model names still match the product. The browser tests use synthetic cards, mocked storage and mocked API responses, with no LinkedIn login, credentials or live provider calls. Playwright is a development dependency only.
 
-Run individual checks with `npm run test:core`, `npm run test:verify`, `npm run test:background`, `npm run test:syntax`, `npm run test:feed` or `npm run test:options`. GitHub Actions runs all of them on pushes to `main` and pull requests.
+Run individual checks with `npm run test:core`, `npm run test:verify`, `npm run test:background`, `npm run test:syntax`, `npm run test:feed`, `npm run test:options` or `npm run test:setup`. GitHub Actions runs all of them on pushes to `main` and pull requests.
 
 LinkedIn's DOM changes frequently. Supported card selectors are in `content.js`; if filtering stops finding posts, update those selectors. The content script runs on `/feed/` URLs; if you arrive there through LinkedIn navigation from another page, reload the feed. It deliberately does not scan profiles or search results.
 

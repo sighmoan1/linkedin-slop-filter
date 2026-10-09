@@ -1,12 +1,15 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>LinkedIn Slop Filter</title><link rel="stylesheet" href="options.css"></head>
 <body><main><h1>Less slop. More substance.</h1><p>Fold formulaic LinkedIn feed posts. Reveal any post with one click.</p>
+<a class="guide" href="setup.html" target="_blank" rel="noopener noreferrer"><strong>New here? Open the setup guide.</strong> It shows how to get and test an OpenRouter or OpenAI key.</a>
 <form id="settings">
 <label class="toggle"><input id="enabled" type="checkbox"> Enable filtering</label>
 <label>Decision provider<select id="provider"><option value="jev">Jev · OpenRouter</option><option value="openai">OpenAI Decisions · GPT-6 Luna</option></select></label>
 <label>OpenRouter API key<input id="jevKey" type="password" autocomplete="off" placeholder="sk-or-…"></label>
+<a class="key-help" href="setup.html#openrouter" target="_blank" rel="noopener noreferrer">How do I get an OpenRouter key?</a>
 <div class="key-test"><button type="button" class="secondary" id="jevKeyTest">Test OpenRouter key</button><span id="jevKeyStatus" class="key-status" role="status" aria-live="polite"></span></div>
 <label>OpenAI API key<input id="openaiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
+<a class="key-help" href="setup.html#openai" target="_blank" rel="noopener noreferrer">How do I get an OpenAI key?</a>
 <div class="key-test"><button type="button" class="secondary" id="openaiKeyTest">Test OpenAI key</button><span id="openaiKeyStatus" class="key-status" role="status" aria-live="polite"></span></div>
 <label>Fold when probability is above (%)<input id="threshold" type="number" min="1" max="100" step="1" required></label>
 <label>Maximum API requests per browser session<input id="limit" type="number" min="1" max="10000" required></label>
