@@ -1,6 +1,9 @@
 (() => {
-  const POST = '.feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
-  const TEXT = '.update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
+  // LinkedIn now uses hashed class names, so the current markup is found through stable attributes:
+  // each post is a role="listitem" whose componentkey starts "update-card", and its body is data-testid="expandable-text-box".
+  // The older class-based selectors are kept for accounts still served the previous markup.
+  const POST = '[role="listitem"][componentkey^="update-card"], .feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
+  const TEXT = '[data-testid="expandable-text-box"], .update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
   const records = new Map();
   let settings = {enabled:false,threshold:0.8};
   let timer;
