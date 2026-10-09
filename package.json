@@ -1,0 +1,16 @@
+{
+  "name": "linkedin-slop-filter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:core": "node tests/check.mjs",
+    "test:background": "node tests/background.mjs",
+    "test:syntax": "node tests/syntax.mjs",
+    "test:feed": "node tests/dom.cjs",
+    "test": "npm run test:core && npm run test:background && npm run test:syntax && npm run test:feed"
+  },
+  "devDependencies": {
+    "playwright": "1.64.0"
+  }
+}

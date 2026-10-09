@@ -1,0 +1,3 @@
+.lsf-folded > :not(.lsf-bar) { display: none !important; }
+.lsf-bar { padding: 14px 16px; display:flex; align-items:center; gap:12px; font:14px/1.5 system-ui,sans-serif; color:#444; background:#f3f6f8; border-radius:8px; }
+.lsf-bar button { margin-left:auto; border:1px solid #0a66c2; color:#0a66c2; border-radius:18px; background:white; padding:5px 12px; cursor:pointer; font:inherit; white-space:nowrap; }

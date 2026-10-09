@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>LinkedIn Slop Filter</title><link rel="stylesheet" href="options.css"></head>
+<body><main><h1>Less slop. More substance.</h1><p>Fold formulaic LinkedIn feed posts. Reveal any post with one click.</p>
+<form id="settings">
+<label class="toggle"><input id="enabled" type="checkbox"> Enable filtering</label>
+<label>Decision provider<select id="provider"><option value="jev">Jev · OpenRouter</option><option value="openai">OpenAI Decisions · GPT-6 Luna</option></select></label>
+<label>OpenRouter API key<input id="jevKey" type="password" autocomplete="off" placeholder="sk-or-…"></label>
+<label>OpenAI API key<input id="openaiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
+<label>Fold when probability is above (%)<input id="threshold" type="number" min="1" max="100" step="1" required></label>
+<label>Maximum API requests per browser session<input id="limit" type="number" min="1" max="10000" required></label>
+<label>Your definition of slop<textarea id="rule" rows="8" required></textarea></label>
+<p class="note">When enabled, visible feed post text is sent to your selected API provider. Messages, comments and profile details are not collected. Keys stay in this Chrome profile's extension storage; they are not synced. Classification is a style judgement, not proof of AI authorship. API usage is billed separately.</p>
+<button type="submit">Save settings</button> <button type="button" id="forget">Delete keys &amp; disable</button>
+<p id="status" role="status"></p><p id="error" role="status"></p></form></main><script type="module" src="options.js"></script></body></html>

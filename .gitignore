@@ -1,0 +1,12 @@
+node_modules/
+*.zip
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+secrets.json
+.DS_Store
+playwright-report/
+test-results/
+.validation/

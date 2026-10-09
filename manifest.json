@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Slop Filter",
+  "version": "1.0.0",
+  "description": "Fold low-value AI-style feed posts using Jev or OpenAI Decisions.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://openrouter.ai/*", "https://api.openai.com/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {"default_popup": "options.html", "default_title": "LinkedIn Slop Filter"},
+  "options_page": "options.html",
+  "content_scripts": [{
+    "matches": ["https://www.linkedin.com/feed/*"],
+    "js": ["content.js"],
+    "css": ["content.css"],
+    "run_at": "document_idle"
+  }]
+}
