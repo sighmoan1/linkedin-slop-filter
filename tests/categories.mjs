@@ -53,6 +53,7 @@ assert.deepEqual(makeCategory('  Hot Takes! ','Is this a hot take?',DEFAULT_CATE
 assert.equal(makeCategory('Slop','x',DEFAULT_CATEGORIES).id,'slop-2');
 assert.equal(makeCategory('Slop','x',[...DEFAULT_CATEGORIES,{id:'slop-2'}]).id,'slop-3');
 assert.equal(makeCategory('日本語','x').id,'category');
+assert.equal(makeCategory('a'.repeat(23)+' b','x').id,'a'.repeat(23),'no trailing hyphen after truncating');
 assert.equal(makeCategory('','x'),null);assert.equal(makeCategory('n',''),null);assert.equal(makeCategory('n'.repeat(41),'x'),null);assert.equal(makeCategory(undefined,undefined),null);
 for(const name of ['Hot Takes!','Ünïcode café','a'.repeat(40),'---','C++'])assert.match(makeCategory(name,'x').id,/^[a-z0-9][a-z0-9-]{0,31}$/,name);
 const made=makeCategory('Hot Takes','Is this a hot take?',DEFAULT_CATEGORIES);

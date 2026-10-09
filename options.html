@@ -23,6 +23,13 @@
 
 <label>Maximum API requests per browser session<input id="limit" type="number" min="1" max="10000" required></label>
 <label>Your definition of slop<textarea id="rule" rows="8" required></textarea></label>
+<fieldset id="categories"><legend>Categories</legend>
+<p class="note">Every post is scored against each category in a single request, so a post can fit more than one. Tick <em>Fold</em> to hide posts that score above the threshold in that category. Others only add a mark to the score chip when the model rates them 50% or more. More categories can cost more per post. The local Ollama model is only asked about Slop. Changes apply when you press Save settings; changed definitions are rescored.</p>
+<div id="categoryList"></div>
+<div class="cat-add"><label>New category name<input id="newCatName" maxlength="40" placeholder="e.g. Hot takes"></label>
+<label>What counts?<textarea id="newCatRule" rows="4" maxlength="2000" placeholder="Is this post a hot take? Define a hot take as … Do not flag …"></textarea></label>
+<button type="button" class="secondary" id="addCat">Add category</button> <button type="button" class="secondary" id="resetCats">Reset categories to the defaults</button> <span id="catStatus" role="status" class="key-status"></span></div>
+</fieldset>
 <p class="note">When enabled, visible feed post text goes to the selected cloud API or loopback Ollama service. Messages, comments and profile details are not collected. Keys stay in this Chrome profile's extension storage; they are not synced. Classification is a style judgement, not proof of AI authorship. API usage is billed separately.</p>
 <p class="note">Testing sends one tiny request to the provider with the key shown above, even if it is not saved yet. It checks the key, your credit and access to the model together, and uses a very small amount of API credit.</p>
 <button type="submit">Save settings</button> <button type="button" id="forget" class="secondary">Delete keys &amp; disable</button>
