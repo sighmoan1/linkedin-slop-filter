@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Setup guide · LinkedIn Slop Filter</title><link rel="stylesheet" href="options.css"><link rel="stylesheet" href="setup.css"></head>
+<body><main>
+<h1>Set up LinkedIn Slop Filter</h1>
+<p>The extension asks an AI model to judge each post, so it needs an API key from one provider. Pick <strong>one</strong> of the two below. You pay the provider for what you use, separately from any chat subscription. At the launch prices the providers have published, scoring a post is a small fraction of a cent, but prices can change, so check them with the provider.</p>
+<nav class="toc" aria-label="Providers"><a href="#openrouter">OpenRouter (Jev), the default</a><a href="#openai">OpenAI Decisions</a><a href="#check">Check it works</a></nav>
+
+<section id="openrouter">
+<h2>Option A: OpenRouter (Jev)</h2>
+<ol>
+<li><strong>Create an account</strong> or sign in at <a href="https://openrouter.ai/" target="_blank" rel="noopener noreferrer">openrouter.ai</a>.</li>
+<li><strong>Add credit</strong> on the <a href="https://openrouter.ai/settings/credits" target="_blank" rel="noopener noreferrer">Credits page</a>. Credit is a deposit that is used up as you make calls. You can top up by hand or switch on auto top-up. Leave auto top-up off if you want a hard ceiling on spending.</li>
+<li><strong>Create a key</strong> on the <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">API keys page</a>. Name it something like "LinkedIn Slop Filter". If the form offers a credit limit for the key, set one so it cannot spend more than you choose. Copy the key straight away, because providers usually show it only once.</li>
+<li><strong>Paste it</strong> into <em>OpenRouter API key</em> in the extension settings. Make sure <em>Decision provider</em> is set to <em>Jev · OpenRouter</em>.</li>
+<li><strong>Press Test OpenRouter key</strong>, then enable filtering and save.</li>
+</ol>
+<p class="note">Jev is a new model, released in early access on 15 September 2026, and the extension uses the endpoint's <code>alpha</code> path with model <code>typesafe/jev-1.13</code>. Access, pricing and the model name can change. Read <a href="https://openrouter.ai/blog/insights/what-is-jev/" target="_blank" rel="noopener noreferrer">OpenRouter's Jev announcement</a> for the current details.</p>
+</section>
+
+<section id="openai">
+<h2>Option B: OpenAI Decisions</h2>
+<ol>
+<li><strong>Use the API platform</strong>, not ChatGPT. Sign in or create an account at <a href="https://platform.openai.com/" target="_blank" rel="noopener noreferrer">platform.openai.com</a>. A ChatGPT subscription does not include API usage; API usage is billed separately.</li>
+<li><strong>Set up billing</strong> on the <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer">billing page</a>. If you buy prepaid credit, a small balance with automatic recharge off limits what can be spent.</li>
+<li><strong>Create a secret key</strong> on the <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">API keys page</a>. Name it something like "LinkedIn Slop Filter" and copy it straight away, because it is usually shown only once.</li>
+<li><strong>Paste it</strong> into <em>OpenAI API key</em> in the extension settings and set <em>Decision provider</em> to <em>OpenAI Decisions · GPT-6 Luna</em>.</li>
+<li><strong>Press Test OpenAI key</strong>, then enable filtering and save.</li>
+</ol>
+<p class="note">The Decisions API is in public beta and the extension uses model <code>gpt-6-luna</code>. Read <a href="https://developers.openai.com/api/docs/guides/decisions" target="_blank" rel="noopener noreferrer">OpenAI's Decisions guide</a> for the current details.</p>
+</section>
+
+<section id="check">
+<h2>Check it works</h2>
+<p>Press <strong>Test key</strong> under the key you entered. It sends one small request, in the same format the extension uses on your feed, with the key as typed, so you do not need to save first. It uses a very small amount of credit.</p>
+<table>
+<thead><tr><th scope="col">The test says</th><th scope="col">What to do</th></tr></thead>
+<tbody>
+<tr><th scope="row">Key works</th><td>Enable filtering, save, and reload your LinkedIn feed.</td></tr>
+<tr><th scope="row">The provider rejected this key</th><td>The key is mistyped, incomplete or revoked. Create a new one and paste it in full.</td></tr>
+<tr><th scope="row">The account has no credit</th><td>Add credit with the provider, then test again.</td></tr>
+<tr><th scope="row">Rate limited, or out of credit</th><td>Check your billing and balance. If they are fine, wait a minute and try again.</td></tr>
+<tr><th scope="row">Not allowed to use this model, or could not find it</th><td>Both APIs are new. The account may not have access yet, or the model name may have changed. Check the provider links above.</td></tr>
+<tr><th scope="row">Not in the expected format</th><td>The provider changed its API. The extension needs an update, so please open an issue on the project page.</td></tr>
+<tr><th scope="row">Could not reach the provider, or no answer in time</th><td>Check your connection and any VPN or network filtering, then try again.</td></tr>
+</tbody>
+</table>
+</section>
+
+<section id="privacy">
+<h2>What is sent and what it costs</h2>
+<ul>
+<li>When filtering is on, the text of posts on your feed is sent to the provider you chose. Messages, comments and profile details are not collected.</li>
+<li>Your key is stored only in this Chrome profile's extension storage. It is not synced and is never given to the LinkedIn page.</li>
+<li>Use a dedicated key with a spending limit where the provider allows one. The extension also stops after a set number of requests per browser session (100 by default, adjustable in settings).</li>
+</ul>
+<p class="note">More detail is in the <a href="https://github.com/sighmoan1/linkedin-slop-filter#readme" target="_blank" rel="noopener noreferrer">project README</a>.</p>
+</section>
+</main></body></html>

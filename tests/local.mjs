@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
 import {webcrypto} from 'node:crypto';
-import {DEFAULTS,requestFor,probability,thresholdFor,classificationKey,localEndpoint} from '../core.mjs';
+import {DEFAULTS,requestFor,probability,thresholdFor,classificationKey,localEndpoint,CACHE_PREFIX,cacheFresh,cacheEvictions} from '../core.mjs';
 
 const settings={...DEFAULTS,provider:'ollama',enabled:true};
 const envelope=(slop=true,confidence=.95)=>({done:true,done_reason:'stop',message:{role:'assistant',content:JSON.stringify({slop,confidence})}});
@@ -28,9 +28,9 @@ assert.equal(thresholdFor({...settings,provider:'openai',threshold:.7,openaiThre
 assert.equal(thresholdFor({...settings,provider:'openai',openaiThreshold:.6}),.6);
 
 const local={...settings,limit:100},session={};
-const storage=data=>({get:async q=>typeof q==='string'?{[q]:data[q]}:{...q,...data},set:async v=>Object.assign(data,v),remove:async k=>delete data[k],setAccessLevel:async()=>{}});
+const storage=data=>({get:async q=>typeof q==='string'?{[q]:data[q]}:{...q,...data},set:async v=>Object.assign(data,v),remove:async keys=>{for(const k of [].concat(keys)) delete data[k];},setAccessLevel:async()=>{}});
 let handler,calls=0,active=0,maxActive=0,mode='success',release;
-const context=vm.createContext({DEFAULTS,requestFor,probability,thresholdFor,classificationKey,crypto:webcrypto,TextEncoder,AbortController,URL,setTimeout,clearTimeout,
+const context=vm.createContext({DEFAULTS,requestFor,probability,thresholdFor,classificationKey,CACHE_PREFIX,cacheFresh,cacheEvictions,crypto:webcrypto,TextEncoder,AbortController,URL,setTimeout,clearTimeout,
  chrome:{storage:{local:storage(local),session:storage(session)},runtime:{onMessage:{addListener:h=>handler=h}}},
  fetch:async(url,request)=>{
    calls++;active++;maxActive=Math.max(maxActive,active);

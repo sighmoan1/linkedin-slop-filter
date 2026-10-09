@@ -1,3 +1,7 @@
 .lsf-folded > :not(.lsf-bar) { display: none !important; }
 .lsf-bar { padding: 14px 16px; display:flex; align-items:center; gap:12px; font:14px/1.5 system-ui,sans-serif; color:#444; background:#f3f6f8; border-radius:8px; }
 .lsf-bar button { margin-left:auto; border:1px solid #0a66c2; color:#0a66c2; border-radius:18px; background:white; padding:5px 12px; cursor:pointer; font:inherit; white-space:nowrap; }
+.lsf-badge { display:flex; width:fit-content; max-width:calc(100% - 24px); margin:6px 12px 4px; padding:1px 10px; border:1px solid #d6dde2; border-radius:12px; font:12px/1.6 system-ui,sans-serif; color:#555; background:#f3f6f8; cursor:default; }
+.lsf-badge.lsf-low { color:#1f6b3a; background:#eaf5ee; border-color:#bfdcc9; }
+.lsf-badge.lsf-mid { color:#7a5200; background:#fdf3dc; border-color:#ecd49a; }
+.lsf-badge.lsf-high { color:#9a332d; background:#fbeceb; border-color:#e8b9b5; }
