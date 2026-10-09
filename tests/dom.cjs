@@ -17,6 +17,11 @@ const assert=require('node:assert/strict');
    if(m.text.includes('FAIL'))return {error:'API unavailable',short:'API error 500'};
    if(m.text.includes('NOKEY'))return {error:'Add your provider API key in extension settings.',short:'no API key'};
    if(m.text.includes('SLOW'))await new Promise(r=>{window.releaseSlow=r;});
+   if(m.text.includes('MULTI')){
+    const cats=[{id:'slop',name:'Slop',fold:true},{id:'advert',name:'Advert',fold:!m.text.includes('NOFOLD')},{id:'nourishment',name:'Nourishment',fold:false}];
+    const advert=m.text.includes('ADVERT')?.9:m.text.includes('MAYBE')?.6:.1;
+    return {probability:.1,scores:{slop:.1,advert,nourishment:m.text.includes('NOURISH')?.97:.2},categories:cats};
+   }
    return {probability:score(m.text)};
   }}};
  });
@@ -132,6 +137,26 @@ const assert=require('node:assert/strict');
   return {flips,newCalls:window.calls.length-calls,folded:el.classList.contains('lsf-folded')};
  });
  assert.deepEqual(flick,{flips:0,newCalls:0,folded:true},'folded post must not flicker or be re-scored');
+
+ // Categories: a folding category above the threshold folds the post and names itself on the bar.
+ await card('advert','MULTI ADVERT buy my course now');
+ await page.waitForSelector('#advert.lsf-folded');
+ assert.match(await page.locator('#advert .lsf-bar span').innerText(),/^Possible Advert · 90% model estimate$/);
+ assert.equal(await page.locator('#advert .lsf-badge').count(),0);
+ await page.locator('#advert button').click();
+ await waitBadge('advert',/^Slop likelihood: 10% · Advert 90%$/);
+ assert.match(await badge('advert').getAttribute('title'),/All scores: Slop 10%, Advert 90%, Nourishment 20%\./);
+ // A category that is not set to fold only marks the chip, and only when the model thinks it applies.
+ await card('nofold','MULTI ADVERT NOFOLD still visible');
+ await waitBadge('nofold',/^Slop likelihood: 10% · Advert 90%$/);
+ assert.equal(await page.locator('#nofold').evaluate(e=>e.classList.contains('lsf-folded')),false);
+ await card('maybe','MULTI MAYBE borderline NOFOLD');
+ await waitBadge('maybe',/^Slop likelihood: 10% · Advert 60%$/);
+ await card('nourish','MULTI NOURISH solid analysis');
+ await waitBadge('nourish',/^Slop likelihood: 10% · Nourishment 97%$/);
+ assert.equal(await page.locator('#nourish').evaluate(e=>e.classList.contains('lsf-folded')),false,'nourishment does not fold');
+ await card('plain','MULTI nothing notable');
+ await waitBadge('plain',/^Slop likelihood: 10%$/);
 
  // Turning filtering off removes folds and every badge.
  await card('pause','SLOP pause me');await page.waitForSelector('#pause.lsf-folded');

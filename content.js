@@ -8,6 +8,15 @@
   let settings = {enabled:false,threshold:0.8};
   let timer;
   const isFeed = () => location.pathname === "/feed" || location.pathname.startsWith("/feed/");
+  // The strongest category that is set to fold and scored strictly above the threshold, if any.
+  function foldHit(record) {
+    let hit = null;
+    for (const c of record.categories || []) {
+      const p = record.scores?.[c.id];
+      if (c.fold && typeof p === "number" && p > settings.threshold && (!hit || p > hit.p)) hit = {id: c.id, name: c.name, p};
+    }
+    return hit;
+  }
   function clearFold(post, record) {
     if (post.classList.contains("lsf-folded")) post.classList.remove("lsf-folded");
     record.bar?.remove();
@@ -21,10 +30,14 @@
   function badgeFor(record) {
     if (typeof record.probability === "number") {
       const p = record.probability, pct = Math.round(p * 100);
+      const cats = record.categories || [];
+      // Other categories only get a mark on the chip when the model thinks they probably apply; the tooltip lists every score.
+      const notable = cats.filter(c => c.id !== "slop" && record.scores?.[c.id] >= 0.5).sort((a, b) => record.scores[b.id] - record.scores[a.id]);
+      const all = cats.filter(c => typeof record.scores?.[c.id] === "number").map(c => c.name + " " + Math.round(record.scores[c.id] * 100) + "%").join(", ");
       return {
-        text: (record.provider === "ollama" ? "Local slop confidence: " : "Slop likelihood: ") + pct + "%",
+        text: (record.provider === "ollama" ? "Local slop confidence: " : "Slop likelihood: ") + pct + "%" + notable.map(c => " · " + c.name + " " + Math.round(record.scores[c.id] * 100) + "%").join(""),
         level: p >= 0.65 ? "lsf-high" : p >= 0.35 ? "lsf-mid" : "lsf-low",
-        title: (record.provider === "ollama" ? "Local self-reported slop confidence, zero when judged useful; not a calibrated probability. " : "") + "Model estimate of low-value, formulaic writing, not proof of AI authorship. Posts above " + Math.round(settings.threshold * 100) + "% are folded."
+        title: (record.provider === "ollama" ? "Local self-reported slop confidence, zero when judged useful; not a calibrated probability. " : "") + "Model estimate of low-value, formulaic writing, not proof of AI authorship. Posts above " + Math.round(settings.threshold * 100) + "% in a category set to fold are folded." + (cats.length > 1 && all ? " All scores: " + all + "." : "")
       };
     }
     if (record.pending) return {text: "Scoring…", level: "lsf-muted", title: "Waiting for the model's estimate."};
@@ -48,7 +61,8 @@
     if (!isFeed() || !settings.enabled) {
       clearFold(post,record); clearBadge(record); return;
     }
-    if (record.revealed || !(record.probability > settings.threshold)) {
+    const hit = foldHit(record);
+    if (record.revealed || !hit) {
       clearFold(post,record); renderBadge(post,record); return;
     }
     clearBadge(record);
@@ -56,7 +70,7 @@
       const bar = document.createElement("div");
       bar.className = "lsf-bar";
       const label = document.createElement("span");
-      label.textContent = "Possible AI slop · " + Math.round(record.probability * 100) + (record.provider === "ollama" ? "% local self-reported confidence" : "% model estimate");
+      label.textContent = (hit.id === "slop" ? "Possible AI slop · " : "Possible " + hit.name + " · ") + Math.round(hit.p * 100) + (record.provider === "ollama" ? "% local self-reported confidence" : "% model estimate");
       const button = document.createElement("button");
       button.type = "button"; button.textContent = "Show anyway";
       button.addEventListener("click",e => {e.preventDefault(); e.stopPropagation(); record.revealed=true; apply(post,record);});
@@ -84,7 +98,10 @@
         }
         if (result.configuration && result.configuration !== settings.configuration) {record.retryAt=0;apply(post,record);return;}
         record.provider=result.provider || settings.provider;
-        record.error=null; record.short=""; record.probability=result.probability; apply(post,record);
+        record.error=null; record.short=""; record.probability=result.probability;
+        record.scores=result.scores || {slop:result.probability};
+        record.categories=result.categories || [{id:"slop",name:"Slop",fold:true}];
+        apply(post,record);
       }).catch(()=>{
         if (records.get(post) !== record) return;
         record.pending=false; record.retryAt=Date.now()+60000;
