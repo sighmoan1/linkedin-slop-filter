@@ -9,7 +9,9 @@
     "test:background": "node tests/background.mjs",
     "test:syntax": "node tests/syntax.mjs",
     "test:feed": "node tests/dom.cjs",
-    "test": "npm run test:core && npm run test:background && npm run test:syntax && npm run test:feed"
+    "test": "npm run test:core && npm run test:cache && npm run test:background && npm run test:syntax && npm run test:feed && npm run test:cacheui",
+    "test:cache": "node tests/cache.mjs",
+    "test:cacheui": "node tests/cache-ui.cjs"
   },
   "devDependencies": {
     "playwright": "1.64.0"

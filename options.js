@@ -1,4 +1,4 @@
-import {DEFAULTS} from "./core.mjs";
+import {DEFAULTS, CACHE_PREFIX} from "./core.mjs";
 const s=await chrome.storage.local.get(DEFAULTS);
 for (const id of Object.keys(DEFAULTS)) {
   const el=document.getElementById(id);
@@ -23,4 +23,9 @@ document.getElementById("forget").addEventListener("click",async()=>{
   await chrome.storage.local.set({enabled:false,jevKey:"",openaiKey:""});
   document.getElementById("jevKey").value="";document.getElementById("openaiKey").value="";document.getElementById("enabled").checked=false;
   document.getElementById("status").textContent="Keys deleted. Filtering disabled.";
+});
+document.getElementById("clearCache").addEventListener("click",async()=>{
+  const keys=Object.keys(await chrome.storage.local.get(null)).filter(k=>k.startsWith(CACHE_PREFIX));
+  if (keys.length) await chrome.storage.local.remove(keys);
+  document.getElementById("cacheStatus").textContent="Cleared "+keys.length+" cached score"+(keys.length===1?"":"s")+". Reload your feed to rescore.";
 });
