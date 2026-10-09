@@ -16,7 +16,8 @@ export function requestFor(settings, text) {
   };
 }
 export function probability(provider, data) {
-  const answer = provider === "openai" ? data.answers?.find(a => a.name === "slop") : data.answers?.slop;
+  const answers = data?.answers;
+  const answer = provider === "openai" ? (Array.isArray(answers) ? answers.find(a => a?.name === "slop") : undefined) : answers?.slop;
   const value = provider === "openai" ? (answer?.type === "predicate" ? answer.probability : undefined) : (answer?.type === "noul" ? answer.noul : undefined);
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) throw new Error("Provider returned no valid probability. Post left visible.");
   return value;
