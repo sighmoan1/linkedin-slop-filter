@@ -81,7 +81,7 @@ npm test
 
 `npm test` runs core request-schema, response-validation and strict threshold checks; mocked service-worker checks; local schema, queue, switching, cache and fail-open checks; evaluation metric checks; JavaScript syntax; and Chromium simulated-feed and settings tests, including the merged key verification/setup guide/cache UI checks. Browser tests use synthetic cards and mocked responses, with no LinkedIn login, credentials or live provider calls. Playwright is a development dependency only. Real local checks are opt-in: `npm run smoke:ollama` and `npm run smoke:extension`.
 
-Run individual checks with `npm run test:core`, `npm run test:background`, `npm run test:local`, `npm run test:syntax` or `npm run test:feed`. GitHub Actions runs the suite on pushes to `main` and pull requests. See the [manual-label evaluation workflow](docs/evaluation.md) for comparing local inference with Jev, especially useful posts wrongly hidden.
+Run individual checks with `npm run test:core`, `test:verify`, `test:cache`, `test:background`, `test:syntax`, `test:feed`, `test:options`, `test:setup`, `test:cacheui`, `test:local` or `test:localui`. GitHub Actions runs the suite on pushes to `main` and pull requests. See the [manual-label evaluation workflow](docs/evaluation.md) for comparing local inference with Jev, especially useful posts wrongly hidden.
 
 LinkedIn's DOM changes frequently. Supported card selectors are in `content.js`; if filtering stops finding posts, update those selectors. The content script runs on `/feed/` URLs; if you arrive there through LinkedIn navigation from another page, reload the feed. It deliberately does not scan profiles or search results.
 
