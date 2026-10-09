@@ -98,6 +98,41 @@ const assert=require('node:assert/strict');
  await page.locator('#far').scrollIntoViewIfNeeded();
  await waitBadge('far',/Slop likelihood: 10%/);
 
+ // Current LinkedIn markup: hashed classes, role=listitem cards with componentkey update-card*, body in data-testid=expandable-text-box.
+ await page.evaluate(()=>{
+  const feed=document.getElementById('feed');
+  const make=(id,key,text)=>{const li=document.createElement('div');li.id=id;li.setAttribute('role','listitem');if(key)li.setAttribute('componentkey',key);li.className='fmb1a2b3c';
+   const box=document.createElement('div');box.setAttribute('data-testid','expandable-text-box');box.textContent=text;li.append(box);feed.append(li);};
+  make('newlow','update-card-focus-1','LOW new markup useful post');
+  make('newslop','update-card-focus-2','SLOP new markup generic wisdom');
+  make('notcard','something-else','SLOP this listitem is not a post');
+ });
+ await waitBadge('newlow',/Slop likelihood: 10%/);
+ await page.waitForSelector('#newslop.lsf-folded');
+ assert.match(await page.locator('#newslop .lsf-bar span').innerText(),/95%/);
+ assert.equal(await page.locator('#newslop [data-testid=expandable-text-box]').isVisible(),false);
+ await page.locator('#newslop button').click();
+ await waitBadge('newslop',/Slop likelihood: 95%/);
+ assert.equal(await page.locator('#newlow .lsf-badge').count(),1);
+ assert.equal(await page.locator('#notcard .lsf-badge, #notcard .lsf-bar').count(),0,'list items that are not update cards are ignored');
+ assert.equal(await page.locator('#notcard').evaluate(e=>e.classList.contains('lsf-folded')),false);
+
+ // A folded post must stay folded: its text reads the same whether or not it is rendered (no flicker, no repeat requests).
+ await page.evaluate(()=>{
+  const li=document.createElement('div');li.id='flick';li.setAttribute('role','listitem');li.setAttribute('componentkey','update-card-focus-9');
+  const box=document.createElement('div');box.setAttribute('data-testid','expandable-text-box');
+  box.innerHTML='SLOP first line<br><br>second   line<p>third paragraph</p>';li.append(box);document.getElementById('feed').append(li);
+ });
+ await page.waitForSelector('#flick.lsf-folded');
+ const flick=await page.evaluate(async()=>{
+  const el=document.getElementById('flick');const calls=window.calls.length;let flips=0,last=el.classList.contains('lsf-folded');
+  const mo=new MutationObserver(()=>{const now=el.classList.contains('lsf-folded');if(now!==last){flips++;last=now;}});
+  mo.observe(el,{attributes:true,attributeFilter:['class']});
+  await new Promise(r=>setTimeout(r,2000));mo.disconnect();
+  return {flips,newCalls:window.calls.length-calls,folded:el.classList.contains('lsf-folded')};
+ });
+ assert.deepEqual(flick,{flips:0,newCalls:0,folded:true},'folded post must not flicker or be re-scored');
+
  // Turning filtering off removes folds and every badge.
  await card('pause','SLOP pause me');await page.waitForSelector('#pause.lsf-folded');
  await page.evaluate(()=>window.mockEnabled=false);

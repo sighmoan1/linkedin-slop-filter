@@ -1,6 +1,9 @@
 (() => {
-  const POST = '.feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
-  const TEXT = '.update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
+  // LinkedIn now uses hashed class names, so the current markup is found through stable attributes:
+  // each post is a role="listitem" whose componentkey starts "update-card", and its body is data-testid="expandable-text-box".
+  // The older class-based selectors are kept for accounts still served the previous markup.
+  const POST = '[role="listitem"][componentkey^="update-card"], .feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
+  const TEXT = '[data-testid="expandable-text-box"], .update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
   const records = new Map();
   let settings = {enabled:false,threshold:0.8};
   let timer;
@@ -101,7 +104,8 @@
       const post=candidate.closest(".feed-shared-update-v2") || candidate;
       if (post.parentElement?.closest(POST)) continue;
       const element=post.querySelector(TEXT);
-      const text=(element?.innerText || element?.textContent || "").trim();
+      // textContent, not innerText: innerText changes when the post is folded (display:none), which looked like a new post and re-triggered the fold.
+      const text=(element?.textContent || "").replace(/\s+/g," ").trim();
       if (!text) continue;
       const old=records.get(post);
       if (old?.text === text) {apply(post,old); continue;}
