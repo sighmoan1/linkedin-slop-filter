@@ -1,10 +1,17 @@
-import {DEFAULTS, KEY_FIELDS, PROVIDER_NAMES, verifyKey, keyFingerprint, CACHE_PREFIX} from "./core.mjs";
+import {DEFAULTS, KEY_FIELDS, PROVIDER_NAMES, verifyKey, keyFingerprint, CACHE_PREFIX,requestFor,thresholdFor} from "./core.mjs";
 const s=await chrome.storage.local.get(DEFAULTS);
 for (const id of Object.keys(DEFAULTS)) {
   const el=document.getElementById(id);
   if (id==="enabled") el.checked=s[id];
-  else el.value=id==="threshold" ? s[id]*100 : s[id];
+  else el.value=(id.endsWith("Threshold") || id==="threshold") ? (s[id] ?? s.threshold)*100 : s[id];
 }
+const updateProvider=()=>{
+  const local=document.getElementById("provider").value==="ollama";
+  document.getElementById("local-settings").hidden=!local;
+  for (const id of ["ollamaEndpoint","ollamaModel"]) document.getElementById(id).disabled=!local;
+};
+document.getElementById("provider").addEventListener("change",updateProvider);
+updateProvider();
 const err=(await chrome.storage.local.get("lastError")).lastError;
 document.getElementById("error").textContent=err || "";
 
@@ -47,10 +54,12 @@ document.getElementById("settings").addEventListener("submit",async event=>{
   const next={};
   for (const id of Object.keys(DEFAULTS)) next[id]=document.getElementById(id).value.trim();
   next.enabled=document.getElementById("enabled").checked;
-  next.threshold=Number(next.threshold)/100;next.limit=Number(next.limit);
-  if (next.enabled && !(next.provider==="jev" ? next.jevKey : next.openaiKey)) {
+  for (const id of ["threshold","openaiThreshold","localThreshold"]) next[id]=Number(next[id])/100;next.limit=Number(next.limit);
+  if (next.enabled && next.provider!=="ollama" && !(next.provider==="jev" ? next.jevKey : next.openaiKey)) {
     document.getElementById("status").textContent="Add a key for the selected provider first.";return;
   }
+  try {thresholdFor(next);if(next.enabled) requestFor(next,"Settings validation");}
+  catch (error) {document.getElementById("status").textContent=error.message;return;}
   await chrome.storage.local.set(next);
   document.getElementById("status").textContent="Saved. Reload your LinkedIn feed to reclassify with changed rules or provider.";
 });
@@ -64,5 +73,8 @@ document.getElementById("forget").addEventListener("click",async()=>{
 document.getElementById("clearCache").addEventListener("click",async()=>{
   const keys=Object.keys(await chrome.storage.local.get(null)).filter(k=>k.startsWith(CACHE_PREFIX));
   if (keys.length) await chrome.storage.local.remove(keys);
-  document.getElementById("cacheStatus").textContent="Cleared "+keys.length+" cached score"+(keys.length===1?"":"s")+". Reload your feed to rescore.";
+  const sessionKeys=(chrome.storage.session ? Object.keys(await chrome.storage.session.get(null)) : []).filter(k=>k.startsWith(CACHE_PREFIX));
+  if (sessionKeys.length) await chrome.storage.session.remove(sessionKeys);
+  const count=keys.length+sessionKeys.length;
+  document.getElementById("cacheStatus").textContent="Cleared "+count+" cached score"+(count===1?"":"s")+". Reload your feed to rescore.";
 });

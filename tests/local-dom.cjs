@@ -1,0 +1,56 @@
+const {chromium}=require('playwright');
+const fs=require('node:fs');
+const path=require('node:path');
+const assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({headless:true});
+ const page=await browser.newPage();
+ await page.route('https://www.linkedin.com/feed/',r=>r.fulfill({contentType:'text/html',body:'<html><body><main id="feed"></main></body></html>'}));
+ await page.goto('https://www.linkedin.com/feed/');
+ await page.addStyleTag({content:fs.readFileSync(path.join(__dirname,'../content.css'),'utf8')});
+ await page.evaluate(()=>{
+  window.calls=[];window.mockEnabled=true;window.mockProvider='jev';window.mockConfig='jev-rubric';window.mockThreshold=.8;
+  const interval=window.setInterval.bind(window);window.setInterval=(fn,ms)=>interval(fn,ms===5000?100:ms);
+  window.chrome={runtime:{sendMessage:async m=>{
+   const view={enabled:window.mockEnabled,threshold:window.mockThreshold,provider:window.mockProvider,configuration:window.mockConfig};
+   if(m.type==='settings')return view;
+   window.calls.push(m.text);
+   return m.text.includes('FAIL')?{error:'API unavailable'}:{...view,probability:m.text.includes('INVALID')?'0.99':m.text.includes('SLOP')?.95:.8};
+  }}};
+ });
+ await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../content.js'),'utf8')});
+ async function card(id,text){await page.evaluate(({id,text})=>{const p=document.createElement('article');p.id=id;p.className='feed-shared-update-v2';const t=document.createElement('div');t.className='update-components-text';t.textContent=text;p.append(t);document.getElementById('feed').append(p);},{id,text});}
+ await card('slop','SLOP generic wisdom');
+ await page.waitForSelector('#slop.lsf-folded');
+ assert.equal(await page.locator('#slop .update-components-text').isVisible(),false);
+ await page.locator('#slop button').click();
+ assert.equal(await page.locator('#slop .update-components-text').isVisible(),true);
+ await card('edge','Useful real story at exact threshold');
+ await page.waitForFunction(()=>window.calls.length>=2);
+ assert.equal(await page.locator('#edge').evaluate(e=>e.classList.contains('lsf-folded')),false);
+ await card('error','FAIL service error');
+ await page.waitForFunction(()=>window.calls.length>=3);
+ assert.equal(await page.locator('#error .update-components-text').isVisible(),true);
+ await card('dynamic','SLOP another dynamically loaded post');
+ await page.waitForSelector('#dynamic.lsf-folded');
+ await page.evaluate(()=>document.querySelector('#dynamic .update-components-text').textContent='Recycled card with useful text');
+ await page.waitForFunction(()=>!document.querySelector('#dynamic').classList.contains('lsf-folded'));
+ await card('pause','SLOP pause me');await page.waitForSelector('#pause.lsf-folded');
+ await page.evaluate(()=>window.mockEnabled=false);
+ await page.waitForFunction(()=>!document.querySelector('#pause').classList.contains('lsf-folded'),{},{timeout:8000});
+ await page.evaluate(()=>{window.mockEnabled=true;window.mockProvider='ollama';window.mockConfig='local-model-a';window.mockThreshold=.9;});
+ await card('local','SLOP local dynamic card');
+ await page.waitForSelector('#local.lsf-folded');
+ assert.match(await page.locator('#local .lsf-bar').innerText(),/local self-reported confidence/);
+ assert.equal(await page.locator('#slop .update-components-text').isVisible(),true);
+ await page.locator('#local button').click();
+ assert.equal(await page.locator('#local .update-components-text').isVisible(),true);
+ await card('invalid','INVALID local response');
+ await page.waitForFunction(()=>window.calls.includes('INVALID local response'));
+ assert.equal(await page.locator('#invalid .update-components-text').isVisible(),true);
+ await page.evaluate(()=>{window.mockProvider='openai';window.mockConfig='openai-rubric';window.mockThreshold=1;});
+ await page.waitForFunction(()=>!document.querySelector('#pause').classList.contains('lsf-folded'));
+ assert.equal(await page.locator('#local .update-components-text').isVisible(),true);
+ console.log('PASS: dynamic feed, collapse/reveal, strict threshold, API failure, recycled card, disable, cloud/local switching, confidence label, invalid local output');
+ await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});

@@ -22,9 +22,9 @@
     if (typeof record.probability === "number") {
       const p = record.probability, pct = Math.round(p * 100);
       return {
-        text: "Slop likelihood: " + pct + "%",
+        text: (record.provider === "ollama" ? "Local slop confidence: " : "Slop likelihood: ") + pct + "%",
         level: p >= 0.65 ? "lsf-high" : p >= 0.35 ? "lsf-mid" : "lsf-low",
-        title: "Model estimate of low-value, formulaic writing, not proof of AI authorship. Posts above " + Math.round(settings.threshold * 100) + "% are folded."
+        title: (record.provider === "ollama" ? "Local self-reported slop confidence, zero when judged useful; not a calibrated probability. " : "") + "Model estimate of low-value, formulaic writing, not proof of AI authorship. Posts above " + Math.round(settings.threshold * 100) + "% are folded."
       };
     }
     if (record.pending) return {text: "Scoring…", level: "lsf-muted", title: "Waiting for the model's estimate."};
@@ -56,7 +56,7 @@
       const bar = document.createElement("div");
       bar.className = "lsf-bar";
       const label = document.createElement("span");
-      label.textContent = "Possible AI slop · " + Math.round(record.probability * 100) + "% model estimate";
+      label.textContent = "Possible AI slop · " + Math.round(record.probability * 100) + (record.provider === "ollama" ? "% local self-reported confidence" : "% model estimate");
       const button = document.createElement("button");
       button.type = "button"; button.textContent = "Show anyway";
       button.addEventListener("click",e => {e.preventDefault(); e.stopPropagation(); record.revealed=true; apply(post,record);});
@@ -78,10 +78,12 @@
           record.error=result.error || null; record.short=result.short || "";
           apply(post,record); return;
         }
-        if (typeof result?.probability !== "number") {
+        if (typeof result?.probability !== "number" || !Number.isFinite(result.probability) || result.probability < 0 || result.probability > 1) {
           record.retryAt=Date.now()+60000; record.error="The extension returned no score."; record.short="error";
           apply(post,record); return;
         }
+        if (result.configuration && result.configuration !== settings.configuration) {record.retryAt=0;apply(post,record);return;}
+        record.provider=result.provider || settings.provider;
         record.error=null; record.short=""; record.probability=result.probability; apply(post,record);
       }).catch(()=>{
         if (records.get(post) !== record) return;
@@ -117,7 +119,16 @@
   const schedule=()=>{clearTimeout(timer); timer=setTimeout(scan,250);};
   new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,characterData:true});
   async function refresh() {
-    try {settings=await chrome.runtime.sendMessage({type:"settings"}) || settings;} catch {settings.enabled=false;}
+    try {
+      const next=await chrome.runtime.sendMessage({type:"settings"}) || {enabled:false};
+      if (next.configuration !== settings.configuration) {
+        for (const [post,record] of records) {
+          clearFold(post,record); clearBadge(record); observer.unobserve(post);
+          records.set(post,{text:record.text,revealed:record.revealed});
+        }
+      }
+      settings=next;
+    } catch {settings.enabled=false;}
     scan();
     // Re-observe unclassified cards when enabled, including cards already in view.
     for (const [post,record] of records) {

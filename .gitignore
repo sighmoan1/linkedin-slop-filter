@@ -10,3 +10,7 @@ secrets.json
 playwright-report/
 test-results/
 .validation/
+.local-data/
+.ollama/
+*.gguf
+*.safetensors

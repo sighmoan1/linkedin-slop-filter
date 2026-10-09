@@ -43,7 +43,7 @@ npm test
 
 ## Rules that must keep holding
 
-- API keys never reach the LinkedIn content script. Content scripts only get `enabled` and `threshold` from the service worker.
+- API keys never reach the LinkedIn content script. Settings replies include only `enabled`, the active provider's `threshold`, `provider` and a hashed `configuration` identifier, so provider switching and local confidence labels work without exposing credentials.
 - A post folds only when its probability is **strictly greater** than the threshold.
 - Any API error, refusal, timeout or invalid response leaves the post visible.
 - Only extracted feed post text is sent to the provider. Do not collect messages, comments, profile data or cookies.
