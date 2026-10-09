@@ -1,6 +1,6 @@
 # LinkedIn Slop Filter
 
-A Chrome Manifest V3 extension with no runtime dependencies. Jev via OpenRouter is the default; OpenAI Decisions is selectable.
+A Chrome Manifest V3 extension with no runtime dependencies. Jev via OpenRouter is the default; OpenAI Decisions and optional Local Ollama are selectable. Local development is separate from the installable Jev baseline on main; see the [local setup and verification guide](docs/local-ollama.md).
 
 ## Install
 
@@ -20,7 +20,7 @@ Use `main` in its own folder, separate from feature branches:
 git clone --branch main git@github.com:sighmoan1/linkedin-slop-filter.git linkedin-slop-filter-jev
 ```
 
-Load that folder in Chrome as above. Keep Jev selected, enter an OpenRouter key, ensure the account has credit and access to `typesafe/jev-1.13`, enable filtering and save. The default cutoff is strictly above 80%; exactly 80% stays visible. No npm installation or build is needed to use the extension. To pin an audited version, run `git checkout <main-commit>` in that folder using the commit supplied with the baseline PR.
+Load that folder in Chrome as above. Keep Jev selected, enter an OpenRouter key, ensure the account has credit and access to `typesafe/jev-1.13`, enable filtering and save. The default cutoff is strictly above 80%; exactly 80% stays visible. No npm installation or build is needed to use the extension. The audited baseline is `510f199d2e4e2d995b85c54c3eecaa789180d657` from [PR #19](https://github.com/sighmoan1/linkedin-slop-filter/pull/19); run `git checkout 510f199d2e4e2d995b85c54c3eecaa789180d657` in that folder to pin it.
 
 The Jev endpoint, model and Noul response match the [official OpenRouter examples](https://openrouter.ai/blog/insights/what-is-jev/) checked on 9 October 2026. Mocked tests do not establish that your key, billing or model access works. For an optional real call using synthetic text, in a local terminal (zsh):
 
@@ -36,16 +36,17 @@ This command makes one billed provider request and prints only the numeric resul
 ## Behaviour
 
 - Watches dynamically loaded feed cards. Checks posts entering the viewport or within 300px of it.
-- Sends extracted post text (up to 12,000 characters) for a yes/no judgement using an editable rubric.
+- Sends extracted post text for a judgement using an editable rubric: up to 12,000 characters for cloud providers or 2,000 for local Ollama. Local rubric length is capped at 1,200 characters for a 4,096-token context.
 - Folds a post only when the model's probability of slop is **strictly greater than 0.80** by default. Exactly 0.80 stays visible.
-- A folded post displays its estimated probability and **Show anyway**. Revealing lasts for that card's lifetime.
+- A folded post displays its cloud provider probability or explicitly labelled local self-reported confidence and **Show anyway**. Revealing lasts for that card's lifetime, including provider changes.
+- Thresholds are independent: Jev probability, OpenAI probability, and local confidence each default to a strict `> 0.80` comparison. Existing cloud threshold settings migrate to OpenAI until an explicit OpenAI threshold is saved. Local scores are generated numbers, not calibrated probabilities. A local `slop:false` result stays visible at any confidence.
 - API errors, refusals, timeouts and invalid results leave posts visible. The last error appears in settings.
 - Requests are sequential, identical classifications are cached for the browser session, and the default limit is 100 API attempts per browser session across tabs. Reloads do not reset this limit. Restart Chrome or raise the limit to continue.
 - Disable filtering to restore folded posts within five seconds. Reload the feed after changing provider or rubric.
 
 ## Privacy and credentials
 
-Only extracted feed post text is sent, including any personal information the author puts in that text. The extension does not collect messages, comment threads, profile metadata or cookies, and does not click, like, post or scroll on your behalf. It reads the post text currently provided by LinkedIn; it does not automatically expand “see more” or analyse images.
+Only extracted feed post text is sent, including any personal information the author puts in that text. With Local Ollama selected and a downloaded local model, this goes to the laptop's loopback service; no key, tunnel or hosted backend is needed. Cloud providers send it to their API. The extension does not collect messages, comment threads, profile metadata or cookies, and does not click, like, post or scroll on your behalf. It reads the post text currently provided by LinkedIn; it does not automatically expand “see more” or analyse images.
 
 Keys are entered by you and stored in `chrome.storage.local`, restricted to trusted extension contexts. They are not synced or passed to the LinkedIn content script. This is a personal, unpacked extension: storage is not an encrypted credential vault. Use a dedicated key with a spending limit. Delete keys with the settings button.
 
@@ -74,11 +75,11 @@ npx playwright install chromium
 npm test
 ```
 
-`npm test` runs core request-schema, response-validation and strict threshold checks; mocked service-worker checks for credentials, caching, errors and request limits; JavaScript syntax checks; and a Chromium simulated-feed test. The browser test uses synthetic cards and mocked API responses, with no LinkedIn login, credentials or live provider calls. Playwright is a development dependency only.
+`npm test` runs core request-schema, response-validation and strict threshold checks; mocked service-worker checks; local schema, queue, switching, cache and fail-open checks; evaluation metric checks; JavaScript syntax; and Chromium simulated-feed and settings tests. Browser tests use synthetic cards and mocked responses, with no LinkedIn login, credentials or live provider calls. Playwright is a development dependency only. Real local checks are opt-in: `npm run smoke:ollama` and `npm run smoke:extension`.
 
-Run individual checks with `npm run test:core`, `npm run test:background`, `npm run test:syntax` or `npm run test:feed`. GitHub Actions runs all four checks on pushes to `main` and pull requests.
+Run individual checks with `npm run test:core`, `npm run test:background`, `npm run test:local`, `npm run test:syntax` or `npm run test:feed`. GitHub Actions runs the suite on pushes to `main` and pull requests. See the [manual-label evaluation workflow](docs/evaluation.md) for comparing local inference with Jev, especially useful posts wrongly hidden.
 
 LinkedIn's DOM changes frequently. Supported card selectors are in `content.js`; if filtering stops finding posts, update those selectors. The content script runs on `/feed/` URLs; if you arrive there through LinkedIn navigation from another page, reload the feed. It deliberately does not scan profiles or search results.
 
-No live API or signed-in LinkedIn verification has been performed: setup needs your API credentials, and live DOM compatibility needs checking on your account.
+No live cloud API or signed-in LinkedIn verification has been performed: cloud setup needs your API credentials, and live DOM compatibility needs checking on your account. A real local Qwen3.5 4B synthetic smoke and direct unpacked-extension smoke passed on the M4 Max; see [local verification evidence](docs/local-ollama.md). These are not live LinkedIn tests or model quality measurements.
 Local core, mocked background, JavaScript syntax and Chromium simulated-feed checks passed on 9 October 2026. Track live verification and provider comparison in issues [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3).

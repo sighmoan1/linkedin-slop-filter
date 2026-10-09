@@ -5,11 +5,15 @@
   "type": "module",
   "scripts": {
     "smoke:jev": "node scripts/smoke.mjs",
+    "smoke:ollama": "node scripts/smoke-ollama.mjs",
+    "smoke:extension": "node scripts/smoke-extension.cjs",
+    "evaluate": "node scripts/evaluate.mjs",
     "test:core": "node tests/check.mjs",
     "test:background": "node tests/background.mjs",
+    "test:local": "node tests/local.mjs && node tests/evaluation.mjs",
     "test:syntax": "node tests/syntax.mjs",
-    "test:feed": "node tests/dom.cjs",
-    "test": "npm run test:core && npm run test:background && npm run test:syntax && npm run test:feed"
+    "test:feed": "node tests/dom.cjs && node tests/options.cjs",
+    "test": "npm run test:core && npm run test:background && npm run test:local && npm run test:syntax && npm run test:feed"
   },
   "devDependencies": {
     "playwright": "1.64.0"

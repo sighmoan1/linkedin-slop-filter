@@ -18,7 +18,7 @@
       const bar = document.createElement("div");
       bar.className = "lsf-bar";
       const label = document.createElement("span");
-      label.textContent = "Possible AI slop · " + Math.round(record.probability * 100) + "% model estimate";
+      label.textContent = "Possible AI slop · " + Math.round(record.probability * 100) + (record.provider === "ollama" ? "% local self-reported confidence" : "% provider probability");
       const button = document.createElement("button");
       button.type = "button"; button.textContent = "Show anyway";
       button.addEventListener("click",e => {e.preventDefault(); e.stopPropagation(); record.revealed=true; clearFold(post,record);});
@@ -36,7 +36,10 @@
         if (records.get(post) !== record) return;
         record.pending=false;
         if (result?.error || result?.disabled) { record.retryAt=Date.now()+60000; return; }
-        record.probability=result?.probability; apply(post,record);
+        if (result.configuration && result.configuration !== settings.configuration) { record.retryAt=0; return; }
+        const p=result?.probability;
+        if (typeof p !== "number" || !Number.isFinite(p) || p < 0 || p > 1) {record.retryAt=Date.now()+60000;return;}
+        record.probability=p; record.provider=result.provider || settings.provider; apply(post,record);
       }).catch(()=>{record.pending=false; record.retryAt=Date.now()+60000;});
     }
   },{rootMargin:"300px"});
@@ -63,7 +66,16 @@
   const schedule=()=>{clearTimeout(timer); timer=setTimeout(scan,250);};
   new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,characterData:true});
   async function refresh() {
-    try {settings=await chrome.runtime.sendMessage({type:"settings"}) || settings;} catch {settings.enabled=false;}
+    try {
+      const next=await chrome.runtime.sendMessage({type:"settings"}) || {enabled:false};
+      if (next.configuration !== settings.configuration) {
+        for (const [post,record] of records) {
+          clearFold(post,record); observer.unobserve(post);
+          records.set(post,{text:record.text,revealed:record.revealed});
+        }
+      }
+      settings=next;
+    } catch {settings.enabled=false;}
     scan();
     // Re-observe unclassified cards when enabled, including cards already in view.
     for (const [post,record] of records) {

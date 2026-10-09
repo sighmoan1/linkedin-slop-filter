@@ -2,12 +2,12 @@ import vm from 'node:vm';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
-import {DEFAULTS,requestFor,probability} from '../core.mjs';
+import {DEFAULTS,requestFor,probability,thresholdFor,classificationKey} from '../core.mjs';
 const local={...DEFAULTS,enabled:true,jevKey:'TEST-KEY',limit:3};
 const session={};
 const storage=data=>({get:async query=>typeof query==='string'?{[query]:data[query]}:{...query,...data},set:async value=>Object.assign(data,value),remove:async key=>delete data[key],setAccessLevel:async()=>{}});
 let handler,calls=0,mode='success',active=0,maxActive=0;
-const context=vm.createContext({DEFAULTS,requestFor,probability,crypto:webcrypto,TextEncoder,AbortController,URL,setTimeout,clearTimeout,
+const context=vm.createContext({DEFAULTS,requestFor,probability,thresholdFor,classificationKey,crypto:webcrypto,TextEncoder,AbortController,URL,setTimeout,clearTimeout,
  chrome:{storage:{local:storage(local),session:storage(session)},runtime:{onMessage:{addListener:h=>handler=h}}},
  fetch:async(url,req)=>{calls++;active++;maxActive=Math.max(maxActive,active);assert.equal(req.headers.Authorization,'Bearer TEST-KEY');await new Promise(r=>setTimeout(r,5));active--;return {ok:mode!=='fail',status:mode==='fail'?429:200,json:async()=>({answers:{slop:{type:'noul',noul:.95}}})};}
 });
