@@ -81,7 +81,7 @@ npm test
 
 Run individual checks with `npm run test:core`, `npm run test:verify`, `npm run test:background`, `npm run test:syntax`, `npm run test:feed`, `npm run test:options` or `npm run test:setup`. GitHub Actions runs all of them on pushes to `main` and pull requests.
 
-LinkedIn's DOM changes frequently. Supported card selectors are in `content.js`; if filtering stops finding posts, update those selectors. The content script runs on `/feed/` URLs; if you arrive there through LinkedIn navigation from another page, reload the feed. It deliberately does not scan profiles or search results.
+LinkedIn's DOM changes frequently. Supported card selectors are in `content.js`; if filtering stops finding posts, update those selectors. As of 9 October 2026, a signed-in feed (`/feed/foryou/`) uses hashed class names, so posts are found through `role="listitem"` cards whose `componentkey` starts `update-card` and text in `data-testid="expandable-text-box"`; the older class-based selectors remain as a fallback. The content script runs on `/feed/` URLs; if you arrive there through LinkedIn navigation from another page, reload the feed. It deliberately does not scan profiles or search results.
 
 No live API or signed-in LinkedIn verification has been performed: setup needs your API credentials, and live DOM compatibility needs checking on your account.
 Local core, mocked background, JavaScript syntax and Chromium simulated-feed checks passed on 9 October 2026. Track live verification and provider comparison in issues [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3).
