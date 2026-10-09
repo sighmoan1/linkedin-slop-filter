@@ -28,6 +28,7 @@ A Chrome Manifest V3 extension with no build step and no runtime dependencies.
 | `background.js` | Service worker: holds API keys, queues and caches classification requests |
 | `content.js`, `content.css` | Finds posts on the LinkedIn feed, folds them, reveals them |
 | `options.html`, `options.js`, `options.css` | Settings page, also used as the toolbar popup |
+| `scripts/smoke.mjs` | Optional real Jev call with a synthetic post (`npm run smoke:jev`, needs `OPENROUTER_API_KEY`; makes one billed request, never run in CI) |
 | `tests/` | Core, background, syntax and simulated-feed browser tests |
 
 Run the checks from the repository root:
