@@ -3,6 +3,8 @@ import {DEFAULTS, requestFor, probability} from "./core.mjs";
 chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
 const pending = new Map();
+// Errors carry a few words for the per-post badge; the full message goes to the settings page.
+const failure = (message, short) => Object.assign(new Error(message), {short});
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (!sender.url?.startsWith("https://www.linkedin.com/feed")) return false;
   if (message.type === "settings") {
@@ -24,9 +26,9 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
         const current = await chrome.storage.local.get(DEFAULTS);
         if (!current.enabled) return {disabled:true};
         const state = await chrome.storage.session.get({requests:0});
-        if (state.requests >= current.limit) throw new Error("Session request limit reached. Increase the limit in settings or restart Chrome.");
+        if (state.requests >= current.limit) throw failure("Session request limit reached. Increase the limit in settings or restart Chrome.", "request limit reached");
         const req = requestFor(s,text);
-        if (!req.key) throw new Error("Add your provider API key in extension settings.");
+        if (!req.key) throw failure("Add your provider API key in extension settings.", "no API key");
         await chrome.storage.session.set({requests:state.requests+1});
         const controller = new AbortController();
         const timeout = setTimeout(()=>controller.abort(),20000);
@@ -35,8 +37,10 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
             method:"POST", headers:{"Authorization":"Bearer "+req.key,"Content-Type":"application/json"},
             body:JSON.stringify(req.body), signal:controller.signal, redirect:"error"
           });
-          if (!response.ok) throw new Error("API request failed (HTTP "+response.status+"). Check your key, credit and model access.");
-          const p = probability(s.provider,await response.json());
+          if (!response.ok) throw failure("API request failed (HTTP "+response.status+"). Check your key, credit and model access.", "API error "+response.status);
+          let p;
+          try { p = probability(s.provider,await response.json()); }
+          catch (error) { throw failure(error.message, "invalid answer"); }
           await chrome.storage.session.set({[id]:p});
           await chrome.storage.local.remove("lastError");
           return {probability:p,threshold:s.threshold};
@@ -50,8 +54,9 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   })();
   work.then(respond).catch(async error => {
     const message = error.name === "AbortError" ? "API timed out. Post left visible." : error.message;
+    const short = error.name === "AbortError" ? "timed out" : (error.short || "error");
     await chrome.storage.local.set({lastError:message});
-    respond({error:message});
+    respond({error:message, short});
   });
   return true;
 });
