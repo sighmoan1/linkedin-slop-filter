@@ -7,8 +7,9 @@ A Chrome Manifest V3 extension with no runtime dependencies. Jev via OpenRouter 
 1. Clone this repository or download and unzip it into a permanent folder.
 2. Open `chrome://extensions` in Chrome and enable **Developer mode**.
 3. Click **Load unpacked**, then select the **linkedin-slop-filter** folder containing `manifest.json`.
-4. Click the extension icon. Add an OpenRouter API key for Jev, or select OpenAI Decisions and add an OpenAI API key.
-5. Enable filtering, save, and reload your LinkedIn feed.
+4. Click the extension icon. Add an OpenRouter API key for Jev, or select OpenAI Decisions and add an OpenAI API key. The settings page links to a built-in **setup guide** (`setup.html`) that walks through getting a key from each provider and what to do if the key test fails.
+5. Press **Test key** under the key you entered. It tells you whether the key works, or why not (rejected key, no credit, no access to the model, rate limit, network problem).
+6. Enable filtering, save, and reload your LinkedIn feed.
 
 Get keys at https://openrouter.ai/settings/keys or https://platform.openai.com/api-keys. API billing is separate from ChatGPT subscriptions. No key is included in this download.
 
@@ -43,6 +44,7 @@ This command makes one billed provider request and prints only the numeric resul
 - API errors, refusals, timeouts and invalid results leave posts visible. The last error appears in settings.
 - Requests are sequential, identical classifications are cached on this computer for up to 30 days (at most 2,000 posts, oldest dropped first) and survive Chrome restarts, only a hash and the score are stored, never the post text, **Clear score cache** in settings empties it, and the default limit is 100 API attempts per browser session across tabs. Reloads do not reset this limit. Restart Chrome or raise the limit to continue.
 - Disable filtering to restore folded posts within five seconds. Reload the feed after changing provider or rubric.
+- **Test key** sends one small request in the same format as real classification, using the key as typed (saved or not). A pass means the key, your credit and access to the model all work. It does not use the per-session request limit. The result and time are remembered while that same key is entered. The key and the provider's raw error text are never shown or stored in the result.
 
 ## Privacy and credentials
 
@@ -75,9 +77,9 @@ npx playwright install chromium
 npm test
 ```
 
-`npm test` runs core request-schema, response-validation and strict threshold checks; mocked service-worker checks for credentials, caching, errors and request limits; JavaScript syntax checks; and a Chromium simulated-feed test. The browser test uses synthetic cards and mocked API responses, with no LinkedIn login, credentials or live provider calls. Playwright is a development dependency only.
+`npm test` runs core request-schema, response-validation and strict threshold checks; key-verification checks for every failure class; mocked service-worker checks for credentials, caching, errors and request limits; JavaScript syntax checks; a Chromium simulated-feed test; a Chromium test of the settings page, and a Chromium test of the setup guide that checks its links are safe and its button, field and model names still match the product. The browser tests use synthetic cards, mocked storage and mocked API responses, with no LinkedIn login, credentials or live provider calls. Playwright is a development dependency only.
 
-Run individual checks with `npm run test:core`, `npm run test:background`, `npm run test:syntax` or `npm run test:feed`. GitHub Actions runs all four checks on pushes to `main` and pull requests.
+Run individual checks with `npm run test:core`, `npm run test:verify`, `npm run test:background`, `npm run test:syntax`, `npm run test:feed`, `npm run test:options` or `npm run test:setup`. GitHub Actions runs all of them on pushes to `main` and pull requests.
 
 LinkedIn's DOM changes frequently. Supported card selectors are in `content.js`; if filtering stops finding posts, update those selectors. The content script runs on `/feed/` URLs; if you arrive there through LinkedIn navigation from another page, reload the feed. It deliberately does not scan profiles or search results.
 

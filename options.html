@@ -1,15 +1,21 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>LinkedIn Slop Filter</title><link rel="stylesheet" href="options.css"></head>
 <body><main><h1>Less slop. More substance.</h1><p>Fold formulaic LinkedIn feed posts. Reveal any post with one click.</p>
+<a class="guide" href="setup.html" target="_blank" rel="noopener noreferrer"><strong>New here? Open the setup guide.</strong> It shows how to get and test an OpenRouter or OpenAI key.</a>
 <form id="settings">
 <label class="toggle"><input id="enabled" type="checkbox"> Enable filtering</label>
 <label>Decision provider<select id="provider"><option value="jev">Jev · OpenRouter</option><option value="openai">OpenAI Decisions · GPT-6 Luna</option></select></label>
 <label>OpenRouter API key<input id="jevKey" type="password" autocomplete="off" placeholder="sk-or-…"></label>
+<a class="key-help" href="setup.html#openrouter" target="_blank" rel="noopener noreferrer">How do I get an OpenRouter key?</a>
+<div class="key-test"><button type="button" class="secondary" id="jevKeyTest">Test OpenRouter key</button><span id="jevKeyStatus" class="key-status" role="status" aria-live="polite"></span></div>
 <label>OpenAI API key<input id="openaiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
+<a class="key-help" href="setup.html#openai" target="_blank" rel="noopener noreferrer">How do I get an OpenAI key?</a>
+<div class="key-test"><button type="button" class="secondary" id="openaiKeyTest">Test OpenAI key</button><span id="openaiKeyStatus" class="key-status" role="status" aria-live="polite"></span></div>
 <label>Fold when probability is above (%)<input id="threshold" type="number" min="1" max="100" step="1" required></label>
 <label>Maximum API requests per browser session<input id="limit" type="number" min="1" max="10000" required></label>
 <label>Your definition of slop<textarea id="rule" rows="8" required></textarea></label>
 <p class="note">When enabled, visible feed post text is sent to your selected API provider. Messages, comments and profile details are not collected. Keys stay in this Chrome profile's extension storage; they are not synced. Classification is a style judgement, not proof of AI authorship. API usage is billed separately.</p>
-<button type="submit">Save settings</button> <button type="button" id="forget">Delete keys &amp; disable</button>
+<p class="note">Testing sends one tiny request to the provider with the key shown above, even if it is not saved yet. It checks the key, your credit and access to the model together, and uses a very small amount of API credit.</p>
+<button type="submit">Save settings</button> <button type="button" id="forget" class="secondary">Delete keys &amp; disable</button>
 <p id="status" role="status"></p><p id="error" role="status"></p></form>
 <section aria-label="Score cache"><p class="note">Scores are remembered on this computer for up to 30 days (up to 2,000 posts) so the same post is not billed twice, even after Chrome restarts. Only a hash and the score are kept, never the post text. Changing the provider or your definition of slop starts fresh scores automatically.</p><button type="button" class="secondary" id="clearCache">Clear score cache</button> <span id="cacheStatus" role="status"></span></section></main><script type="module" src="options.js"></script></body></html>

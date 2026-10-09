@@ -9,7 +9,10 @@
     "test:background": "node tests/background.mjs",
     "test:syntax": "node tests/syntax.mjs",
     "test:feed": "node tests/dom.cjs",
-    "test": "npm run test:core && npm run test:cache && npm run test:background && npm run test:syntax && npm run test:feed && npm run test:cacheui",
+    "test": "npm run test:core && npm run test:verify && npm run test:cache && npm run test:background && npm run test:syntax && npm run test:feed && npm run test:options && npm run test:setup && npm run test:cacheui",
+    "test:verify": "node tests/verify.mjs",
+    "test:options": "node tests/options.cjs",
+    "test:setup": "node tests/setup.cjs",
     "test:cache": "node tests/cache.mjs",
     "test:cacheui": "node tests/cache-ui.cjs"
   },
