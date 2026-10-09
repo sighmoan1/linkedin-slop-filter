@@ -41,10 +41,15 @@ assert.deepEqual(normalizeCategories('nope').map(c=>c.id),['slop']);
 const many=Array.from({length:30},(_,i)=>({id:'c'+i,name:'C'+i,instructions:'q'}));
 assert.equal(normalizeCategories(many).length,MAX_CATEGORIES);
 assert.equal(normalizeCategories(many)[0].id,'slop');
-assert.deepEqual(Object.keys(normalizeCategories([{id:'x',name:' Padded ',instructions:' i ',extra:'ignored'}])[1]),['id','name','instructions']);
+assert.deepEqual(Object.keys(normalizeCategories([{id:'x',name:' Padded ',instructions:' i ',extra:'ignored'}])[1]),['id','name','instructions','fold']);
+
+// Only slop folds by default; fold is kept when set and must be a boolean.
+assert.deepEqual(DEFAULT_CATEGORIES.map(c=>c.fold),[true,false,false,false,false]);
+assert.deepEqual(normalizeCategories([{id:'a',name:'A',instructions:'q',fold:true},{id:'b',name:'B',instructions:'q',fold:'yes'}]).map(c=>[c.id,c.fold]),[['slop',true],['a',true],['b',false]]);
+assert.equal(normalizeCategories([{id:'slop',name:'Slop',instructions:'q',fold:false}])[0].fold,false,'slop folding can be switched off');
 
 // Custom categories: ids come from names, are unique and valid, and bad input is refused.
-assert.deepEqual(makeCategory('  Hot Takes! ','Is this a hot take?',DEFAULT_CATEGORIES),{id:'hot-takes',name:'Hot Takes!',instructions:'Is this a hot take?'});
+assert.deepEqual(makeCategory('  Hot Takes! ','Is this a hot take?',DEFAULT_CATEGORIES),{id:'hot-takes',name:'Hot Takes!',instructions:'Is this a hot take?',fold:false});
 assert.equal(makeCategory('Slop','x',DEFAULT_CATEGORIES).id,'slop-2');
 assert.equal(makeCategory('Slop','x',[...DEFAULT_CATEGORIES,{id:'slop-2'}]).id,'slop-3');
 assert.equal(makeCategory('日本語','x').id,'category');
