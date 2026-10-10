@@ -18,6 +18,10 @@ After installing test dependencies, run `npm test` for the offline checks. `npm 
 
 Set `QA_OUTPUT_DIR` to a local directory when running that command to retain screenshots. Those screenshots are synthetic previews, not captures from a signed-in account. The optional verification is separate from CI's offline suite so its unpacked-extension browser requirements are explicit.
 
+On 10 October 2026, the combined `npm test` suite and `npm run verify:release` both passed. The unpacked-extension check used the actual service worker, content script, settings and popup with seven authored posts and seeded scores. It made zero provider requests. Desktop and 320px layouts, Native/Punchy/Reader, dark mode, reduced motion, multi-label correction storage, temporary recovery, missing-key failure and feed-only scope passed. The popup recovered the feed using the existing permissions even when Chrome supplied a tab id without its URL.
+
+The simulated-feed suite passed reading-position checks within 2px with native browser anchoring enabled and disabled, keyboard reveal/re-hide, visible/hovered/focused result deferral, recycled cards, partial answers and reversible groups. LinkedIn's own overflow containers can prevent a revealed post's header from sticking; long posts therefore also have a Hide again control at their end. These checks cover authored browser fixtures, not every current LinkedIn layout.
+
 ## Design references
 
 - [Reddit Enhancement Suite placeholders](https://redditenhancementsuite.com/releases/5.14.2/) informed visible, reversible omissions.
@@ -26,4 +30,4 @@ Set `QA_OUTPUT_DIR` to a local directory when running that command to retain scr
 - [News Feed Eradicator](https://github.com/jordwest/news-feed-eradicator) informed limiting the extension's scope to the feed.
 - [Browser scroll anchoring](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Scroll_anchoring/Overview) informed measuring native compensation and correcting only the remaining displacement.
 
-Category research and synthetic model evidence are documented in the category-rubric notes.
+Category research and synthetic model evidence are documented in the [category-rubric notes](category-rubrics.md).

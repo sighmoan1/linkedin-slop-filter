@@ -2,6 +2,7 @@
 // No provider requests, LinkedIn login or user profile. Optional screenshots stay local.
 const {chromium}=require('playwright');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
+const {createHash}=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const cases=[
  {id:'brainrot',name:'Alex Example',text:'Rank everyone at work as alpha or NPC. Comment your ranking and tag five colleagues.',yes:['brainrot']},
@@ -13,8 +14,8 @@ const cases=[
  {id:'opportunity',name:'Casey Example',text:'We have an open paid accessibility audit contract for November. Apply by 28 October through the application link with a sample audit and your availability.',yes:['opportunity']}
 ];
 const escape=text=>text.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fixture=`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-serif}nav{height:56px;background:#fff;border-bottom:1px solid #ddd;display:flex;align-items:center;padding:0 24px;gap:12px}nav strong{color:#0a66c2}main{max-width:620px;margin:20px auto;padding:0 12px}.preview-note{font-size:12px;color:#65737b;margin:0 0 16px}.feed-shared-update-v2{background:#fff;border:1px solid #dbe2e7;border-radius:10px;margin-bottom:12px;min-height:270px;overflow:hidden}header{display:flex;gap:10px;padding:18px 20px 4px}.avatar{border-radius:50%;background:#dce9f5;width:38px;height:38px;display:grid;place-items:center;font-weight:650}.author{font-size:14px;line-height:1.5}.author small{display:block;color:#65737b}.update-components-text{padding:12px 20px 20px;white-space:pre-line}footer{border-top:1px solid #e5e8eb;padding:10px 20px;display:flex;gap:24px;color:#65737b;font-size:13px}footer button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}.comments{font:12px/1.5 system-ui,sans-serif;padding:8px 20px;color:#65737b}a{color:#0a66c2}@media(prefers-color-scheme:dark){body{background:#182027;color:#e8edf0}nav,.feed-shared-update-v2{background:#22282d;border-color:#46535e}.avatar{background:#344453}.author small,footer,.comments{color:#bbc6ce}}
+const fixture=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-serif}nav{height:56px;background:#fff;border-bottom:1px solid #ddd;display:flex;align-items:center;padding:0 24px;gap:12px}nav strong{color:#0a66c2}main{max-width:620px;margin:20px auto;padding:0 12px}.preview-note{font-size:12px;color:#65737b;margin:0 0 16px}.feed-shared-update-v2{background:#fff;border:1px solid #dbe2e7;border-radius:10px;margin-bottom:12px;min-height:270px;overflow:hidden}header{display:flex;gap:10px;padding:18px 20px 4px}.avatar{border-radius:50%;background:#dce9f5;width:38px;height:38px;display:grid;place-items:center;font-weight:650}.author{font-size:14px;line-height:1.5}.author small{display:block;color:#65737b}.update-components-text{padding:12px 20px 20px;white-space:pre-line}footer{border-top:1px solid #e5e8eb;padding:10px 20px;display:flex;flex-wrap:wrap;gap:12px 24px;color:#65737b;font-size:13px}footer button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}.comments{font:12px/1.5 system-ui,sans-serif;padding:8px 20px;color:#65737b}a{color:#0a66c2}@media(prefers-color-scheme:dark){body{background:#182027;color:#e8edf0}nav,.feed-shared-update-v2{background:#22282d;border-color:#46535e}.avatar{background:#344453}.author small,footer,.comments{color:#bbc6ce}}
 </style></head><body><nav><strong>in</strong><span id="outside-feed">Synthetic LinkedIn feed preview</span></nav><main><p class="preview-note">Release QA · authored examples and seeded model scores · no live account or provider calls</p><section id="feed">${cases.map(p=>`<article id="${p.id}" class="feed-shared-update-v2"><header><span class="avatar">${p.name[0]}</span><div class="author"><strong>${p.name}</strong><small>Synthetic example · 1h</small></div></header><div class="update-components-text">${escape(p.text)}</div>${p.id==='useful'?'<div class="comments">Synthetic comment: keep original controls and text untouched.</div>':''}<footer><button>Like</button><button>Comment</button><button>Share</button><a href="https://example.com/original">Original link</a></footer></article>`).join('')}</section></main></body></html>`;
 
 (async()=>{
@@ -29,15 +30,13 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   context.on('request',request=>{if(/^https:\/\/(?:openrouter\.ai|api\.openai\.com)\//.test(request.url()))providerRequests.push(request.url());});
   const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
   const origin=worker.url().replace(/background\.js$/,'');
-  await worker.evaluate(async posts=>{
-   const core=await import(chrome.runtime.getURL('core.mjs'));
-   const s={...core.DEFAULTS,schema:2,enabled:true,provider:'jev',categories:core.DEFAULT_CATEGORIES.map(c=>({...c,action:['slop','brainrot','advert'].includes(c.id)?'hide':c.action}))};
-   await chrome.storage.local.set({...s,appearance:{theme:'native',groupHidden:false,labels:'matches'}});
-   const hash=async text=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),b=>b.toString(16).padStart(2,'0')).join('');
-   const key=core.scoringKey(s),entries={};
-   for(const p of posts){entries[core.CACHE_PREFIX+await hash(JSON.stringify([key,p.text]))]={t:Date.now(),s:Object.fromEntries(s.categories.map(c=>[c.id,p.yes.includes(c.id)?.96:.05]))};}
-   await chrome.storage.local.set(entries);
-  },cases);
+  // Core imports run in Node; Chrome forbids dynamic import() in service workers.
+  const core=await import('../core.mjs');
+  const s={...core.DEFAULTS,schema:2,enabled:true,provider:'jev',categories:core.DEFAULT_CATEGORIES.map(c=>({...c,action:['slop','brainrot','advert'].includes(c.id)?'hide':c.action}))};
+  const hash=text=>createHash('sha256').update(text).digest('hex');
+  const key=core.scoringKey(s),entries={};
+  for(const p of cases){entries[core.CACHE_PREFIX+hash(JSON.stringify([key,p.text]))]={t:Date.now(),s:Object.fromEntries(s.categories.map(c=>[c.id,p.yes.includes(c.id)?.96:.05]))};}
+  await worker.evaluate(storage=>chrome.storage.local.set(storage),{...s,...entries,appearance:{theme:'native',groupHidden:false,labels:'matches'}});
   const feed=await context.newPage();
   await feed.route('https://www.linkedin.com/**',r=>r.fulfill({contentType:'text/html',body:fixture}));
   await feed.goto('https://www.linkedin.com/feed/');
@@ -68,6 +67,7 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   }
   // Grouping changes the omissions, not DOM order or the original useful post.
   const order=await feed.locator('#feed > article').evaluateAll(posts=>posts.map(p=>p.id));
+  await feed.locator('.lsf-theme-label select').focus();
   await worker.evaluate(()=>chrome.storage.local.set({appearance:{theme:'punchy',groupHidden:true,labels:'matches'}}));
   await feed.waitForSelector('.lsf-group-bar:not([hidden])');
   assert.equal(await feed.locator('.lsf-group-name').first().textContent(),'4 hidden posts · Brainrot ×1, Slop ×2, Advert ×1');
