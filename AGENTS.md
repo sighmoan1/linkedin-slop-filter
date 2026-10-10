@@ -24,10 +24,11 @@ A Chrome Manifest V3 extension with no build step and no runtime dependencies.
 | File | Role |
 | --- | --- |
 | `manifest.json` | Extension manifest and host permissions |
-| `core.mjs`, `core/` | Settings, categories and migration (`core/settings.mjs`), provider requests and responses (`core/providers.mjs`), score cache (`core/cache.mjs`), key tests (`core/verify.mjs`). `core.mjs` re-exports them all. |
-| `background.js` | Service worker: holds API keys, queues and caches classification requests |
+| `core.mjs`, `core/` | Settings/categories/migration (`core/settings.mjs`), provider requests/responses (`core/providers.mjs`), score cache (`core/cache.mjs`), key tests (`core/verify.mjs`), safe appearance/correction records (`core/experience.mjs`). `core.mjs` re-exports them all. |
+| `background.js` | Service worker: holds API keys, queues/caches feed and explicit playground requests, stores corrections, safe appearance preferences and usage |
 | `content.js`, `content.css` | Finds posts on the LinkedIn feed, folds them, reveals them |
-| `options.html`, `options.js`, `options.css` | Settings page, also used as the toolbar popup |
+| `options.html`, `options.js`, `options.css` | Full settings, category definitions, corrections review and explicit playground |
+| `popup.html`, `popup.js`, `popup.css` | Compact toolbar controls, appearance, temporary recovery and usage |
 | `scripts/smoke.mjs` | Optional real Jev call with a synthetic post (`npm run smoke:jev`, needs `OPENROUTER_API_KEY`; makes one billed request, never run in CI) |
 | `tests/` | Core, background, syntax and simulated-feed browser tests |
 

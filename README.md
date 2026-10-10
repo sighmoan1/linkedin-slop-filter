@@ -1,79 +1,85 @@
 # LinkedIn Slop Filter
 
-A Chrome Manifest V3 extension with no runtime dependencies. Jev via OpenRouter is the default; OpenAI Decisions and optional Local Ollama are selectable. Local development is separate from the installable Jev baseline on main; see the [local setup and verification guide](docs/local-ollama.md).
+A Chrome extension that makes low-value feed posts easy to skip and easy to recover. Every category has its own action and threshold. Original posts stay in their original order; the extension does not generate summaries or claim to detect AI authorship.
 
-## Install
+Jev through OpenRouter is the default provider. OpenAI Decisions and downloaded local Ollama models are selectable. There is no build step or runtime dependency, and all styles and assets ship locally.
 
-1. Clone this repository or download and unzip it into a permanent folder.
-2. Open `chrome://extensions` in Chrome and enable **Developer mode**.
-3. Click **Load unpacked**, then select the **linkedin-slop-filter** folder containing `manifest.json`.
-4. Click the extension icon. Add an OpenRouter API key for Jev, or select OpenAI Decisions and add an OpenAI API key. The settings page links to a built-in **setup guide** (`setup.html`) that walks through getting a key from each provider and what to do if the key test fails.
-5. Press **Test key** under the key you entered. It tells you whether the key works, or why not (rejected key, no credit, no access to the model, rate limit, network problem).
-6. Enable filtering, save, and reload your LinkedIn feed.
+## Install or update
 
-Get keys at https://openrouter.ai/settings/keys or https://platform.openai.com/api-keys. API billing is separate from ChatGPT subscriptions. No key is included in this download.
+1. Keep this repository in a permanent folder.
+2. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the folder containing `manifest.json`.
+3. Open the extension popup, then **Settings**. In **Provider**, enter your own key or configure local Ollama. The built-in [setup guide](setup.html) explains cloud keys and key-test failures; the [local guide](docs/local-ollama.md) explains Ollama.
+4. Choose your category actions, enable filtering, and save. Open or reload your LinkedIn feed.
 
-### Install the Jev baseline while local development continues
+After updating an unpacked installation, press **Reload** on its card in `chrome://extensions`, then reload the feed. Chrome does not automatically reload an extension when Git changes its files.
 
-Use `main` in its own folder, separate from feature branches:
+Existing category definitions are preserved. To adopt revised built-in prompts, use **Review revised definitions** in Categories, review, apply and save. This keeps custom categories, names, actions, thresholds and order. **Restore defaults** is a separate, deliberate reset of the whole category draft.
+
+Cloud API billing is separate from ChatGPT subscriptions. No key is included. Key tests make one tiny real request using the key as entered; they do not count against the feed/playground session limit. Their result verifies access, not filtering quality.
+
+## Choose what happens
+
+A category applies only when its score is **strictly greater** than its own threshold. Exactly 80% does not apply to an 80% threshold. Default cutoffs are uncalibrated model estimates, not measured accuracy.
+
+| Action | Result |
+| --- | --- |
+| Hide | A compact row replaces the post, with Show, Details and Correct controls. |
+| Highlight | The original post stays open with a subtle accent and matching label. |
+| Label | The original post stays open with a quiet matching label. |
+| Off | The category is not requested or applied. |
+
+Slop, Brainrot, Advert, Opportunity, Nourishment and custom categories all have the same controls. Each can be edited, reordered, removed or switched off. Up to 12 categories are supported. A post can match several; **any applying Hide rule wins**, including when another category says Highlight. Details show available scores, thresholds and actions. Missing answers never apply, and Off categories are not requested.
+
+Default actions hide Slop, label Brainrot and Advert, and highlight Opportunity and Nourishment. The explicit **Less noise** preset hides Slop, Brainrot and Advert and keeps positive categories on Highlight. Presets preview changes, preserve custom categories and can be undone before saving. They change actions only.
+
+An empty category list or all categories Off can be saved while filtering is disabled. Enabling filtering requires an active category. Defaults are never silently restored after removing everything.
+
+## Feed appearance and recovery
+
+| Theme | Appearance |
+| --- | --- |
+| Native | Familiar typography, neutral cards and compact hidden rows. |
+| Punchy | Prominent category names and restrained colors. Useful posts remain open in full. |
+| Reader | A warm paper-like surface, serif post text and quiet divider rows. |
+
+Theme changes do not change actions, thresholds, definitions or requests. Styling is confined to the feed and leaves original links and controls in place. **Group consecutive hidden posts** is a separate option, off by default. Groups show a count and category composition, retain individual reveal controls and never span a visible post. Labels on visible posts can be switched off independently.
+
+- **Show** reveals one original post in place for that card's lifetime. **Hide again** reverses it. Neither makes another request or saves a correction.
+- **Show everything** temporarily reveals the current feed without modifying saved rules. **Restore filtering** ends that override.
+- **Disable filtering** restores posts and pauses classification. It is separate from Show everything.
+- **Correct** lets you choose every applicable active category, or none, and explicitly save a local correction. That post stays visible. Corrections do not automatically train the model or rewrite prompts.
+
+New scores do not automatically collapse a card that is visible, hovered or has keyboard focus. **Hide now** offers immediate control; otherwise the fold waits until the card is out of view and disengaged. Scoring and deliberate reveal/collapse use measured anchoring to preserve reading position. There are no animated post-height transitions or automatic feed scrolling. See [the feed design and release checks](docs/feed-experience.md).
+
+## Requests, failures and storage
+
+Only extracted post body text is sent: at most 12,000 characters for cloud providers or 2,000 for local Ollama. Line and paragraph boundaries are preserved. Messages, comments, profile metadata, cookies and extension controls are excluded. The extension does not expand “see more”, analyse images, click, like or post for you. Cards without extractable body text stay visible and are not scored.
+
+Requests are sequential with a bounded feed prefetch queue; upcoming cards are prioritized. The default cap is 100 API attempts per browser session across tabs. **Try a post** shares that cap. Reloading a feed, changing settings, clearing scores or deleting corrections does not reset it. Restart Chrome or raise the cap to continue. The popup and Provider panel show session usage and a quiet error summary; the toolbar marks service failures.
+
+Network errors, refusals, timeouts, invalid answers, a missing key and the request cap leave unscored posts visible. Partial answers use only their valid scores and are marked partly scored. Details report actual scores/rules, not invented explanations. If a provider refuses several questions (HTTP 400/422), the worker retries only Hide categories and reports the fallback; a scoring-configuration change retries all categories. Live multi-question billing and fallback behavior are unverified.
+
+Cloud score caches contain a hash, scores and time, never post text. They last up to 30 days, with a 2,000-entry cap. Local scores last for the browser session. **Clear score cache** removes both. Changing a definition, active questions, provider, local model or endpoint starts fresh scores. Names, actions, thresholds, order and appearance reuse scores. Obsolete results cannot hide a recycled or differently configured post.
+
+Only **explicitly saved corrections** retain post text, locally in trusted extension storage. At most 200 are kept. They also include chosen category ids, safe score metadata, provider/configuration and time; author/profile metadata is not collected. In Corrections you can inspect, remove, clear or export JSON, including the saved text. A reveal never stores text here. Correction examples and AI-assisted rewriting remain separate follow-up work.
+
+Keys stay in local browser storage restricted to trusted extension contexts. They are not synced, logged or sent to the LinkedIn content script. Definitions also stay in trusted extension contexts; feed replies carry only safe display metadata and a hashed configuration. This unpacked extension uses local browser storage, not an encrypted credential vault. **Delete keys & disable** removes cloud keys and pauses filtering, while keeping categories and corrections.
+
+## Try and tune a rubric
+
+**Try a post** makes an explicit request with saved provider settings and definitions. It works while feed filtering is disabled, reports scores/missing answers and resulting actions, and does not save the input as a correction. Unsaved definition edits are not used. Nothing is sent while typing. Local definitions must fit the 6,000-character serialized context budget, shown in Categories.
+
+The [rubric notes](docs/category-rubrics.md) explain the five categories, protected counterexamples and sources including tropes.fyi. Stylistic tropes are supporting clues when they replace substance; punctuation, non-native phrasing, slang or mentioning AI are not sufficient.
+
+Revised prompts matched all five authored labels on 22/24 development cases and 10/12 fresh synthetic cases with local Qwen3.5 4B; previous defaults matched 16/24 and 9/12. Development was tuned and the same author wrote the cases and labels. These small results do not establish representative accuracy or better Slop hiding; the same development Slop miss remained. No cloud performance is inferred.
 
 ```sh
-git clone --branch main git@github.com:sighmoan1/linkedin-slop-filter.git linkedin-slop-filter-jev
+npm run report:rubrics
 ```
 
-Load that folder in Chrome as above. Keep Jev selected, enter an OpenRouter key, ensure the account has credit and access to `typesafe/jev-1.13`, enable filtering and save. The default cutoff is strictly above 80%; exactly 80% stays visible. The pinned baseline predates the newer Test key/setup-guide UI; enter the key and save there, or use smoke:jev. No npm installation or build is needed to use the extension. The audited baseline is `510f199d2e4e2d995b85c54c3eecaa789180d657` from [PR #19](https://github.com/sighmoan1/linkedin-slop-filter/pull/19); run `git checkout 510f199d2e4e2d995b85c54c3eecaa789180d657` in that folder to pin it.
+This replays committed synthetic scores without model calls. The rubric notes document an explicitly invoked local-only evaluator and private-corpus workflow. Keep real labelled data in ignored `.local-data/`. Compare useful posts wrongly hidden under **all** active Hide rules, missing/error coverage and ambiguous examples, not only Slop scores.
 
-The Jev endpoint, model and Noul response match the [official OpenRouter examples](https://openrouter.ai/blog/insights/what-is-jev/) checked on 9 October 2026. Mocked tests do not establish that your key, billing or model access works. For an optional real call using synthetic text, in a local terminal (zsh):
-
-```sh
-read -rs 'OPENROUTER_API_KEY?OpenRouter key (hidden): '; echo
-export OPENROUTER_API_KEY
-npm run smoke:jev
-unset OPENROUTER_API_KEY
-```
-
-This command makes one billed provider request and prints only the numeric result. It never writes the key or post text to a file. Missing credentials exit with a prerequisite message. A successful smoke call verifies the API path, not signed-in LinkedIn selectors or filtering quality. Enter the key separately in the extension settings. HTTP 401 suggests a rejected key; 402 billing; 403/404 access or endpoint; 429 rate limits. Errors leave posts visible.
-
-## Behaviour
-
-- Watches dynamically loaded feed cards. Checks posts entering the viewport or within 300px of it.
-- **Categories.** Each post is scored against every switched-on category in one request: Slop, Brainrot, Advert, Opportunity and Nourishment by default, plus any you add (up to 12). Each category is a yes/no question with its own definition, which the model answers with a probability, so a post can fit several. All categories work the same way, Slop included: each can be renamed, edited, reordered, removed or switched off in settings.
-- **Actions and thresholds.** A category *applies* to a post when its score is **strictly greater** than that category's threshold (80% by default; exactly 80% does not apply). What happens then depends on the category's action: **Hide** folds the post behind a bar naming the category, for example **Hidden as Slop · 95% model estimate**, with **Show anyway**; **Highlight** marks the post with a green edge; **Show on chip** only names the category on the post's chip; **Off** categories are not asked at all. By default Slop hides, Opportunity and Nourishment highlight, and Brainrot and Advert show on the chip. Revealing a hidden post lasts for that card's lifetime.
-- **Chips.** Every post that is not folded shows a small chip listing the categories that apply, strongest first, for example **Nourishment 97% · Advert 90%**, or **No category**. The tooltip lists every score. Posts are scored as they come within 300px of the screen, so posts further down first read **Waiting to score**, then **Scoring…**. If scoring fails the chip reads **Not scored: no API key**, **request limit reached**, **API error 401** and so on, with the full reason on hover; the post stays visible and is retried after a minute. Posts with no extractable text (for example image-only posts) are not scored and get no chip. There are no chips while filtering is off.
-- Sends extracted post text, up to 12,000 characters for cloud providers or 2,000 for local Ollama. Local definitions are capped at 6,000 characters in total for a 4,096-token context.
-- Changing a definition, switching a category on or off, or changing provider, model or endpoint rescores posts. Changing a name, action, threshold or the order does not; open feeds apply it within five seconds without new requests.
-- More questions per request may cost more per post: billing for multi-question requests has **not** been checked against a live provider. If a provider rejects several questions at once (HTTP 400 or 422), the extension asks only the categories set to **Hide**, says so in settings, and tries all categories again once the scoring settings change. The four non-Slop definitions are first drafts and have not been tested on real posts.
-- Settings from earlier versions are migrated on first use: the old slop definition becomes Slop's definition, the active provider's threshold becomes every category's threshold, and categories that folded are set to Hide.
-- API errors, refusals, timeouts and invalid results leave posts visible. An answer that scores only some categories is used for those; the rest never apply. The last error appears in settings.
-- Requests are sequential, cloud classifications are cached on this computer for up to 30 days (at most 2,000 posts, oldest dropped first) and survive Chrome restarts, only a hash and the scores are stored, never the post text, **Clear score cache** in settings empties it, and the default limit is 100 API attempts per browser session across tabs. Reloads do not reset this limit. Restart Chrome or raise the limit to continue.
-- Local Ollama scores are the model's self-reported confidence per category, not calibrated probabilities. They are cached for the browser session only. Clear score cache also removes these scores.
-- Disable filtering to restore folded posts within five seconds.
-- **Test key** sends one small request in the same format as real classification, using the key as typed (saved or not). A pass means the key, your credit and access to the model all work. It does not use the per-session request limit. The result and time are remembered while that same key is entered. The key and the provider's raw error text are never shown or stored in the result.
-
-## Privacy and credentials
-
-Only extracted feed post text is sent, including any personal information the author puts in that text. With Local Ollama selected and a downloaded local model, this goes to the laptop's loopback service; no key, tunnel or hosted backend is needed. Cloud providers send it to their API. The extension does not collect messages, comment threads, profile metadata or cookies, and does not click, like, post or scroll on your behalf. It reads the post text currently provided by LinkedIn; it does not automatically expand “see more” or analyse images.
-
-Keys are entered by you and stored in `chrome.storage.local`, restricted to trusted extension contexts. They are not synced or passed to the LinkedIn content script. This is a personal, unpacked extension: storage is not an encrypted credential vault. Use a dedicated key with a spending limit. Delete keys with the settings button.
-
-For distribution to other people, put provider credentials behind an authenticated backend rather than embedding or sharing a key.
-
-## Provider recommendation
-
-Start with Jev for this text-only use case. OpenAI Decisions provides the same probability-based interface and can also accept images, though this extension sends text only. No claim is made that either is more accurate for LinkedIn slop. Compare them on posts you have labelled yourself and choose the provider that hides fewer useful posts. A reported 80% probability is not measured 80% accuracy or proof of AI authorship.
-
-### API contracts supplied with the source (9 October 2026)
-
-- Jev: `POST https://openrouter.ai/api/alpha/decisions`, model `typesafe/jev-1.13`, named `noul` question; read `answers.slop.noul`.
-- OpenAI: `POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`, named `predicate` question; read the matching answer's `probability`. Public beta.
-- https://openrouter.ai/blog/insights/what-is-jev/
-- https://developers.openai.com/api/docs/guides/decisions
-
-## Development and limitations
-
-No build step. All runtime code is bundled; no remote scripts or dependencies.
-
-From the repository root:
+## Development and verification
 
 ```sh
 npm ci
@@ -81,11 +87,12 @@ npx playwright install chromium
 npm test
 ```
 
-`npm test` runs core request-schema, response-validation and strict threshold checks; mocked service-worker checks; local schema, queue, switching, cache and fail-open checks; evaluation metric checks; JavaScript syntax; and Chromium simulated-feed and settings tests, including the merged key verification/setup guide/cache UI checks. Browser tests use synthetic cards and mocked responses, with no LinkedIn login, credentials or live provider calls. Playwright is a development dependency only. Real local checks are opt-in: `npm run smoke:ollama` and `npm run smoke:extension`.
+The suite checks provider schemas, response validation, strict thresholds, migration, credential isolation, sequential queue/cache/limits, fail-open behavior, experience-message permissions, corrections, rubric fixtures and metrics, syntax, simulated-feed scrolling/recovery and settings/popup browser behavior. CI runs the same command. Browser fixtures use synthetic text and mocked responses; Playwright is a development dependency only.
 
-Run individual checks with `npm run test:core`, `test:verify`, `test:cache`, `test:background`, `test:syntax`, `test:feed`, `test:options`, `test:setup`, `test:cacheui`, `test:local` or `test:localui`. GitHub Actions runs the suite on pushes to `main` and pull requests. See the [manual-label evaluation workflow](docs/evaluation.md) for comparing local inference with Jev, especially useful posts wrongly hidden.
+Optional real checks are `npm run smoke:ollama`, `npm run smoke:extension` and `npm run smoke:jev`. The Jev smoke requires your `OPENROUTER_API_KEY` environment variable and makes one billed synthetic request; never put the key in a file, issue, log or commit. Local checks require the downloaded model/service. Neither establishes live-feed compatibility or accuracy.
 
-LinkedIn's DOM changes frequently. Supported card selectors are in `content.js`; if filtering stops finding posts, update those selectors. As of 9 October 2026, a signed-in feed (`/feed/foryou/`) uses hashed class names, so posts are found through `role="listitem"` cards whose `componentkey` starts `update-card` and text in `data-testid="expandable-text-box"`; the older class-based selectors remain as a fallback. The content script runs on `/feed/` URLs; if you arrive there through LinkedIn navigation from another page, reload the feed. It deliberately does not scan profiles or search results.
+Configured cloud contracts are Jev `typesafe/jev-1.13` through OpenRouter's alpha Decisions endpoint and OpenAI `gpt-6-luna` through `/v1/decisions`. These are source configuration, not a claim that account access, billing or live multi-category calls have been verified. Local Ollama uses an HTTP loopback origin and rejects cloud model tags.
 
-No live cloud API or signed-in LinkedIn verification has been performed: cloud setup needs your API credentials, and live DOM compatibility needs checking on your account. A real local Qwen3.5 4B synthetic smoke and direct unpacked-extension smoke passed on the M4 Max; see [local verification evidence](docs/local-ollama.md). These are not live LinkedIn tests or model quality measurements.
-Local core, mocked background, JavaScript syntax and Chromium simulated-feed checks passed on 9 October 2026. Track live verification and provider comparison in issues [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3).
+LinkedIn's DOM and virtualization change frequently. Current selectors support older feed classes and `role="listitem"`/`componentkey="update-card…"` cards with expandable text boxes. If arriving through navigation from a page where the script was not injected, reload the feed. Profiles and search results are not scanned.
+
+Release checks use synthetic Chromium feeds and a real unpacked extension in a temporary profile. Signed-in LinkedIn compatibility, cloud API calls and representative real-post accuracy remain unverified; track [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3). A prior real local Qwen3.5 4B synthetic smoke passed; see [local evidence](docs/local-ollama.md).
