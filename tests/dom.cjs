@@ -39,7 +39,7 @@ const assert=require('node:assert/strict');
  await page.waitForSelector('#slop.lsf-folded');
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),false);
  assert.equal(await badge('slop').count(),0);
- assert.equal(await page.locator('#slop .lsf-bar span').innerText(),'Slop 95% sure');
+ assert.equal(await page.locator('#slop .lsf-bar span').innerText(),'Slop • 95% confidence');
  // After "Show anyway" the revealed post shows what applies.
  await page.locator('#slop .lsf-bar button').filter({hasText:'Show post'}).click();
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),true);
@@ -214,7 +214,7 @@ const assert=require('node:assert/strict');
  await page.evaluate(()=>{const tail=document.createElement('div');tail.style.height='1000px';document.getElementById('feed').append(tail);});
  await page.evaluate(()=>{window.scrollTo({top:document.getElementById('both').offsetTop+250,behavior:'instant'});window.mockCats=window.mockCats.map(c=>c.id==='advert'?{...c,action:'hide',threshold:.85}:c);});
  await page.waitForSelector('#advert.lsf-folded');
- assert.equal(await page.locator('#advert .lsf-bar span').innerText(),'Advert 90% sure');
+ assert.equal(await page.locator('#advert .lsf-bar span').innerText(),'Advert • 90% confidence');
  await page.waitForSelector('#both.lsf-folded');
  assert.equal(await page.locator('#both').evaluate(e=>e.classList.contains('lsf-highlight')),false,'a hidden post is not also highlighted');
  assert.equal(await page.locator('#slop .lsf-revealed-bar').count(),1,'a post already revealed stays revealed');
