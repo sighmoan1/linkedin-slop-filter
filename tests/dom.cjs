@@ -5,7 +5,9 @@ const assert=require('node:assert/strict');
 (async()=>{
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage();
- await page.route('https://www.linkedin.com/feed/',r=>r.fulfill({contentType:'text/html',body:'<html><body><main id="feed"></main></body></html>'}));
+ page.setDefaultTimeout(10000);
+ page.on('pageerror',e=>console.error('FEED RUNTIME ERROR:',e.message));
+ await page.route('https://www.linkedin.com/feed/',r=>r.fulfill({contentType:'text/html',body:'<html><body><main id="feed" style="padding-top:1000px"></main></body></html>'}));
  await page.goto('https://www.linkedin.com/feed/');
  await page.addStyleTag({content:fs.readFileSync(path.join(__dirname,'../content.css'),'utf8')});
  await page.evaluate(()=>{
@@ -16,6 +18,8 @@ const assert=require('node:assert/strict');
   const view=()=>({enabled:window.mockEnabled,provider:'jev',configuration:window.mockConfig,categories:window.mockCats});
   window.chrome={runtime:{sendMessage:async m=>{
    if(m.type==='settings')return view();
+   if(m.type==='experience')return {appearance:{theme:'native',groupHidden:false,labels:'matches'},showEverything:false};
+   if(m.type!=='classify')return {ok:true};
    window.calls.push(m.text);
    if(m.text.includes('FAIL'))return {error:'API unavailable',short:'API error 500'};
    if(m.text.includes('NOKEY'))return {error:'Add your provider API key in extension settings.',short:'no API key'};
@@ -25,7 +29,7 @@ const assert=require('node:assert/strict');
   }}};
  });
  await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../content.js'),'utf8')});
- async function card(id,text){await page.evaluate(({id,text})=>{const p=document.createElement('article');p.id=id;p.className='feed-shared-update-v2';const t=document.createElement('div');t.className='update-components-text';t.textContent=text;p.append(t);document.getElementById('feed').append(p);},{id,text});}
+ async function card(id,text){await page.evaluate(({id,text})=>{const p=document.createElement('article');p.id=id;p.className='feed-shared-update-v2';const t=document.createElement('div');t.className='update-components-text';t.textContent=text;p.append(t);document.getElementById('feed').append(p);if(id!=='far')window.scrollTo({top:Math.max(0,p.offsetTop-innerHeight-80),behavior:'instant'});},{id,text});}
  const badge=id=>page.locator('#'+id+' .lsf-badge');
  const badgeText=async id=>(await badge(id).innerText()).trim();
  const waitBadge=(id,re)=>page.waitForFunction(({id,src})=>new RegExp(src).test(document.querySelector('#'+id+' .lsf-badge')?.textContent||''),{id,src:re.source});
@@ -35,15 +39,18 @@ const assert=require('node:assert/strict');
  await page.waitForSelector('#slop.lsf-folded');
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),false);
  assert.equal(await badge('slop').count(),0);
- assert.equal(await page.locator('#slop .lsf-bar span').innerText(),'Hidden as Slop · 95% model estimate');
+ assert.equal(await page.locator('#slop .lsf-bar span').innerText(),'Slop');
  // After "Show anyway" the revealed post shows what applies.
- await page.locator('#slop button').click();
+ await page.locator('#slop .lsf-bar button').filter({hasText:'Show'}).click();
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),true);
- assert.equal(await page.locator('#slop .lsf-bar').count(),0);
- assert.equal(await badgeText('slop'),'Slop 95%');
+ assert.equal(await page.locator('#slop .lsf-revealed-bar').count(),1);
+ assert.equal(await badge('slop').isVisible(),false,'revealed header names the categories without a duplicate footer label');
  assert.match(await badge('slop').getAttribute('class'),/lsf-c-hide/);
  assert.match(await badge('slop').getAttribute('title'),/not proof of AI authorship/);
- assert.match(await badge('slop').getAttribute('title'),/All scores: Slop 95%, Advert 10%, Nourishment 20%\./);
+ await page.locator('#slop .lsf-tools button').filter({hasText:'Details'}).click();
+ assert.match(await page.locator('#slop .lsf-panel').innerText(),/Slop\s+95%\s+Hide above 80%/);
+ assert.match(await page.locator('#slop .lsf-panel').innerText(),/Advert\s+10%/);
+ await page.locator('#slop .lsf-tools button').filter({hasText:'Details'}).click();
 
  // Exactly at the threshold stays visible, and nothing applies.
  await card('edge','Useful real story at exact threshold');
@@ -56,16 +63,18 @@ const assert=require('node:assert/strict');
  await card('error','FAIL service error');
  await page.waitForFunction(()=>window.calls.length>=3);
  assert.equal(await page.locator('#error .update-components-text').isVisible(),true);
- await waitBadge('error',/Not scored: API error 500/);
- assert.match(await badge('error').getAttribute('title'),/API unavailable/);
+ await waitBadge('error',/^Not scored$/);
+ assert.match(await badge('error').getAttribute('title'),/Check provider status/);
  assert.match(await badge('error').getAttribute('class'),/lsf-muted/);
  await card('nokey','NOKEY missing key');
- await waitBadge('nokey',/Not scored: no API key/);
+ await waitBadge('nokey',/^Not scored$/);
 
  // Scores below every threshold stay visible with a neutral chip.
  await card('low','LOW useful technical post');await card('mid','MID some filler');await card('high','HIGH nearly slop');
  for(const id of ['low','mid','high']){await waitBadge(id,/^No category$/);assert.equal(await page.locator('#'+id).evaluate(e=>e.classList.contains('lsf-folded')),false);}
- assert.match(await badge('high').getAttribute('title'),/Slop 70%/);
+ await page.locator('#high .lsf-tools button').filter({hasText:'Details'}).click();
+ assert.match(await page.locator('#high .lsf-panel').innerText(),/Slop\s+70%/);
+ await page.locator('#high .lsf-tools button').filter({hasText:'Details'}).click();
 
  // A post being scored says so, then shows its result.
  await card('slow','SLOW still thinking');
@@ -142,11 +151,12 @@ const assert=require('node:assert/strict');
   make('notcard','something-else','SLOP this listitem is not a post');
  });
  await waitBadge('newlow',/^No category$/);
+ await page.locator('#newslop').evaluate(e=>window.scrollTo({top:Math.max(0,e.offsetTop-innerHeight-80),behavior:'instant'}));
  await page.waitForSelector('#newslop.lsf-folded');
- assert.match(await page.locator('#newslop .lsf-bar span').innerText(),/Slop · 95%/);
+ assert.match(await page.locator('#newslop .lsf-bar span').innerText(),/Slop/);
  assert.equal(await page.locator('#newslop [data-testid=expandable-text-box]').isVisible(),false);
- await page.locator('#newslop button').click();
- await waitBadge('newslop',/^Slop 95%$/);
+ await page.locator('#newslop .lsf-bar button').filter({hasText:'Show'}).click();
+ assert.equal(await page.locator('#newslop .lsf-revealed-bar').isVisible(),true);
  assert.equal(await page.locator('#newlow .lsf-badge').count(),1);
  assert.equal(await page.locator('#notcard .lsf-badge, #notcard .lsf-bar').count(),0,'list items that are not update cards are ignored');
  assert.equal(await page.locator('#notcard').evaluate(e=>e.classList.contains('lsf-folded')),false);
@@ -157,6 +167,7 @@ const assert=require('node:assert/strict');
   const box=document.createElement('div');box.setAttribute('data-testid','expandable-text-box');
   box.innerHTML='SLOP first line<br><br>second   line<p>third paragraph</p>';li.append(box);document.getElementById('feed').append(li);
  });
+ await page.locator('#flick').evaluate(e=>window.scrollTo({top:Math.max(0,e.offsetTop-innerHeight-80),behavior:'instant'}));
  await page.waitForSelector('#flick.lsf-folded');
  assert.equal(await page.evaluate(()=>window.calls.find(text=>text?.startsWith('SLOP first line'))),'SLOP first line\n\nsecond line\nthird paragraph','line and paragraph boundaries reach classification intact');
  const flick=await page.evaluate(async()=>{
@@ -174,37 +185,39 @@ const assert=require('node:assert/strict');
   card.innerHTML='<header>AUTHOR METADATA</header><div class="update-components-text">SLOP first <strong>formatted</strong> line<br>second <em>inline</em> line<p>third <a href="https://example.com">paragraph</a></p><div>fourth <span>nested</span> block</div><button>SEE MORE CONTROL</button><span data-lsf-ui>EXTENSION UI</span></div><section>COMMENT TEXT</section>';
   document.getElementById('feed').append(card);
  });
+ await page.locator('#boundaries').evaluate(e=>window.scrollTo({top:Math.max(0,e.offsetTop-innerHeight-80),behavior:'instant'}));
  await page.waitForSelector('#boundaries.lsf-folded');
  const boundaryText='SLOP first formatted line\nsecond inline line\nthird paragraph\n\nfourth nested block';
  assert.equal(await page.evaluate(()=>window.calls.find(text=>text?.startsWith('SLOP first formatted'))),boundaryText);
  const beforeBoundaryReveal=await page.evaluate(()=>window.calls.length);
- await page.locator('#boundaries .lsf-bar button').click();
+ await page.locator('#boundaries .lsf-bar button').filter({hasText:'Show'}).click();
  await page.waitForTimeout(350);
  assert.equal(await page.evaluate(()=>window.calls.length),beforeBoundaryReveal,'revealing the same body does not change its extracted identity');
  assert.equal(await page.locator('#boundaries .update-components-text').isVisible(),true);
 
  // Categories: one shown on the chip only names itself there; one set to highlight also marks the post.
  await card('advert','MULTI ADVERT buy my course now');
- await waitBadge('advert',/^Advert 90%$/);
+ await waitBadge('advert',/^Advert$/);
  assert.match(await badge('advert').getAttribute('class'),/lsf-c-label/);
  assert.equal(await page.locator('#advert').evaluate(e=>e.classList.contains('lsf-folded')||e.classList.contains('lsf-highlight')),false);
  await card('maybe','MULTI MAYBE borderline');
  await waitBadge('maybe',/^No category$/);
  await card('nourish','MULTI NOURISH solid analysis');
- await waitBadge('nourish',/^Nourishment 97%$/);
+ await waitBadge('nourish',/^Nourishment$/);
  assert.match(await badge('nourish').getAttribute('class'),/lsf-c-highlight/);
  assert.equal(await page.locator('#nourish').evaluate(e=>e.classList.contains('lsf-highlight')),true);
  await card('both','MULTI ADVERT NOURISH sponsored but useful');
- await waitBadge('both',/^Nourishment 97% · Advert 90%$/,'strongest first');
+ await waitBadge('both',/^Nourishment · Advert$/,'strongest first');
 
  // Changing an action or threshold applies to posts already scored, with no new request and no reset.
  const callsBefore=await page.evaluate(()=>window.calls.length);
- await page.evaluate(()=>{window.mockCats=window.mockCats.map(c=>c.id==='advert'?{...c,action:'hide',threshold:.85}:c);});
+ await page.evaluate(()=>{const tail=document.createElement('div');tail.style.height='1000px';document.getElementById('feed').append(tail);});
+ await page.evaluate(()=>{window.scrollTo({top:document.getElementById('both').offsetTop+250,behavior:'instant'});window.mockCats=window.mockCats.map(c=>c.id==='advert'?{...c,action:'hide',threshold:.85}:c);});
  await page.waitForSelector('#advert.lsf-folded');
- assert.equal(await page.locator('#advert .lsf-bar span').innerText(),'Hidden as Advert · 90% model estimate');
+ assert.equal(await page.locator('#advert .lsf-bar span').innerText(),'Advert');
  await page.waitForSelector('#both.lsf-folded');
  assert.equal(await page.locator('#both').evaluate(e=>e.classList.contains('lsf-highlight')),false,'a hidden post is not also highlighted');
- assert.equal(await page.locator('#slop .lsf-bar').count(),0,'a post already revealed stays revealed');
+ assert.equal(await page.locator('#slop .lsf-revealed-bar').count(),1,'a post already revealed stays revealed');
  await page.evaluate(()=>{window.mockCats=window.mockCats.map(c=>c.id==='advert'?{...c,threshold:.95}:c);});
  await page.waitForFunction(()=>!document.querySelector('#advert').classList.contains('lsf-folded'));
  await waitBadge('advert',/^No category$/);
@@ -214,9 +227,9 @@ const assert=require('node:assert/strict');
  await page.waitForFunction(n=>window.calls.length>n,callsBefore);
 
  // Turning filtering off removes folds and every badge.
- await card('pause','SLOP pause me');await page.locator('#pause').scrollIntoViewIfNeeded();await page.waitForSelector('#pause.lsf-folded');
+ await card('pause','SLOP pause me');await page.waitForSelector('#pause.lsf-folded');
  await page.evaluate(()=>window.mockEnabled=false);
- await page.waitForFunction(()=>!document.querySelector('#pause').classList.contains('lsf-folded')&&document.querySelectorAll('.lsf-badge').length===0&&document.querySelectorAll('.lsf-highlight').length===0,{},{timeout:8000});
+ await page.waitForFunction(()=>!document.querySelector('#pause').classList.contains('lsf-folded')&&[...document.querySelectorAll('.lsf-badge')].every(e=>!e.getClientRects().length)&&document.querySelectorAll('.lsf-highlight').length===0,{},{timeout:8000});
  console.log('PASS: dynamic feed, hide/highlight/label by category, reveal, threshold, API failure, recycled card, display-only changes, rescoring, disable, chips (scored, scoring, waiting, not scored, revealed, stable, removed)');
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
