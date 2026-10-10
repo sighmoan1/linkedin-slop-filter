@@ -322,9 +322,9 @@
       const author=experience.appearance.showAuthor?postAuthor(post):"";
       const categories=hiding.map(c=>{
         const score=record.scores?.[c.id];
-        return c.name+(!c.corrected&&Number.isFinite(score)?" "+Math.round(score*100)+"% sure":"");
-      }).join(" · ");
-      const label=(author?author+" · ":"")+categories;
+        return c.name+(!c.corrected&&Number.isFinite(score)?" • "+Math.round(score*100)+"% confidence":"");
+      }).join(" • ");
+      const label=categories+(author?" • "+author:"");
       textOf(record.foldLabel,label);
       attr(record.bar,"data-label",label);
       attr(record.foldLabel,"title",label+". "+status(record,hits).title);
