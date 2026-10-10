@@ -6,3 +6,12 @@
 .lsf-badge.lsf-c-highlight { color:#1f6b3a; background:#eaf5ee; border-color:#bfdcc9; }
 .lsf-badge.lsf-c-label { color:#7a5200; background:#fdf3dc; border-color:#ecd49a; }
 .lsf-badge.lsf-c-hide { color:#9a332d; background:#fbeceb; border-color:#e8b9b5; }
+/* Feed-local appearance tokens: themes change presentation, never category rules. */
+.lsf-feed-card, .lsf-feed-toolbar {
+  --lsf-paper:#fff; --lsf-surface:#f6f8fa; --lsf-ink:#263238; --lsf-muted:#64727a;
+  --lsf-line:#dbe2e7; --lsf-brand:#0a66c2; --lsf-tone:var(--lsf-brand);
+}
+.lsf-feed-card[data-lsf-theme="reader"] { --lsf-paper:#fffdf7; --lsf-surface:#f5f0e6; --lsf-ink:#333b32; --lsf-muted:#6f766b; --lsf-line:#dddccb; --lsf-brand:#386848; }
+.lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="slop"] { --lsf-tone:#a5573d; }
+.lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="brainrot"] { --lsf-tone:#74559b; }
+.lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="advert"] { --lsf-tone:#946513; }
