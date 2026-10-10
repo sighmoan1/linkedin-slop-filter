@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 (async()=>{
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage();
- await page.route('https://www.linkedin.com/feed/',r=>r.fulfill({contentType:'text/html',body:'<html><body><main id="feed"></main></body></html>'}));
+ await page.route('https://www.linkedin.com/feed/',r=>r.fulfill({contentType:'text/html',body:'<html><body><main id="feed" style="padding-top:1000px"></main></body></html>'}));
  await page.goto('https://www.linkedin.com/feed/');
  await page.addStyleTag({content:fs.readFileSync(path.join(__dirname,'../content.css'),'utf8')});
  await page.evaluate(()=>{
@@ -14,16 +14,18 @@ const assert=require('node:assert/strict');
   window.chrome={runtime:{sendMessage:async m=>{
    const view={enabled:window.mockEnabled,provider:window.mockProvider,configuration:window.mockConfig,categories:[{id:'slop',name:'Slop',action:'hide',threshold:window.mockThreshold}]};
    if(m.type==='settings')return view;
+   if(m.type==='experience')return {appearance:{theme:'native',groupHidden:false,labels:'matches'},showEverything:false};
+   if(m.type!=='classify')return {ok:true};
    window.calls.push(m.text);
    return m.text.includes('FAIL')?{error:'API unavailable'}:{...view,scores:{slop:m.text.includes('INVALID')?'0.99':m.text.includes('SLOP')?.95:.8}};
   }}};
  });
  await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../content.js'),'utf8')});
- async function card(id,text){await page.evaluate(({id,text})=>{const p=document.createElement('article');p.id=id;p.className='feed-shared-update-v2';const t=document.createElement('div');t.className='update-components-text';t.textContent=text;p.append(t);document.getElementById('feed').append(p);},{id,text});}
+ async function card(id,text){await page.evaluate(({id,text})=>{const p=document.createElement('article');p.id=id;p.className='feed-shared-update-v2';const t=document.createElement('div');t.className='update-components-text';t.textContent=text;p.append(t);document.getElementById('feed').append(p);window.scrollTo({top:Math.max(0,p.offsetTop-innerHeight-80),behavior:'instant'});},{id,text});}
  await card('slop','SLOP generic wisdom');
  await page.waitForSelector('#slop.lsf-folded');
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),false);
- await page.locator('#slop button').click();
+ await page.locator('#slop .lsf-bar button').filter({hasText:'Show'}).click();
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),true);
  await card('edge','Useful real story at exact threshold');
  await page.waitForFunction(()=>window.calls.length>=2);
@@ -41,9 +43,10 @@ const assert=require('node:assert/strict');
  await page.evaluate(()=>{window.mockEnabled=true;window.mockProvider='ollama';window.mockConfig='local-model-a';window.mockThreshold=.9;});
  await card('local','SLOP local dynamic card');
  await page.waitForSelector('#local.lsf-folded');
- assert.match(await page.locator('#local .lsf-bar').innerText(),/local self-reported confidence/);
+ await page.locator('#local .lsf-bar button').filter({hasText:'Details'}).click();
+ assert.match(await page.locator('#local .lsf-panel').innerText(),/Local scores are self-reported confidence/);
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),true);
- await page.locator('#local button').click();
+ await page.locator('#local .lsf-bar button').filter({hasText:'Show'}).click();
  assert.equal(await page.locator('#local .update-components-text').isVisible(),true);
  await card('invalid','INVALID local response');
  await page.waitForFunction(()=>window.calls.includes('INVALID local response'));
