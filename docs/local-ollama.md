@@ -84,3 +84,11 @@ Use the [manual-label workflow](evaluation.md) before deciding a local threshold
 ### Connection-test evidence from 10 October 2026
 
 The new `verifyOllama` helper passed a real synthetic request to the existing service on `127.0.0.1:11434` using the downloaded `qwen3.5:4b-q4_K_M` model in 4,126 ms. This was a direct Node API check; it does not verify browser-origin access. The deterministic tests cover the Provider button with unsaved values and filtering paused, no credential header or settings/session writes, service errors, and rejection of stale results. The installed Brave extension and signed-in feed have not been updated or verified for this change.
+
+### Installed Brave connection repair, issue #96
+
+On 10 October 2026, the existing signed-in Brave installation’s local origin denial was repaired with macOS `launchctl` environment configuration: the exact installed extension origin, `OLLAMA_HOST=127.0.0.1:11434` and `OLLAMA_NO_CLOUD=1`. The existing Ollama application restarted with those values; no models were downloaded or removed. The allowed-origin tags check returned HTTP 200, an unrelated web origin returned HTTP 403, and the service listened only on 127.0.0.1. A synthetic request carrying the installed origin passed response validation, and the installed settings button displayed “Local Ollama works.”
+
+A per-user login job, `~/Library/LaunchAgents/com.linkedin-slop-filter.ollama.plist`, runs `~/Library/Application Support/LinkedIn Slop Filter/configure-ollama.zsh` to restore this configuration at login. It leaves a healthy configured service running and restarts the existing macOS application when origin access is missing. The plist and shell syntax checks passed; the loaded job exited successfully. A subsequent full logout/login has not been exercised. This setup is local to the owner’s machine and does not grant wildcard origin or network access.
+
+The signed-in For You feed then scored real posts through local Ollama and applied the merged immediate Hide behavior. Live reveal/re-hide, popup temporary recovery/restoration and feed discovery were verified; saved rules, credentials, selected people and corrections were preserved. See [feed release evidence](feed-experience.md) for the checks and their limits.
