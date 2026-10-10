@@ -1,4 +1,4 @@
-import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl} from "./core.mjs";
+import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE} from "./core.mjs";
 // API keys remain in trusted extension contexts.
 chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
@@ -43,6 +43,7 @@ function senderKind(sender) {
   try {
     const url = new URL(sender?.url);
     if (isFeedUrl(sender.url)) return "feed";
+    if (isPeopleUrl(sender.url)) return "people";
     const base = chrome.runtime.getURL?.("");
     if (base) {
       const own = new URL(base);
@@ -146,6 +147,24 @@ async function classify(rawText, manual = false) {
 
 async function handle(message, sender, kind) {
   const tabId = tabFor(kind, sender, message);
+  if (message.type === "people") {
+    const job = edits.then(async () => {
+      let people = normalizePeople((await chrome.storage.local.get(PEOPLE_KEY))[PEOPLE_KEY]);
+      if (message.action === "set") {
+        const url = profileUrl(message.url);
+        if (!url || typeof message.value !== "boolean") throw new Error("Choose a LinkedIn profile and whether to keep it visible.");
+        people = people.filter(p => p.url !== url);
+        if (message.value) {
+          if (people.length >= MAX_PEOPLE) throw new Error("The never-hide list is full. Remove someone first.");
+          people.push({url, name: typeof message.name === "string" ? message.name.trim().slice(0,100) : ""});
+        }
+        await chrome.storage.local.set({[PEOPLE_KEY]:people});
+      } else if (message.action !== "list") throw new Error("Unknown people action.");
+      return {people: kind === "feed" ? people.map(p => p.url) : people};
+    });
+    edits = job.catch(() => {});
+    return job;
+  }
   if (message.type === "settings") return view(await load());
   if (message.type === "experience") return experience(tabId);
   if (message.type === "appearance") {
@@ -160,7 +179,7 @@ async function handle(message, sender, kind) {
     return experience(tabId);
   }
   if (message.type === "openSettings") {
-    const section = ["feed","categories","provider","corrections","playground"].includes(message.section) ? message.section : null;
+    const section = ["feed","categories","provider","corrections","playground","people"].includes(message.section) ? message.section : null;
     if (section && chrome.tabs?.create && chrome.runtime.getURL) {
       await chrome.tabs.create({url:chrome.runtime.getURL("options.html#" + section)});
     } else await chrome.runtime.openOptionsPage();
@@ -214,7 +233,10 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (!kind || !message || typeof message !== "object") return false;
   const shared = ["settings","experience","appearance","showEverything","openSettings","correction"];
   const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","corrections","playground"];
-  if (!allowed.includes(message.type)) return false;
+  if (kind === "people" && message.type !== "people") return false;
+  if (message.type === "people") {
+    if (kind === "feed" && message.action !== "list") return false;
+  } else if (!allowed.includes(message.type)) return false;
   if (["classify","playground"].includes(message.type) && (typeof message.text !== "string" || message.text.length > 12000)) return false;
   const isClassification = ["classify","playground"].includes(message.type);
   const work = handle(message, sender, kind);

@@ -5,4 +5,5 @@ export * from "./core/cache.mjs";
 export * from "./core/verify.mjs";
 export * from "./core/experience.mjs";
 export * from "./core/feed.mjs";
+export * from "./core/people.mjs";
 export * from "./core/feedback.mjs";

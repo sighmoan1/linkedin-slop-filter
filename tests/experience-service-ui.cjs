@@ -44,6 +44,14 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
    window.chrome={storage:{local:area('local'),session:area('session')},tabs:{query:async()=>[{id:7,url:'https://www.linkedin.com/feed/foryou/'}],sendMessage:async()=>({isFeed:true,posts:8})},runtime:{sendMessage:message=>window.lsfRuntime(message),openOptionsPage:()=>window.lsfOpenSettings()}};
   });
   const page=await context.newPage();await page.goto('https://ext.test/options.html');await page.waitForFunction(()=>document.documentElement.dataset.settingsReady==='true');
+  await page.locator('[data-panel=people]').click();
+  await page.fill('#personUrl','https://www.linkedin.com/in/synthetic-person/?trk=test');await page.click('#addPerson');
+  await page.waitForFunction(()=>document.getElementById('peopleStatus').textContent.startsWith('Saved'));
+  assert.equal(local.neverHidePeople[0].url,'https://www.linkedin.com/in/synthetic-person');assert.equal(calls,0);
+  await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.settingsReady==='true');
+  await page.getByRole('button',{name:'Remove https://www.linkedin.com/in/synthetic-person from never-hide list'}).click();
+  await page.waitForFunction(()=>document.getElementById('peopleStatus').textContent.startsWith('Removed'));
+  assert.equal(local.neverHidePeople.length,0);assert.equal(local.jevKey,'SYNTHETIC-TEST-KEY');
   await page.locator('[data-panel=playground]').click();await page.fill('#playgroundText','Synthetic ordinary post body, never stored as text.');
   assert.equal(calls,0,'typing does not call the provider');
   await page.click('#classifyPost');await page.waitForFunction(()=>document.getElementById('playgroundResult').hidden===false);
