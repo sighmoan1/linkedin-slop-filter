@@ -327,7 +327,7 @@
     }
     if(summaryPost){const record=records.get(summaryPost);(summaryTarget||[record.show,record.detailsButton,toolbar?.theme].find(e=>e?.isConnected&&e.getClientRects().length))?.focus({preventScroll:true});}
   }
-  async function openSettings(){try{await send({type:"openSettings",section:"categories"});}catch{}}
+  async function openSettings(section="categories"){try{await send({type:"openSettings",section});}catch{}}
   function setExperience(next) {
     if(stopped||!next||!next.appearance)return;
     const a=next.appearance;
@@ -344,9 +344,10 @@
       themeLabel.append(theme);
       theme.addEventListener("change",async()=>{try{setExperience(await send({type:"appearance",appearance:{...experience.appearance,theme:theme.value}}));schedulePaint();}catch{theme.value=experience.appearance.theme;}});
       const all=button("Show everything",async()=>{try{setExperience(await send({type:"showEverything",value:!experience.showEverything}));schedulePaint();}catch{} });
-      const manage=button("Settings",()=>openSettings(),"lsf-button lsf-flat");
+      const categories=button("Categories",()=>openSettings("categories"),"lsf-button lsf-flat");
+      const manage=button("Settings",()=>openSettings("feed"),"lsf-button lsf-flat");
       const status=node("p","lsf-toolbar-status");status.setAttribute("role","status");
-      main.append(title,themeLabel,all,manage);element.append(main,status);first.before(element);
+      main.append(title,themeLabel,all,categories,manage);element.append(main,status);first.before(element);
       toolbar={element,theme,all,status};
     }
     attr(toolbar.element,"data-lsf-theme",experience.appearance.theme);
