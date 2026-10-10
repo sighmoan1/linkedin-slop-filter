@@ -1,6 +1,7 @@
 (() => {
   const POST = '[role="listitem"][componentkey^="update-card"], .feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
   const TEXT = '[data-testid="expandable-text-box"], .update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
+  const IMAGES = '.update-components-image img, .feed-shared-image img, img.update-components-image__image, img.feed-shared-image__image, [data-testid="feed-image"] img, img[data-testid="feed-image"], [data-view-name="feed-image"] img';
   const UI = '[data-lsf-ui]';
   const records = new Map();
   const openGroups = new Set();
@@ -91,6 +92,23 @@
     visit(element);
     return parts.join("").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim();
   }
+  function imageElements(post) {
+    if(!settings.images?.enabled)return [];
+    // Attachment elements only, never a broad img query over a post or page.
+    return [...post.querySelectorAll(IMAGES)].filter(img=>img.closest(POST)===post&&
+      !img.closest('[data-lsf-ui], .comments-comments-list, .comments-comment-item, .update-components-actor, .feed-shared-actor, .update-components-article, .feed-shared-article'));
+  }
+  function imageUrls(post) {
+    const urls=[];
+    for(const img of imageElements(post)) {
+      const src=img.getAttribute("srcset")?(img.complete?img.currentSrc:null):(img.getAttribute("src")||img.currentSrc);
+      if(src&&!urls.includes(src))urls.push(src);
+      if(urls.length===5)break;
+    }
+    return urls;
+  }
+  const imageIdentityFor = post => JSON.stringify(imageElements(post).map(img=>[img.getAttribute("src"),img.getAttribute("srcset"),img.currentSrc]));
+  const samePost = (post,record) => bodyText(post)===record.text&&imageIdentityFor(post)===record.imageIdentity;
   // Match only the outer post actor, never a mention, comment or embedded repost.
   function exempt(post) {
     const actor = post.querySelector('.update-components-actor__meta-link, .feed-shared-actor__meta-link, [data-testid="actor-name"] a, a[data-testid="actor-name"]');
@@ -106,6 +124,7 @@
     if(hasCorrection(record))return settings.categories.filter(c=>record.correctionIds.includes(c.id)).map(c=>({...c,corrected:true}));
     if (!record.scores || record.configuration!==settings.configuration) return [];
     return settings.categories.filter(c=>typeof record.scores[c.id]==="number"&&record.scores[c.id]>c.threshold)
+      .filter(c=>c.id!=="nourishment"||!(record.scores["lsf-visual-slop"]>settings.categories.find(x=>x.id==="lsf-visual-slop")?.threshold))
       .map(c=>({...c,p:record.scores[c.id]})).sort((a,b)=>b.p-a.p);
   }
   const visible = post => {const r=post.getBoundingClientRect();return r.height>0&&r.bottom>0&&r.top<innerHeight;};
@@ -168,9 +187,9 @@
     if(hasCorrection(record))return {text:hits.length?hits.map(c=>c.name).join(" · "):"No category",level:hits.some(c=>c.action==="hide")?"lsf-c-hide":hits.some(c=>c.action==="highlight")?"lsf-c-highlight":hits.length?"lsf-c-label":"lsf-c-none",title:"Your saved correction applies to this post. Category scores retain the original model scores; no automatic training."};
     if(record.scores&&record.configuration!==settings.configuration)return {text:"Updating scores",level:"lsf-muted",title:"Previous scores are stale. The original post stays visible while the new questions are scored."};
     if(record.scores) {
-      const partial=settings.categories.some(c=>typeof record.scores[c.id]!=="number");
+      const partial=settings.categories.some(c=>!(c.id==="lsf-visual-slop"&&["no-image","skipped-hidden"].includes(record.imageStatus))&&typeof record.scores[c.id]!=="number");
       const level=hits.some(c=>c.action==="hide")?"lsf-c-hide":hits.some(c=>c.action==="highlight")?"lsf-c-highlight":hits.length?"lsf-c-label":"lsf-c-none";
-      return {text:hits.length?hits.map(c=>c.name).join(" · "):partial?"Partly scored":"No category",level,title:(record.provider==="ollama"?"Local self-reported confidence, not a calibrated probability. ":"Model estimates, not proof of AI authorship. ")+"A category applies only above its threshold. Open Categories for scores and corrections."};
+      return {text:(hits.length?hits.map(c=>c.name).join(" · "):partial?"Partly scored":"No category")+(record.imageStatus==="unavailable"?" · Image unchecked":""),level,title:(record.provider==="ollama"?"Local self-reported confidence, not a calibrated probability. ":"Model estimates, not proof of AI authorship. ")+(record.imageModel?"Image model: "+record.imageModel+". ":record.imageStatus==="unavailable"?"Image check unavailable; only text assessed. ":"")+"A category applies only above its threshold. Open Categories for scores and corrections."};
     }
     if(record.pending)return {text:"Scoring…",level:"lsf-muted",title:"The original post stays visible while the model scores it."};
     if(record.error)return {text:"Not scored",level:"lsf-muted",title:"The post stays visible. Check provider status in extension settings."};
@@ -210,18 +229,19 @@
       Object.assign(record,{scoreStatus,scoreNote:note});
       const message=node("p","lsf-note");message.setAttribute("role","status");
       const save=button("Save categories",async()=>{
-        if(bodyText(post)!==record.text){scan();return;}
+        if(!samePost(post,record)){scan();return;}
         save.disabled=true;textOf(message,"Saving locally…");
         const correctionConfiguration=settings.configuration;
         const categoryIds=(record.correctionInputs||[]).filter(i=>i.checked).map(i=>i.value);
         try {
-          const reply=await send({type:"correction",text:record.text,categoryIds,scores:record.scores||{},configuration:record.configuration||settings.configuration,provider:record.provider||settings.provider});
+          const reply=await send({type:"correction",text:record.text,imageFingerprint:record.imageFingerprint,categoryIds,scores:record.scores||{},configuration:record.configuration||settings.configuration,provider:record.provider||settings.provider});
           if(!connected())return;
           if(!reply?.ok)throw new Error("not saved");
-          if(records.get(post)!==record||bodyText(post)!==record.text){scan();return;}
+          if(records.get(post)!==record||!samePost(post,record)){scan();return;}
           act(post,record,()=>{record.correctionIds=categoryIds;record.correctionConfiguration=correctionConfiguration;record.corrected=true;record.revealed=true;record.correcting=false;},"saved");
         }catch{textOf(message,"Could not save the correction. Try again or open settings.");}finally{save.disabled=false;}
       });
+      save.disabled=!record.text.trim();if(save.disabled)textOf(message,"Image-only posts can be revealed; saved corrections require a caption.");
       const cancel=button("Cancel",()=>act(post,record,()=>{record.correcting=false;},"cancel"),"lsf-button lsf-flat");
       const manage=button("Manage category rules",()=>openSettings(),"lsf-button lsf-flat");
       const actions=node("div","lsf-panel-actions");actions.append(save,cancel,manage);
@@ -229,9 +249,9 @@
       form.append(scoreStatus,table,help,message,actions);post.append(form);record.correction=form;
     }
     const stale=record.scores&&record.configuration!==settings.configuration;
-    const missing=settings.categories.some(c=>typeof record.scores?.[c.id]!=="number");
-    textOf(record.scoreStatus,stale?"Updating scores — previous scores are stale":record.scores?(missing?"Partly scored":"Model scores"):record.pending?"Scoring…":"Not scored");
-    textOf(record.scoreNote,(hasCorrection(record)?"Your correction determines this post’s categories; these are the original model scores. ":"")+"Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores are self-reported confidence, not calibrated probabilities.":"Model estimates do not establish AI authorship."));
+    const missing=settings.categories.some(c=>!(c.id==="lsf-visual-slop"&&["no-image","skipped-hidden"].includes(record.imageStatus))&&typeof record.scores?.[c.id]!=="number");
+    textOf(record.scoreStatus,record.imageStatus==="unavailable"?"Image unchecked — only text assessed":stale?"Updating scores — previous scores are stale":record.scores?(missing?"Partly scored":"Model scores"):record.pending?"Scoring…":"Not scored");
+    textOf(record.scoreNote,(hasCorrection(record)?"Your correction determines this post’s categories; these are the original model scores. ":"")+"Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores are self-reported confidence, not calibrated probabilities.":"Model estimates do not establish AI authorship.")+(record.imageModel?" Images: "+record.imageModel+".":"")+(record.imageUsage?.inputTokens!==undefined?" Image input: "+record.imageUsage.inputTokens+" tokens.":"")+(record.imageUsage?.cost!==undefined?" Image request cost: $"+record.imageUsage.cost+".":""));
     const signature=JSON.stringify([settings.categories,record.scores]);
     if(record.correctionSignature!==signature) {
       const focused=document.activeElement;
@@ -240,7 +260,7 @@
       const rows=[],inputs=[];
       for(const c of settings.categories){const label=node("label"),input=node("input");input.type="checkbox";input.value=c.id;input.checked=previous.has(c.id)?previous.get(c.id):record.correctionIds?record.correctionIds.includes(c.id):hits.some(h=>h.id===c.id);label.append(input,node("span","",c.name));
         const row=node("tr"),category=node("td"),score=record.scores?.[c.id];category.append(label);
-        row.append(category,node("td","",typeof score==="number"?scoreText(score,c.threshold):"Not returned"),node("td","",c.action[0].toUpperCase()+c.action.slice(1)+" above "+pct(c.threshold)));rows.push(row);inputs.push(input);}
+        row.append(category,node("td","",typeof score==="number"?scoreText(score,c.threshold):c.id==="lsf-visual-slop"&&record.imageStatus==="no-image"?"No attachment":c.id==="lsf-visual-slop"&&record.imageStatus==="skipped-hidden"?"Skipped — text hides":"Not returned"),node("td","",c.action[0].toUpperCase()+c.action.slice(1)+" above "+pct(c.threshold)));rows.push(row);inputs.push(input);}
       record.correctionFields.replaceChildren(...rows);record.correctionInputs=inputs;record.correctionSignature=signature;
       if(focusId)(inputs.find(i=>i.value===focusId)||record.correctionHeading).focus({preventScroll:true});
     }
@@ -348,7 +368,7 @@
   }
   function eligible(post,record) {
     if(exempt(post)||!post.isConnected||record.pending||Date.now()<(record.retryAt||0)||(record.scores&&record.configuration===settings.configuration))return false;
-    const r=post.getBoundingClientRect();return r.height>0&&r.bottom>=-200&&r.top<=innerHeight+700&&bodyText(post)===record.text;
+    const r=post.getBoundingClientRect();return r.height>0&&r.bottom>=-200&&r.top<=innerHeight+700&&samePost(post,record);
   }
   function pump() {
     if(!connected()||activeRequest||!settings.enabled||!settings.categories.length||!isFeed())return;
@@ -359,14 +379,14 @@
     if(!queue.length)return;
     const {post,record}=queue[0],configuration=settings.configuration,text=record.text;
     const token={post,record,configuration};activeRequest=token;record.pending=true;record.error=false;schedulePaint();
-    send({type:"classify",text}).then(result=>{
+    send({type:"classify",text,...(settings.images?.enabled?{imageUrls:record.imageUrls}:{})}).then(result=>{
       if(!connected())return;
-      if(records.get(post)!==record||bodyText(post)!==text||configuration!==settings.configuration)return;
+      if(records.get(post)!==record||!samePost(post,record)||configuration!==settings.configuration)return;
       if(result?.configuration&&result.configuration!==configuration){record.retryAt=Date.now()+1000;refresh();return;}
       if(result?.disabled){record.retryAt=Date.now()+1000;record.error=false;refresh().then(()=>{if(records.get(post)===record&&configuration===settings.configuration&&settings.enabled){record.retryAt=0;schedulePaint();}});return;}
       if(result?.error||!safeScores(result?.scores)){record.retryAt=Date.now()+60000;record.error=true;return;}
-      record.scores=result.scores;record.configuration=configuration;record.provider=result.provider||settings.provider;record.retryAt=0;record.error=false;
-    }).catch(()=>{if(records.get(post)===record&&bodyText(post)===text&&configuration===settings.configuration){record.retryAt=Date.now()+60000;record.error=true;}}).finally(()=>{
+      record.scores=result.scores;record.configuration=configuration;record.provider=result.provider||settings.provider;record.imageFingerprint=result.imageFingerprint;record.imageStatus=result.imageStatus;record.imageModel=result.imageModel;record.imageUsage=result.imageUsage;record.retryAt=0;record.error=false;
+    }).catch(()=>{if(records.get(post)===record&&samePost(post,record)&&configuration===settings.configuration){record.retryAt=Date.now()+60000;record.error=true;}}).finally(()=>{
       if(records.get(post)===record)record.pending=false;
       if(activeRequest===token)activeRequest=null;schedulePaint();
     });
@@ -379,11 +399,11 @@
     for(const candidate of document.querySelectorAll(POST)) {
       const post=candidate.closest(".feed-shared-update-v2")||candidate;
       if(post.parentElement?.closest(POST))continue;
-      const text=bodyText(post),old=records.get(post);
-      if(!text){if(old)forget(post,old);continue;}
-      if(old?.text===text)continue;
+      const text=bodyText(post),urls=imageUrls(post),imageIdentity=imageIdentityFor(post),old=records.get(post);
+      if(!text&&!urls.length){if(old)forget(post,old);continue;}
+      if(old?.text===text&&old.imageIdentity===imageIdentity)continue;
       if(old)forget(post,old);
-      const record={id:++nextId,text,body:post.querySelector(TEXT),revealed:false};
+      const record={id:++nextId,text,imageUrls:urls,imageIdentity,body:post.querySelector(TEXT),revealed:false};
       records.set(post,record);observer.observe(post);
     }
     // Preserve actual DOM order for grouping even if LinkedIn inserts an older card above.
@@ -398,10 +418,11 @@
     const appearanceChanged=changes.some(m=>m.type==="attributes"&&!m.target.closest?.(UI)&&
       (m.attributeName!=="class"||nativeClass(m.oldValue)!==nativeClass(m.target.getAttribute("class"))));
     if(appearanceChanged)schedulePaint();
-    const changed=changes.some(m=>!m.target.closest?.(UI)&&([...m.addedNodes,...m.removedNodes].some(n=>n.nodeType!==Node.ELEMENT_NODE||!n.matches?.(UI))||m.type==="characterData"));
+    const changed=changes.some(m=>!m.target.closest?.(UI)&&([...m.addedNodes,...m.removedNodes].some(n=>n.nodeType!==Node.ELEMENT_NODE||!n.matches?.(UI))||m.type==="characterData"||["src","srcset"].includes(m.attributeName)));
     if(changed)scheduleScan();
   });
-  mutations.observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeOldValue:true,attributeFilter:["class","style","data-theme","data-color-mode"]});
+  mutations.observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeOldValue:true,attributeFilter:["class","style","data-theme","data-color-mode","src","srcset"]});
+  listen(document,"load",event=>{if(event.target?.tagName==="IMG")scheduleScan();},true);
   listen(matchMedia("(prefers-color-scheme: dark)"),"change",schedulePaint);
   listen(window,"scroll",schedulePaint,{passive:true});listen(window,"resize",schedulePaint,{passive:true});
   listen(document,"focusin",schedulePaint);listen(document,"focusout",schedulePaint);

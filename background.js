@@ -1,4 +1,4 @@
-import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE} from "./core.mjs";
+import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE, normalizeImages, visualCategory, imageScoringKey, imageRequest, prepareAttachment, attachmentUrl, IMAGE_PERMISSION, IMAGE_MODELS, VISUAL_ID} from "./core.mjs";
 // API keys remain in trusted extension contexts.
 chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
@@ -12,7 +12,10 @@ const hash = async text => {
   return Array.from(new Uint8Array(digest), b=>b.toString(16).padStart(2,"0")).join("");
 };
 // What the feed page may know: no keys and no definitions.
-const view = async s => ({enabled:s.enabled, provider:s.provider, configuration:await hash(scoringKey(s)), categories:displayCategories(categoryList(s))});
+const feedKey = s => normalizeImages(s.imageAnalysis).enabled ? JSON.stringify([scoringKey(s),imageScoringKey(s.imageAnalysis)]) : scoringKey(s);
+const feedCategories = s => {const cats=categoryList(s);return normalizeImages(s.imageAnalysis).enabled?cats.concat(visualCategory(s.imageAnalysis)):cats;};
+const view = async s => ({enabled:s.enabled, provider:s.provider, configuration:await hash(feedKey(s)), categories:displayCategories(feedCategories(s)),
+  ...(normalizeImages(s.imageAnalysis).enabled?{images:{enabled:true,model:normalizeImages(s.imageAnalysis).model}}:{})});
 const stillCurrent = async (s, manual = false) => {
   const current = await load();
   return (manual || current.enabled) && scoringKey(current) === scoringKey(s);
@@ -64,7 +67,7 @@ async function experience(tabId) {
 }
 chrome.tabs?.onRemoved?.addListener(tabId => chrome.storage.session.remove(overrideKey(tabId)).catch(() => {}));
 
-async function classify(rawText, manual = false) {
+async function classifyText(rawText, manual = false) {
     const s = await load();
     if (!manual && !s.enabled) return {disabled:true};
     const text = rawText.trim().slice(0,s.provider === "ollama" ? 2000 : 12000);
@@ -72,7 +75,7 @@ async function classify(rawText, manual = false) {
     const cats = activeCategories(categoryList(s));
     if (!cats.length) throw failure("Switch at least one category on before trying a post.", "no active categories");
     const key = scoringKey(s);
-    const configuration = await hash(key);
+    const configuration = await hash(feedKey(s));
     // The cache contains only a text hash, scores and time, never the original body.
     const id = CACHE_PREFIX + await hash(JSON.stringify([key,text]));
     const jobId = id + (manual ? ":manual" : ":feed");
@@ -145,6 +148,75 @@ async function classify(rawText, manual = false) {
     return sc === undefined ? {disabled:true} : result(sc);
 }
 
+// Same sequential queue and request cap as text. Image bytes live only for the current request.
+async function classifyImages(s,text,urls,{manual=false,model,preparedImages}={}) {
+  if(!preparedImages&&(!Array.isArray(urls)||!urls.length||urls.length>4))throw new Error("Image count exceeds the trial limit. Image check unavailable.");
+  const checked=preparedImages?[]:[...new Set(urls.map(attachmentUrl))];
+  const images=normalizeImages({...s.imageAnalysis,...(model?{model}:{})}),key=feedKey(s);
+  const same = async()=>{const now=await load();return (manual||now.enabled)&&feedKey(now)===key;};
+  const job=chain.then(async()=>{
+    if(!await same())return {disabled:true};
+    if(!s.jevKey)throw new Error("Add an OpenRouter key for image checks in Provider settings.");
+    if(!preparedImages&&!await chrome.permissions?.contains({origins:[IMAGE_PERMISSION]}))throw new Error("Allow post image access in Settings to check images.");
+
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+    try {
+      imageRequest(images,text,["data:image/jpeg;base64,AA=="]);
+      const prepared=preparedImages?[...preparedImages]:[];
+      for(const url of checked)prepared.push(await prepareAttachment(url,controller.signal));
+      const req=imageRequest(images,text,prepared);
+      const imageFingerprint=await hash(JSON.stringify(prepared));
+      const id=CACHE_PREFIX+await hash(JSON.stringify([imageScoringKey({...images,enabled:true}),text,imageFingerprint]));
+      const cached=(await chrome.storage.local.get(id))[id];
+      if(!await same())return {disabled:true};
+      if(cacheFresh(cached)&&typeof cached.s?.[VISUAL_ID]==="number"){
+        await bumpUsage("cacheHits");return {scores:cached.s,imageStatus:"scored",imageModel:images.model,imageFingerprint};
+      }
+      if(!await same())return {disabled:true};
+      const state=await chrome.storage.session.get({requests:0}),now=await load();
+      if(state.requests>=now.limit)throw new Error("Session request limit reached. Image check unavailable.");
+      await chrome.storage.session.set({requests:state.requests+1});
+      let response;
+      try {response=await fetch(req.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+s.jevKey},
+        body:JSON.stringify(req.body),signal:controller.signal,credentials:"omit",redirect:"error"});}
+      catch {throw new Error("Image provider unavailable. Post left visible.");}
+      if(!response.ok)throw new Error("Image provider request failed (HTTP "+response.status+"). Post left visible.");
+      let data;try{data=await response.json();}catch{throw new Error("Image provider returned invalid JSON. Post left visible.");}
+      const scores=validScores("jev",data,[visualCategory(images)]);
+      if(!await same())return {disabled:true};
+      await chrome.storage.local.set({[id]:{s:scores,t:Date.now()}});
+      await chrome.storage.local.remove(cacheEvictions(await chrome.storage.local.get(null)));
+      await bumpUsage("imageScored");
+      const usage=data.usage,imageUsage={model:images.model};
+      if(Number.isFinite(usage?.input_tokens)&&usage.input_tokens>=0)imageUsage.inputTokens=usage.input_tokens;
+      if(Number.isFinite(usage?.cost)&&usage.cost>=0)imageUsage.cost=usage.cost;
+      return {scores,imageStatus:"scored",imageModel:images.model,imageFingerprint,imageUsage};
+    } finally {clearTimeout(timer);}
+  });
+  chain=job.catch(()=>{});return job;
+}
+async function classify(text,manual=false,imageUrls) {
+  const s=await load();
+  if(!manual&&!s.enabled)return {disabled:true};
+  const imageEnabled=!manual&&normalizeImages(s.imageAnalysis).enabled;
+  if(imageEnabled&&categoryList(s).some(c=>c.id===VISUAL_ID))throw new Error("Rename the reserved Visual slop category before enabling image checks.");
+  const result=text.trim()?await classifyText(text,manual):imageEnabled&&imageUrls?.length?{scores:{},...await view(s)}:await classifyText(text,manual);
+  if(manual&&result.categories)result.categories=result.categories.filter(c=>c.id!==VISUAL_ID);
+  if(result.disabled||!imageEnabled)return result;
+  if(feedKey(await load())!==feedKey(s))return {disabled:true};
+  if(!imageUrls?.length)return {...result,imageStatus:"no-image"};
+  if(activeCategories(categoryList(s)).some(c=>c.action==="hide"&&result.scores[c.id]>c.threshold))return {...result,imageStatus:"skipped-hidden"};
+  try {
+    const visual=await classifyImages(s,text.trim(),imageUrls);
+    if(visual.disabled)return visual;
+    return {...result,...visual,scores:{...result.scores,...visual.scores}};
+  } catch(error) {
+    const message=error.name==="AbortError"?"Image check timed out. Post left visible.":error.message;
+    await bumpUsage("imageErrors");await chrome.storage.local.set({lastError:message});await badge(message);
+    return {...result,imageStatus:"unavailable"};
+  }
+}
+
 async function handle(message, sender, kind) {
   const tabId = tabFor(kind, sender, message);
   if (message.type === "people") {
@@ -164,6 +236,14 @@ async function handle(message, sender, kind) {
     });
     edits = job.catch(() => {});
     return job;
+  }
+  if(message.type==="compareImages") {
+    const saved=await load(),results=[];
+    for(const model of IMAGE_MODELS){const started=Date.now();try {
+      const result=await classifyImages(saved,message.text,[],{manual:true,model,preparedImages:message.images});
+      results.push({model,...result,durationMs:Date.now()-started});
+    } catch {results.push({model,error:"Image check unavailable. Check provider status, request limit and input limits.",durationMs:Date.now()-started});}}
+    return {results};
   }
   if (message.type === "settings") return view(await load());
   if (message.type === "experience") return experience(tabId);
@@ -191,8 +271,8 @@ async function handle(message, sender, kind) {
   }
   if (message.type === "correction") {
     const s = await load();
-    const correction = makeCorrection(message, categoryList(s), {
-      id:crypto.randomUUID(),at:Date.now(),provider:s.provider,configuration:await hash(scoringKey(s))
+    const correction = makeCorrection(message, feedCategories(s), {
+      id:crypto.randomUUID(),at:Date.now(),provider:s.provider,configuration:await hash(feedKey(s))
     });
     const job = edits.then(async () => {
       const stored = await chrome.storage.local.get(CORRECTIONS_KEY);
@@ -223,21 +303,23 @@ async function handle(message, sender, kind) {
     const s = await load();
     const state = await chrome.storage.session.get({requests:0,usage:{}});
     const {lastError = ""} = await chrome.storage.local.get("lastError");
-    return {requests:state.requests,limit:s.limit,scored:state.usage.scored || 0,folded:state.usage.folded || 0,cacheHits:state.usage.cacheHits || 0,errors:state.usage.errors || 0,lastError};
+    return {requests:state.requests,limit:s.limit,scored:state.usage.scored || 0,folded:state.usage.folded || 0,cacheHits:state.usage.cacheHits || 0,errors:state.usage.errors || 0,imageScored:state.usage.imageScored||0,imageErrors:state.usage.imageErrors||0,lastError};
   }
-  return classify(message.text, message.type === "playground");
+  return classify(message.text, message.type === "playground", message.imageUrls);
 }
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const kind = senderKind(sender);
   if (!kind || !message || typeof message !== "object") return false;
   const shared = ["settings","experience","appearance","showEverything","openSettings","correction"];
-  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","corrections","playground"];
+  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","corrections","playground","compareImages"];
   if (kind === "people" && message.type !== "people") return false;
   if (message.type === "people") {
     if (kind === "feed" && message.action !== "list") return false;
   } else if (!allowed.includes(message.type)) return false;
-  if (["classify","playground"].includes(message.type) && (typeof message.text !== "string" || message.text.length > 12000)) return false;
+  if (["classify","playground","compareImages"].includes(message.type) && (typeof message.text !== "string" || message.text.length > 12000)) return false;
+  if(message.imageUrls!==undefined&&(!Array.isArray(message.imageUrls)||message.imageUrls.length>5||message.imageUrls.some(x=>typeof x!=="string"||x.length>4096)))return false;
+  if(message.type==="compareImages"&&(!Array.isArray(message.images)||!message.images.length||message.images.length>4||message.images.some(x=>typeof x!=="string"||x.length>150000)||message.images.reduce((n,x)=>n+x.length,0)>150000))return false;
   const isClassification = ["classify","playground"].includes(message.type);
   const work = handle(message, sender, kind);
   work.then(respond).catch(async error => {

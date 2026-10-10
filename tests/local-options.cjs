@@ -8,7 +8,7 @@ const assert=require('node:assert/strict');
   const page=await browser.newPage();
   await page.route('https://settings.test/**',async route=>{
    const file=new URL(route.request().url()).pathname.slice(1)||'options.html';
-   if(!['options.html','options.css','options.js','core.mjs'].includes(file)&&!/^core\/[a-z]+\.mjs$/.test(file)) return route.abort();
+   if(!['options.html','options.css','options.js','options-images.mjs','core.mjs'].includes(file)&&!/^core\/[a-z]+\.mjs$/.test(file)) return route.abort();
    await route.fulfill({contentType:file.endsWith('html')?'text/html':file.endsWith('css')?'text/css':'text/javascript',body:fs.readFileSync(path.join(__dirname,'..',file),'utf8')});
   });
   await page.addInitScript(()=>{
