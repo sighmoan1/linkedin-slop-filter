@@ -40,7 +40,11 @@ const messy=normalizeCategories([null,5,'x',{id:'Bad Id',name:'a',instructions:'
 assert.deepEqual(messy,[good]);
 assert.deepEqual(normalizeCategories(undefined),DEFAULT_CATEGORIES);
 assert.deepEqual(normalizeCategories('nope'),DEFAULT_CATEGORIES);
-assert.deepEqual(normalizeCategories([null]),DEFAULT_CATEGORIES,'an empty result falls back to the defaults');
+assert.deepEqual(normalizeCategories([null]),DEFAULT_CATEGORIES,'a corrupt nonempty list falls back to the defaults');
+assert.deepEqual(normalizeCategories([]),[],'an explicitly empty list stays empty');
+assert.deepEqual(categoryList({...DEFAULTS,categories:[]}),[]);
+assert.deepEqual(migrateSettings({...DEFAULTS,schema:2,categories:[]}).settings.categories,[]);
+assert.deepEqual(migrateSettings({schema:null,categories:[]}).settings.categories,[],'migration respects deliberate removal');
 const many=Array.from({length:30},(_,i)=>({id:'c'+i,name:'C'+i,instructions:'q'}));
 assert.equal(normalizeCategories(many).length,MAX_CATEGORIES);
 assert.deepEqual(Object.keys(normalizeCategories([{id:'x',name:' Padded ',instructions:' i ',extra:'ignored'}])[0]),['id','name','instructions','action','threshold']);

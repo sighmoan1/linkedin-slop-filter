@@ -88,6 +88,7 @@ function renderCats(){
       text);
     listEl.append(row);
   });
+  if (!cats.length) listEl.append(el("p",{className:"note",textContent:"No categories yet. Add one below, or restore the defaults."}));
   $("addCat").disabled=cats.length>=MAX_CATEGORIES;
 }
 renderCats();
