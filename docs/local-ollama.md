@@ -2,7 +2,7 @@
 
 Development is tracked in [#22](https://github.com/sighmoan1/linkedin-slop-filter/issues/22) on `feat/22-local-ollama`. Jev remains the default. The installable Jev baseline is main commit `510f199d2e4e2d995b85c54c3eecaa789180d657`; use a separate clone so experimental work cannot affect that installation.
 
-The initial model is the official [qwen3.5:4b-q4_K_M](https://ollama.com/library/qwen3.5/tags), a 4-bit GGUF model. The lighter option is `qwen3.5:2b-q4_K_M`. Local requests go directly from the extension worker to loopback Ollama. Neither a tunnel nor an API key is needed.
+The initial model is the official [qwen3.5:4b-q4_K_M](https://ollama.com/library/qwen3.5/tags), a 4-bit GGUF model. The lighter option is `qwen3.5:2b-q4_K_M`. Feed and playground requests go directly from the extension worker to loopback Ollama. The explicit connection test runs on the trusted settings page. Neither a tunnel nor an API key is needed.
 
 ## Try it on either Mac
 
@@ -32,6 +32,12 @@ The initial model is the official [qwen3.5:4b-q4_K_M](https://ollama.com/library
    Replace `YOUR_EXTENSION_ID` locally. Keep this terminal running. Prefer this exact origin over a wildcard. This follows the [official origin/service configuration](https://docs.ollama.com/faq). No adapter or tunnel is involved. On macOS the app can instead receive these environment variables through `launchctl setenv` before restarting it, as described in the FAQ. `OLLAMA_NO_CLOUD=1` ensures Ollama itself cannot offload to its cloud features. Never bind to `0.0.0.0` for this use case.
 
 The configurable endpoint accepts only HTTP origins on `127.0.0.1` or `localhost`, with no credentials, path or query. Manifest permissions allow those two loopback hosts only, alongside the existing cloud API hosts. Chrome match patterns do not restrict ports; runtime validation restricts hosts and the worker appends only `/api/chat`. The configurable port allows an alternate local service. IPv6 and remote endpoints are intentionally unsupported.
+
+## Test local Ollama in settings
+
+In **Settings → Provider**, choose **Local Ollama**, enter your HTTP loopback endpoint and exact downloaded model name, then press **Test local Ollama**. You can test unsaved values with filtering paused. The test makes one fixed synthetic classification with one built-in question, uses no API key, and does not save settings, corrections or a test result, or count against the feed/playground request cap. It uses the same chat request and answer validation as local classification. Editing the endpoint/model or switching provider clears the result and discards an older in-flight result.
+
+A pass verifies connectivity and a valid answer format, not accuracy or the full category context budget. Save settings and open **Try a post** to classify your own example against the saved category definitions. You can leave filtering paused for both steps. A denied origin, missing model, unreachable service, timeout or invalid answer gets an actionable status message; follow the origin setup above if needed. The request blocks redirects and sends no credentials. The test uses Ollama's documented [chat API](https://docs.ollama.com/api/chat) and [origin configuration](https://docs.ollama.com/faq).
 
 ## Request and score behaviour
 
@@ -74,3 +80,7 @@ Use the [manual-label workflow](evaluation.md) before deciding a local threshold
 - Q4_K_M and `think:false` support were confirmed by the installed model metadata. Peak memory, warm throughput, M5 Air behaviour, calibration, false-positive rates on manually labelled real posts, real Jev/OpenAI calls and signed-in LinkedIn selectors remain unmeasured or unverified.
 - The evaluation command completed a two-row **synthetic** corpus: one technical useful example stayed visible and one formulaic example folded with local confidence 0.95. Calls took 963 ms and 1,254 ms in that run. This checks the runner and metrics only; two constructed examples do not measure real-feed accuracy or comparative Jev performance.
 - After integrating main's key tests, setup guide, per-post badges and persistent cloud cache, the full combined suite passed. The real unpacked-worker synthetic smoke passed again with one request and score 0 in 3,861 ms. Cloud cache storage and old cache keys are preserved; local cache entries remain session-only.
+
+### Connection-test evidence from 10 October 2026
+
+The new `verifyOllama` helper passed a real synthetic request to the existing service on `127.0.0.1:11434` using the downloaded `qwen3.5:4b-q4_K_M` model in 4,126 ms. This was a direct Node API check; it does not verify browser-origin access. The deterministic tests cover the Provider button with unsaved values and filtering paused, no credential header or settings/session writes, service errors, and rejection of stale results. The installed Brave extension and signed-in feed have not been updated or verified for this change.

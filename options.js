@@ -1,4 +1,4 @@
-import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary} from "./core.mjs";
+import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, verifyOllama, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary} from "./core.mjs";
 const FIELDS=["enabled","provider","jevKey","openaiKey","ollamaEndpoint","ollamaModel","limit"];
 const ACTION_LABELS={hide:"Hide",highlight:"Highlight",label:"Label",off:"Off"};
 const ACTION_HELP={hide:"Replace matching posts with a row you can show.",highlight:"Keep the full post with a subtle accent.",label:"Keep the full post with a quiet category name.",off:"Do not ask the model about this category."};
@@ -96,6 +96,23 @@ for (const provider of Object.keys(KEY_FIELDS)) {
     } finally {button.disabled=false;}
   });
 }
+
+// Local tests never save or enable the entered configuration, or consume the feed cap.
+if (chrome.runtime?.id) $("ollamaOrigin").textContent="chrome-extension://"+chrome.runtime.id;
+let localTestGeneration=0;
+function clearLocalTest(){localTestGeneration++;$("ollamaStatus").textContent="";$("ollamaStatus").className="key-status";}
+for (const id of ["ollamaEndpoint","ollamaModel"]) $(id).addEventListener("input",clearLocalTest);
+$("provider").addEventListener("change",clearLocalTest);
+$("ollamaTest").addEventListener("click",async()=>{
+  const generation=++localTestGeneration, button=$("ollamaTest"), status=$("ollamaStatus");
+  button.disabled=true;status.className="key-status";status.textContent="Testing local Ollama… The model may need time to load.";
+  try {
+    const result=await verifyOllama($("ollamaEndpoint").value,$("ollamaModel").value);
+    if (generation!==localTestGeneration) return;
+    status.textContent=(result.ok?"✓ ":"✗ ")+result.message;
+    status.className="key-status "+(result.ok?"ok":"bad");
+  } finally {button.disabled=false;}
+});
 
 const listEl=$("categoryList"), catStatus=$("catStatus");
 function updateBudget(){

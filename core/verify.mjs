@@ -45,6 +45,38 @@ export async function verifyKey(provider, key, {fetchImpl = globalThis.fetch, ti
     return {ok: false, code: "network", message: "Could not reach the provider. Check your connection and try again."};
   } finally { clearTimeout(timer); }
 }
+// Explicit local test: entered configuration, one fixed question, no keys or saved feed rules.
+export async function verifyOllama(endpoint, model, {fetchImpl = globalThis.fetch, timeoutMs = 30000} = {}) {
+  let req;
+  try {
+    req = requestFor({...DEFAULTS, provider: "ollama", ollamaEndpoint: String(endpoint ?? "").trim(), ollamaModel: String(model ?? "").trim()}, SAMPLE_POST, SAMPLE_QUESTION);
+  } catch {
+    return {ok: false, code: "configuration", message: "Enter an HTTP loopback origin (e.g. http://127.0.0.1:11434) and a downloaded local model name. Paths, credentials and cloud models are not supported."};
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(req.url, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(req.body), signal: controller.signal, redirect: "error", credentials: "omit"
+    });
+    if (!response.ok) {
+      const status = response.status;
+      const [code, message] = status === 403
+        ? ["origin_denied", "Ollama denied access. Add this extension's chrome-extension:// origin to OLLAMA_ORIGINS, then restart Ollama. See the local setup guide."]
+        : status === 404
+          ? ["not_found", "Ollama could not find the model or endpoint. Check the endpoint and download the exact model name with ollama pull."]
+          : ["http_error", "Ollama returned HTTP " + status + ". Check the service and that the downloaded model supports chat and structured output."];
+      return {ok: false, code, status, message};
+    }
+    try { validScores("ollama", await response.json(), SAMPLE_QUESTION); }
+    catch { return {ok: false, code: "invalid_response", message: "Ollama answered, but did not return a finished, valid classification. Use a chat model that supports structured output and try again."}; }
+    return {ok: true, code: "ok", message: "Local Ollama works. The model returned a valid synthetic classification. Save settings, then use Try a post to test your category rules."};
+  } catch (error) {
+    if (error?.name === "AbortError") return {ok: false, code: "timeout", message: "Ollama did not answer within " + (timeoutMs / 1000) + " seconds. Warm the model with ollama run, then test again."};
+    return {ok: false, code: "network", message: "Could not reach Ollama. Start Ollama, check the endpoint and allow this extension's origin in OLLAMA_ORIGINS. See the local setup guide."};
+  } finally { clearTimeout(timer); }
+}
 // Short, non-reversible tag so a saved result is only shown while the key it was for is still entered.
 export async function keyFingerprint(key) {
   const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode("lsf-key:" + key));
