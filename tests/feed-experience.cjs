@@ -180,7 +180,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.waitForFunction(()=>document.querySelector('#mix .lsf-fold-name')?.textContent.includes('Custom'));
   const names=await page.locator('#mix .lsf-fold-name').innerText();for(const name of ['Slop','Advert','Nourishment','Custom'])assert.ok(names.includes(name));assert.ok(!names.includes('%'));
   const originals=await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)}));
-  for(const theme of ['punchy','reader','native']){await page.locator('.lsf-feed-toolbar select').selectOption(theme);await page.waitForFunction(theme=>document.getElementById('mix').dataset.lsfTheme===theme,theme);assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),names);}
+  assert.equal(await page.locator('.lsf-feed-toolbar select').count(),0);assert.equal(await page.locator('#mix').getAttribute('data-lsf-theme'),'native');assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),names);
   assert.deepEqual(await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)})),originals);
   await page.locator('.lsf-feed-toolbar button').filter({hasText:'Show everything'}).click();await page.waitForFunction(()=>!document.getElementById('mix').classList.contains('lsf-folded'));
   assert.match(await page.locator('.lsf-toolbar-status').innerText(),/temporarily/);assert.equal(await page.locator('#mix .update-components-text').isVisible(),true);
@@ -252,22 +252,21 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='brainrot'?{...c,action:'hide'}:c));await page.waitForFunction(()=>window.calls.length===3);await page.waitForSelector('#look2.lsf-folded');
   await atTop(page,'look1',150);
   for(const width of [736,360,320]){await page.setViewportSize({width,height:900});await settle(page);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'no horizontal overflow at '+width);}
-  await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});await page.locator('.lsf-feed-toolbar select').selectOption('punchy');await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfTheme==='punchy');
+  await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});
   assert.equal(await page.locator('#look1').getAttribute('data-lsf-scheme'),'light','light LinkedIn stays light when the OS prefers dark');
   assert.equal(await page.locator('.lsf-feed-toolbar').getAttribute('data-lsf-scheme'),'light','toolbar follows the native feed surface');
   assert.equal(await page.locator('#look1 .lsf-bar').evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
-  await page.locator('.lsf-feed-toolbar select').selectOption('reader');await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfTheme==='reader');
-  assert.equal(await page.locator('#look3 .update-components-text').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(250, 250, 250)');
+  assert.equal(await page.locator('#look3 .update-components-text').evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');
   await page.addStyleTag({content:'.host-dark .feed-shared-update-v2{background:#1b1f23}'});
   await page.evaluate(()=>document.documentElement.classList.add('host-dark'));
   await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfScheme==='dark'&&document.querySelector('.lsf-feed-toolbar').dataset.lsfScheme==='dark');
   await page.emulateMedia({colorScheme:'light',reducedMotion:'reduce'});
   assert.equal(await page.locator('#look1').getAttribute('data-lsf-scheme'),'dark','dark LinkedIn stays dark when the OS prefers light');
   const styles=await page.locator('#look3').evaluate(e=>({card:getComputedStyle(e).backgroundColor,header:getComputedStyle(e.querySelector('.native-header strong')).color,body:getComputedStyle(e.querySelector('.update-components-text')).backgroundColor,link:getComputedStyle(e.querySelector('.update-components-text a')).color,controls:getComputedStyle(e.querySelector('.native-controls button')).color,comments:getComputedStyle(e.querySelector('.native-comments')).color}));
-  assert.deepEqual(styles,{card:'rgb(27, 31, 35)',header:'rgb(38, 50, 56)',body:'rgb(32, 37, 42)',link:'rgb(180, 213, 255)',controls:'rgb(100, 114, 122)',comments:'rgb(100, 114, 122)'},'Reader styles only the extracted body and extension UI; native metadata/controls remain on their original surface');
+  assert.deepEqual(styles,{card:'rgb(27, 31, 35)',header:'rgb(38, 50, 56)',body:'rgba(0, 0, 0, 0)',link:'rgb(10, 102, 194)',controls:'rgb(100, 114, 122)',comments:'rgb(100, 114, 122)'},'Native leaves extracted text, links, metadata and controls untouched');
   await page.evaluate(()=>document.documentElement.classList.remove('host-dark'));
   await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfScheme==='light');
-  const output=process.env.FEED_SCREENSHOTS;if(output){fs.mkdirSync(output,{recursive:true});for(const theme of ['native','punchy','reader']){await page.locator('.lsf-feed-toolbar select').selectOption(theme);await page.waitForFunction(theme=>document.getElementById('look1').dataset.lsfTheme===theme,theme);await page.setViewportSize({width:1000,height:1000});await page.emulateMedia({colorScheme:'light',reducedMotion:'reduce'});await atTop(page,'look1',150);await settle(page);await page.screenshot({path:path.join(output,theme+'.png')});}await page.setViewportSize({width:360,height:900});await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});await atTop(page,'look1',180);await settle(page);await page.screenshot({path:path.join(output,'mobile-dark.png')});}
+  const output=process.env.FEED_SCREENSHOTS;if(output){fs.mkdirSync(output,{recursive:true});for(const theme of ['native']){await page.setViewportSize({width:1000,height:1000});await page.emulateMedia({colorScheme:'light',reducedMotion:'reduce'});await atTop(page,'look1',150);await settle(page);await page.screenshot({path:path.join(output,theme+'.png')});}await page.setViewportSize({width:360,height:900});await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});await atTop(page,'look1',180);await settle(page);await page.screenshot({path:path.join(output,'mobile-dark.png')});}
   assert.deepEqual(errors,[]);
  }
  // Reload/disabling invalidates the old content context: restore originals and stop all work.
@@ -293,9 +292,9 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
  {
   const {page,errors}=await fixture([{id:'syncDisconnect'}]);
   await page.evaluate(()=>{chrome.runtime.sendMessage=()=>{throw new Error('Extension context invalidated.');};});
-  await page.locator('.lsf-theme-label select').selectOption('reader');
+  await page.evaluate(()=>document.querySelector('.lsf-toolbar-main button').click());
   await page.waitForFunction(()=>document.querySelectorAll('[data-lsf-ui]').length===0);assert.deepEqual(errors,[]);
  }
  for(const page of pages)await page.close();await browser.close();
- console.log('PASS: shipped feed themes, independent Hide precedence, visible/focused deferral, paragraph anchoring (native/fallback), reveal/re-hide focus including clipped long cards, live Details/group focus, stale rejection and pause recovery, trusted feed probe, one-shot folded usage, grouping/order, temporary recovery, multi-label/none corrections, partial/fail-open, bounded priority queue, responsive/dark/reduced motion');
+ console.log('PASS: native feed appearance, independent Hide precedence, visible/focused deferral, paragraph anchoring (native/fallback), reveal/re-hide focus including clipped long cards, live Details/group focus, stale rejection and pause recovery, trusted feed probe, one-shot folded usage, grouping/order, temporary recovery, multi-label/none corrections, partial/fail-open, bounded priority queue, responsive/dark/reduced motion');
 })().catch(e=>{console.error(e);process.exit(1);});

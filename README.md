@@ -40,13 +40,7 @@ An empty category list or all categories Off can be saved while filtering is dis
 
 ## Feed appearance and recovery
 
-| Theme | Appearance |
-| --- | --- |
-| Native | Familiar typography, neutral cards and compact hidden rows. |
-| Punchy | Prominent category names and restrained colors. Useful posts remain open in full. |
-| Reader | A warm paper-like surface, larger sans-serif post text and quiet divider rows. |
-
-Theme changes do not change actions, thresholds, definitions or requests. Styling is confined to the feed and leaves original links and controls in place. **Group consecutive hidden posts** is a separate option, off by default. Groups show a count and category composition, retain individual reveal controls and never span a visible post. Labels on visible posts can be switched off independently.
+The feed uses LinkedIn’s native post typography and surfaces, with compact hidden rows. Original links and controls stay in place. **Group consecutive hidden posts** is a separate option, off by default. Groups show a count and category composition, retain individual reveal controls and never span a visible post. Labels on visible posts can be switched off independently.
 
 The interface uses system sans-serif fonts, neutral white/grey surfaces and blue controls to fit alongside LinkedIn. Settings use 16px body text, with compact 14px supporting text and popup/feed controls. Keyboard focus stays visible and action targets remain at least 44px tall. No fonts or styles are fetched at runtime.
 
