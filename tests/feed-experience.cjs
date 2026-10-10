@@ -48,7 +48,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
    }}};
   },{posts:posts.map(p=>({...p,scores:p.scores||allScores()})),cats,theme,groupHidden});
   await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../content.js'),'utf8')});
-  await page.waitForSelector('.lsf-feed-toolbar');return {page,errors};
+  await page.waitForSelector('.lsf-feed-toolbar');await settle(page);return {page,errors};
  }
  // A late result keeps the reader's actual paragraph and original native controls in place.
  {
@@ -77,6 +77,12 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.locator('#clipped .lsf-bar button').filter({hasText:'Show'}).click();await settle(page);
   const header=page.locator('#clipped .lsf-revealed-bar button').filter({hasText:'Hide again'});assert.equal(await header.evaluate(e=>e===document.activeElement),true);
   await page.evaluate(()=>window.scrollTo({top:scrollY+600,behavior:'instant'}));await settle(page);assert.ok(await header.evaluate(e=>e.getBoundingClientRect().bottom<0),'overflow:hidden can defeat a sticky header');
+  for(const source of ['Correct','Details']){
+   const origin=page.locator('#clipped .lsf-tools button').filter({hasText:new RegExp('^'+source+'$')});await origin.click();await origin.evaluate(e=>window.correctionOrigin=e);
+   if(source==='Details')await page.locator('#clipped .lsf-panel button').filter({hasText:'Correct this post'}).click();
+   await settle(page);assert.equal(await page.locator('#clipped .lsf-correction input').first().evaluate(e=>e===document.activeElement&&e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<innerHeight),true,'correction focus stays visible at the end of a long card');
+   await page.locator('#clipped .lsf-correction button').filter({hasText:'Cancel'}).click();await settle(page);assert.equal(await origin.evaluate(e=>e===document.activeElement&&e===window.correctionOrigin&&e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<innerHeight),true,'Cancel returns to the same visible footer control');
+  }
   const footer=page.locator('#clipped .lsf-tools button').filter({hasText:/^Hide again$/});await footer.scrollIntoViewIfNeeded();await footer.focus();await settle(page);const before=await footer.evaluate(e=>e.getBoundingClientRect().top);
   await page.keyboard.press('Enter');await settle(page);const show=page.locator('#clipped .lsf-bar button').filter({hasText:'Show'});assert.equal(await folded(page,'clipped'),true);assert.equal(await show.evaluate(e=>e===document.activeElement),true);assert.ok(Math.abs((await show.evaluate(e=>e.getBoundingClientRect().top))-before)<=2,'footer collapse retains the originating control position');assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
  }
@@ -107,7 +113,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
  }
  // The popup probe accepts only this extension, returns no post data, and follows SPA navigation.
  {
-  const {page,errors}=await fixture([{id:'probe'}]);const reply=await page.evaluate(()=>{let own,foreign,other;window.feedStatusListener({type:'feedStatus'},{id:'test-extension'},v=>own=v);window.feedStatusListener({type:'feedStatus'},{id:'other-extension'},v=>foreign=v);window.feedStatusListener({type:'settings'},{id:'test-extension'},v=>other=v);history.pushState({},'', '/messaging/');let away;window.feedStatusListener({type:'feedStatus'},{id:'test-extension'},v=>away=v);return {own,foreign:foreign??null,other:other??null,away};});assert.deepEqual(reply,{own:{isFeed:true},foreign:null,other:null,away:{isFeed:false}});assert.deepEqual(errors,[]);
+  const {page,errors}=await fixture([{id:'probe'}]);const reply=await page.evaluate(()=>{let own,foreign,other;window.feedStatusListener({type:'feedStatus'},{id:'test-extension'},v=>own=v);window.feedStatusListener({type:'feedStatus'},{id:'other-extension'},v=>foreign=v);window.feedStatusListener({type:'settings'},{id:'test-extension'},v=>other=v);history.pushState({},'', '/feed/detail/');let nested;window.feedStatusListener({type:'feedStatus'},{id:'test-extension'},v=>nested=v);history.pushState({},'', '/messaging/');let away;window.feedStatusListener({type:'feedStatus'},{id:'test-extension'},v=>away=v);return {own,foreign:foreign??null,other:other??null,nested,away};});assert.deepEqual(reply,{own:{isFeed:true},foreign:null,other:null,nested:{isFeed:false},away:{isFeed:false}});assert.deepEqual(errors,[]);
  }
  // Keyboard focus still protects an offscreen card, then leaving focus permits its fold.
  {
@@ -123,6 +129,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
  for(const anchor of [true,false]){
   const {page,errors}=await fixture([{id:'above1',long:true,scores:allScores({slop:.95})},{id:'above2',long:true,scores:allScores({slop:.95})},{id:'read',long:true}],{anchor});
   await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='slop'?{...c,action:'label'}:c));
+  await page.waitForFunction(()=>document.querySelector('.lsf-toolbar-status')?.textContent.startsWith('No Hide rules'));
   await page.waitForFunction(()=>window.calls.length===3);await page.waitForFunction(()=>document.querySelector('#above2 .lsf-badge')?.textContent==='Slop');
   await atTop(page,'read',-40);await settle(page);
   const paragraph=page.locator('#read .update-components-text p').nth(1),before=await paragraph.evaluate(e=>e.getBoundingClientRect().top);

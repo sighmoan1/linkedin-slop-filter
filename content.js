@@ -8,7 +8,7 @@
   let settings = {enabled:false,categories:[]};
   let experience = {appearance:{...defaults},showEverything:false};
   let toolbar, timer, frame, activeRequest, nextId = 0, scrollIntent = 0;
-  const isFeed = () => location.pathname === "/feed" || location.pathname.startsWith("/feed/");
+  const isFeed = () => location.pathname === "/feed" || location.pathname === "/feed/";
   chrome.runtime.onMessage?.addListener((message,sender,reply)=>{
     if(chrome.runtime.id&&sender?.id===chrome.runtime.id&&message?.type==="feedStatus")reply({isFeed:isFeed()});
   });
@@ -88,8 +88,9 @@
     change();
     for(const [p,r]of records)render(p,r);
     renderGroups();renderToolbar();
-    const target=focusKind==="show"||focusKind==="row"?record.show:focusKind==="details"?(record.bar?record.foldDetails:record.detailsButton):focusKind==="correction"?(record.correctionInputs?.[0]||record.correctionHeading):focusKind==="correct"?(record.bar?record.foldCorrect:record.correctButton):focusKind==="cancel"?(record.correctionOrigin==="details"?(record.bar?record.foldDetails:record.detailsButton):(record.bar?record.foldCorrect:record.correctButton)):focusKind==="saved"?(record.bar?record.show:record.correctButton):null;
-    if(anchor&&anchor.top<0&&(focusKind==="show"||focusKind==="row")&&originTop!==null&&target)anchor.top=originTop-(target.getBoundingClientRect().top-post.getBoundingClientRect().top);
+    const available=(...elements)=>elements.find(e=>e?.isConnected&&e.getClientRects().length);
+    const target=focusKind==="show"||focusKind==="row"?record.show:focusKind==="details"?available(record.detailsOrigin,record.foldDetails,record.detailsButton):focusKind==="correction"?(record.correctionInputs?.[0]||record.correctionHeading):focusKind==="correct"||focusKind==="cancel"?available(record.correctionOrigin,record.foldCorrect,record.correctButton,record.foldDetails,record.detailsButton):focusKind==="saved"?(record.bar?record.show:record.correctButton):null;
+    if(anchor&&originTop!==null&&target){const rect=target.getBoundingClientRect();if(anchor.top<0||rect.top<0||rect.bottom>innerHeight)anchor.top=originTop-(rect.top-post.getBoundingClientRect().top);}
     target?.focus({preventScroll:true});restoreAnchor(anchor);
   }
   function clearFold(post,record,keepBar=false) {
@@ -121,9 +122,9 @@
     const tools=shell("lsf-tools");
     const badge=node("span","lsf-badge");
     const controls=node("div","lsf-actions");
-    const details=button("Details",()=>act(post,record,()=>{record.detailsOpen=!record.detailsOpen;},"details"),"lsf-button lsf-flat");
+    const details=button("Details",origin=>act(post,record,()=>{if(!record.detailsOpen)record.detailsOrigin=origin;record.detailsOpen=!record.detailsOpen;},"details"),"lsf-button lsf-flat");
     details.setAttribute("aria-controls","lsf-details-"+record.id);
-    const correct=button("Correct",()=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening){record.detailsOpen=false;record.correctionOrigin="correct";}},opening?"correction":"correct");},"lsf-button lsf-flat");
+    const correct=button("Correct",origin=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening){record.detailsOpen=false;record.correctionOrigin=origin;}},opening?"correction":"correct");},"lsf-button lsf-flat");
         const arrive=node("span","lsf-arrived");
     const hideNow=button("Hide now",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"show"));
     const hideAgain=button("Hide again",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"row"));
@@ -136,9 +137,9 @@
     const label=node("span","lsf-fold-name");
     const controls=node("div","lsf-actions");
     const show=button("Show",()=>{const revealing=!record.revealed;act(post,record,()=>{record.revealed=revealing;if(!revealing)record.foldCommitted=true;},"row");});
-    const details=button("Details",()=>act(post,record,()=>{record.detailsOpen=!record.detailsOpen;}),"lsf-button lsf-flat");
+    const details=button("Details",origin=>act(post,record,()=>{if(!record.detailsOpen)record.detailsOrigin=origin;record.detailsOpen=!record.detailsOpen;},"details"),"lsf-button lsf-flat");
     details.setAttribute("aria-controls","lsf-details-"+record.id);
-    const correct=button("Correct",()=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin="correct";},"correction"),"lsf-button lsf-flat");
+    const correct=button("Correct",origin=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin=origin;},"correction"),"lsf-button lsf-flat");
     controls.append(show,details,correct);bar.append(label,controls);post.prepend(bar);
     Object.assign(record,{bar,foldLabel:label,show,foldDetails:details,foldCorrect:correct});
   }
@@ -151,7 +152,7 @@
       for(const label of ["Category","Score","Your rule"])head.append(node("th","",label));
       thead.append(head);table.append(thead,tbody);
       const edit=button("Manage categories",()=>openSettings(),"lsf-button lsf-flat");
-      const correct=button("Correct this post",()=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin="details";},"correction"),"lsf-button lsf-flat");
+      const correct=button("Correct this post",()=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin=record.detailsOrigin;},"correction"),"lsf-button lsf-flat");
       panel.append(heading,table,note,edit,correct);post.append(panel);
       Object.assign(record,{panel,detailsHeading:heading,detailsRows:tbody,detailsNote:note});
     }
