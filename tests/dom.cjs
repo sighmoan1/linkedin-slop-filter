@@ -39,7 +39,7 @@ const assert=require('node:assert/strict');
  await page.waitForSelector('#slop.lsf-folded');
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),false);
  assert.equal(await badge('slop').count(),0);
- assert.equal(await page.locator('#slop .lsf-bar span').innerText(),'Slop · 95% confidence');
+ assert.equal(await page.locator('#slop .lsf-bar span').innerText(),'Slop');
  // After "Show anyway" the revealed post shows what applies.
  await page.locator('#slop .lsf-bar button').filter({hasText:'Show post'}).click();
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),true);
@@ -47,10 +47,10 @@ const assert=require('node:assert/strict');
  assert.equal(await badge('slop').isVisible(),false,'revealed header names the categories without a duplicate footer label');
  assert.match(await badge('slop').getAttribute('class'),/lsf-c-hide/);
  assert.match(await badge('slop').getAttribute('title'),/not proof of AI authorship/);
- await page.locator('#slop .lsf-tools button').filter({hasText:/^(Show|Hide) category scores$/}).click();
+ await page.locator('#slop .lsf-tools button').filter({hasText:/^Categories$/}).click();
  assert.match(await page.locator('#slop .lsf-panel').innerText(),/Slop\s+95%\s+Hide above 80%/);
  assert.match(await page.locator('#slop .lsf-panel').innerText(),/Advert\s+10%/);
- await page.locator('#slop .lsf-tools button').filter({hasText:/^(Show|Hide) category scores$/}).click();
+ await page.locator('#slop .lsf-tools button').filter({hasText:/^Categories$/}).click();
 
  // Exactly at the threshold stays visible, and nothing applies.
  await card('edge','Useful real story at exact threshold');
@@ -72,9 +72,9 @@ const assert=require('node:assert/strict');
  // Scores below every threshold stay visible with a neutral chip.
  await card('low','LOW useful technical post');await card('mid','MID some filler');await card('high','HIGH nearly slop');
  for(const id of ['low','mid','high']){await waitBadge(id,/^No category$/);assert.equal(await page.locator('#'+id).evaluate(e=>e.classList.contains('lsf-folded')),false);}
- await page.locator('#high .lsf-tools button').filter({hasText:/^(Show|Hide) category scores$/}).click();
+ await page.locator('#high .lsf-tools button').filter({hasText:/^Categories$/}).click();
  assert.match(await page.locator('#high .lsf-panel').innerText(),/Slop\s+70%/);
- await page.locator('#high .lsf-tools button').filter({hasText:/^(Show|Hide) category scores$/}).click();
+ await page.locator('#high .lsf-tools button').filter({hasText:/^Categories$/}).click();
 
  // A post being scored says so, then shows its result.
  await card('slow','SLOW still thinking');
@@ -214,7 +214,7 @@ const assert=require('node:assert/strict');
  await page.evaluate(()=>{const tail=document.createElement('div');tail.style.height='1000px';document.getElementById('feed').append(tail);});
  await page.evaluate(()=>{window.scrollTo({top:document.getElementById('both').offsetTop+250,behavior:'instant'});window.mockCats=window.mockCats.map(c=>c.id==='advert'?{...c,action:'hide',threshold:.85}:c);});
  await page.waitForSelector('#advert.lsf-folded');
- assert.equal(await page.locator('#advert .lsf-bar span').innerText(),'Advert · 90% confidence');
+ assert.equal(await page.locator('#advert .lsf-bar span').innerText(),'Advert');
  await page.waitForSelector('#both.lsf-folded');
  assert.equal(await page.locator('#both').evaluate(e=>e.classList.contains('lsf-highlight')),false,'a hidden post is not also highlighted');
  assert.equal(await page.locator('#slop .lsf-revealed-bar').count(),1,'a post already revealed stays revealed');
