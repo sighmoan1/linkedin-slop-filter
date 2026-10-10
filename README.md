@@ -19,7 +19,7 @@ The popup reports **Feed connected** and the number of readable posts found. Hom
 
 Existing category definitions are preserved. To adopt revised built-in prompts, use **Review revised definitions** in Categories, review, apply and save. This keeps custom categories, names, actions, thresholds and order. **Restore defaults** is a separate, deliberate reset of the whole category draft.
 
-Cloud API billing is separate from ChatGPT subscriptions. No key is included. Key tests make one tiny real request using the key as entered; they do not count against the feed/playground session limit. Their result verifies access, not filtering quality.
+Cloud API billing is separate from ChatGPT subscriptions. No key is included. Key tests make one tiny real request using the key as entered; they do not count against the feed/playground session limit. Their result verifies access, not filtering quality. **Test local Ollama** checks the endpoint and downloaded model entered in Provider with one fixed synthetic classification, before saving and while filtering is paused. It uses no key, saves nothing and does not count against the feed/playground cap. After a pass, save settings and use **Try a post** to check your category rules.
 
 ## Choose what happens
 
@@ -49,7 +49,7 @@ The interface uses system sans-serif fonts, neutral white/grey surfaces and blue
 - **Disable filtering** restores posts and pauses classification. It is separate from Show everything.
 - **Correct** lets you choose every applicable active category, or none, and explicitly save a local correction. That post stays visible. Corrections do not automatically train the model or rewrite prompts.
 
-New scores do not automatically collapse a card that is visible, hovered or has keyboard focus. **Hide now** offers immediate control; otherwise the fold waits until the card is out of view and disengaged. Scoring and deliberate reveal/collapse use measured anchoring to preserve reading position. There are no animated post-height transitions or automatic feed scrolling. See [the feed design and release checks](docs/feed-experience.md).
+A current result above a Hide category’s threshold collapses the post immediately, including posts on screen, hovered or keyboard focused. **Show post** keeps an explicitly revealed post open until you choose **Hide post again**; temporary **Show everything** also keeps posts visible. If a focused post folds, focus moves to Show post. Scoring and deliberate reveal/collapse use measured anchoring to preserve reading position. There are no animated post-height transitions. See [the feed design and release checks](docs/feed-experience.md).
 
 ## Requests, failures and storage
 
