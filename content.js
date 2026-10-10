@@ -55,6 +55,17 @@
   const toggle = (post,cls,on) => {if(post.classList.contains(cls)!==on)post.classList.toggle(cls,on);};
   const attr = (e,name,value) => {value=String(value);if(e.getAttribute(name)!==value)e.setAttribute(name,value);};
   const hidden = (e,on) => {on=!!on;if(e.hidden!==on)e.hidden=on;};
+  // Inspect only rendered colours, never page content or account data.
+  function hostScheme(element) {
+    for(let e=element;e;e=e.parentElement) {
+      const rgba=getComputedStyle(e).backgroundColor.match(/[\d.]+/g)?.map(Number);
+      if(!rgba||rgba.length<3||(rgba[3]!==undefined&&rgba[3]<.99))continue;
+      const luminance=rgba.slice(0,3).map(value=>{const v=value/255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;})
+        .reduce((sum,value,index)=>sum+value*[.2126,.7152,.0722][index],0);
+      return luminance<.18?"dark":"light";
+    }
+    return matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
+  }
   function button(text,callback,cls="lsf-button") {
     const b=node("button",cls,text);b.type="button";
     b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();callback(b);});
@@ -138,7 +149,7 @@
   function forget(post,record) {
     for(const e of [record.bar,record.tools,record.panel,record.correction,record.groupBar])e?.remove();
     for(const cls of ["lsf-folded","lsf-highlight","lsf-group-suppressed","lsf-group-lead","lsf-group-open","lsf-feed-card"])toggle(post,cls,false);
-    delete post.dataset.lsfTheme;delete post.dataset.lsfTone;
+    delete post.dataset.lsfTheme;delete post.dataset.lsfTone;delete post.dataset.lsfScheme;
     record.body?.classList.remove("lsf-reader-body");
     post.removeEventListener("mouseenter",record.enter);post.removeEventListener("mouseleave",record.leave);
     observer.unobserve(post);records.delete(post);
@@ -242,6 +253,7 @@
   function render(post,record) {
     if(!isFeed()){forget(post,record);return;}
     toggle(post,"lsf-feed-card",true);
+    attr(post,"data-lsf-scheme",hostScheme(post));
     if(post.dataset.lsfTheme!==experience.appearance.theme)post.dataset.lsfTheme=experience.appearance.theme;
     if(record.body&&!record.body.classList.contains("lsf-reader-body"))record.body.classList.add("lsf-reader-body");
     if(!settings.enabled){clearFold(post,record);clearTools(record);toggle(post,"lsf-highlight",false);if(record.panel)hidden(record.panel,true);if(record.correction)hidden(record.correction,true);return;}
@@ -338,6 +350,7 @@
       toolbar={element,theme,all,status};
     }
     attr(toolbar.element,"data-lsf-theme",experience.appearance.theme);
+    attr(toolbar.element,"data-lsf-scheme",hostScheme(first));
     if(toolbar.theme.value!==experience.appearance.theme)toolbar.theme.value=experience.appearance.theme;
     textOf(toolbar.all,experience.showEverything?"Restore filtering":"Show everything");if(toolbar.all.disabled===settings.enabled)toolbar.all.disabled=!settings.enabled;attr(toolbar.all,"aria-pressed",experience.showEverything);
     const hideNames=settings.categories.filter(c=>c.action==="hide").map(c=>c.name).join(", ");
@@ -395,9 +408,15 @@
   const scheduleScan=()=>{if(!connected())return;clearTimeout(timer);timer=setTimeout(scan,120);};
   mutations=new MutationObserver(changes=>{
     if(!connected())return;
+    const nativeClass=value=>(value||"").split(/\s+/).filter(name=>name&&!name.startsWith("lsf-")).sort().join(" ");
+    const appearanceChanged=changes.some(m=>m.type==="attributes"&&!m.target.closest?.(UI)&&
+      (m.attributeName!=="class"||nativeClass(m.oldValue)!==nativeClass(m.target.getAttribute("class"))));
+    if(appearanceChanged)schedulePaint();
     const changed=changes.some(m=>!m.target.closest?.(UI)&&([...m.addedNodes,...m.removedNodes].some(n=>n.nodeType!==Node.ELEMENT_NODE||!n.matches?.(UI))||m.type==="characterData"));
     if(changed)scheduleScan();
-  }).observe(document.body,{childList:true,subtree:true,characterData:true});
+  });
+  mutations.observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeOldValue:true,attributeFilter:["class","style","data-theme","data-color-mode"]});
+  listen(matchMedia("(prefers-color-scheme: dark)"),"change",schedulePaint);
   listen(window,"scroll",schedulePaint,{passive:true});listen(window,"resize",schedulePaint,{passive:true});
   listen(document,"focusin",schedulePaint);listen(document,"focusout",schedulePaint);
   for(const type of ["wheel","touchmove"])listen(window,type,()=>{scrollIntent++;},{passive:true});
