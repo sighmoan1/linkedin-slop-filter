@@ -140,17 +140,17 @@
     for(const [p,r]of records)render(p,r);
     renderGroups();renderToolbar();
     const available=(...elements)=>elements.find(e=>e?.isConnected&&e.getClientRects().length);
-    const target=focusKind==="show"||focusKind==="row"?record.show:focusKind==="details"?available(record.detailsOrigin,record.foldDetails,record.detailsButton):focusKind==="correction"?(record.correctionInputs?.[0]||record.correctionHeading):focusKind==="correct"||focusKind==="cancel"?available(record.correctionOrigin,record.foldCorrect,record.correctButton,record.foldDetails,record.detailsButton):focusKind==="saved"?(record.bar?record.show:record.correctButton):null;
+    const target=focusKind==="show"||focusKind==="row"?record.show:focusKind==="correction"?(record.correctionInputs?.[0]||record.correctionHeading):focusKind==="correct"||focusKind==="cancel"?available(record.correctionOrigin,record.correctButton):focusKind==="saved"?(record.bar?record.show:record.correctButton):null;
     if(anchor&&originTop!==null&&target){const rect=target.getBoundingClientRect();if(anchor.top<0||rect.top<0||rect.bottom>innerHeight)anchor.top=originTop-(rect.top-post.getBoundingClientRect().top);}
     target?.focus({preventScroll:true});restoreAnchor(anchor);
   }
   function clearFold(post,record,keepBar=false) {
     toggle(post,"lsf-folded",false);
-    if(!keepBar){const focused=record.bar?.contains(document.activeElement);record.bar?.remove();record.bar=null;if(focused)record.detailsButton?.focus({preventScroll:true});}
+    if(!keepBar){const focused=record.bar?.contains(document.activeElement);record.bar?.remove();record.bar=null;if(focused)record.correctButton?.focus({preventScroll:true});}
   }
   function clearTools(record) {record.tools?.remove();record.tools=null;}
   function forget(post,record) {
-    for(const e of [record.bar,record.tools,record.panel,record.correction,record.groupBar])e?.remove();
+    for(const e of [record.bar,record.tools,record.correction,record.groupBar])e?.remove();
     for(const cls of ["lsf-folded","lsf-highlight","lsf-group-suppressed","lsf-group-lead","lsf-group-open","lsf-feed-card"])toggle(post,cls,false);
     delete post.dataset.lsfTheme;delete post.dataset.lsfTone;delete post.dataset.lsfScheme;
     post.removeEventListener("mouseenter",record.enter);post.removeEventListener("mouseleave",record.leave);
@@ -162,7 +162,7 @@
     if(record.scores) {
       const partial=settings.categories.some(c=>typeof record.scores[c.id]!=="number");
       const level=hits.some(c=>c.action==="hide")?"lsf-c-hide":hits.some(c=>c.action==="highlight")?"lsf-c-highlight":hits.length?"lsf-c-label":"lsf-c-none";
-      return {text:hits.length?hits.map(c=>c.name).join(" · "):partial?"Partly scored":"No category",level,title:(record.provider==="ollama"?"Local self-reported confidence, not a calibrated probability. ":"Model estimates, not proof of AI authorship. ")+"A category applies only above its threshold. Select Show category scores for every available score."};
+      return {text:hits.length?hits.map(c=>c.name).join(" · "):partial?"Partly scored":"No category",level,title:(record.provider==="ollama"?"Local self-reported confidence, not a calibrated probability. ":"Model estimates, not proof of AI authorship. ")+"A category applies only above its threshold. Open Categories for scores and corrections."};
     }
     if(record.pending)return {text:"Scoring…",level:"lsf-muted",title:"The original post stays visible while the model scores it."};
     if(record.error)return {text:"Not scored",level:"lsf-muted",title:"The post stays visible. Check provider status in extension settings."};
@@ -173,14 +173,13 @@
     const tools=shell("lsf-tools");
     const badge=node("span","lsf-badge");
     const controls=node("div","lsf-actions");
-    const details=button("Show category scores",origin=>act(post,record,()=>{if(!record.detailsOpen)record.detailsOrigin=origin;record.detailsOpen=!record.detailsOpen;},"details"),"lsf-button lsf-flat");
-    details.setAttribute("aria-controls","lsf-details-"+record.id);
-    const correct=button("Change post categories",origin=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening){record.detailsOpen=false;record.correctionOrigin=origin;}},opening?"correction":"correct");},"lsf-button lsf-flat");
-        const arrive=node("span","lsf-arrived");
+    const correct=button("Categories",origin=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening)record.correctionOrigin=origin;},opening?"correction":"correct");},"lsf-button lsf-flat");
+    correct.setAttribute("aria-controls","lsf-categories-"+record.id);
+    const arrive=node("span","lsf-arrived");
     const hideNow=button("Hide post",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"show"));
     const hideAgain=button("Hide post again",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"row"));
-    controls.append(details,correct,hideAgain,hideNow);tools.append(badge,arrive,controls);post.append(tools);
-    Object.assign(record,{tools,badge,detailsButton:details,correctButton:correct,arrive,hideNow,hideAgain});
+    controls.append(correct,hideAgain,hideNow);tools.append(badge,arrive,controls);post.append(tools);
+    Object.assign(record,{tools,badge,correctButton:correct,arrive,hideNow,hideAgain});
   }
   function ensureBar(post,record) {
     if(record.bar)return;
@@ -188,45 +187,23 @@
     const label=node("span","lsf-fold-name");
     const controls=node("div","lsf-actions");
     const show=button("Show post",()=>{const revealing=!record.revealed;act(post,record,()=>{record.revealed=revealing;if(!revealing)record.foldCommitted=true;},"row");});
-    const details=button("Show category scores",origin=>act(post,record,()=>{if(!record.detailsOpen)record.detailsOrigin=origin;record.detailsOpen=!record.detailsOpen;},"details"),"lsf-button lsf-flat");
-    details.setAttribute("aria-controls","lsf-details-"+record.id);
-    const correct=button("Change post categories",origin=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin=origin;},"correction"),"lsf-button lsf-flat");
-    controls.append(show,details,correct);bar.append(label,controls);post.prepend(bar);
-    Object.assign(record,{bar,foldLabel:label,show,foldDetails:details,foldCorrect:correct});
+    controls.append(show);bar.append(label,controls);post.prepend(bar);
+    Object.assign(record,{bar,foldLabel:label,show});
   }
-  function renderDetails(post,record) {
-    if(!record.detailsOpen){if(record.panel)hidden(record.panel,true);return;}
-    const signature=JSON.stringify([settings.categories,record.scores,record.configuration,settings.configuration,record.pending,record.provider,hasCorrection(record),record.correctionIds]);
-    if(!record.panel) {
-      const panel=shell("lsf-panel");panel.id="lsf-details-"+record.id;panel.setAttribute("role","region");panel.setAttribute("aria-label","Category score details");
-      const heading=node("p","lsf-panel-heading"),table=node("table","lsf-score-table"),thead=node("thead"),head=node("tr"),tbody=node("tbody"),note=node("p","lsf-note");
-      for(const label of ["Category","Score","Your rule"])head.append(node("th","",label));
-      thead.append(head);table.append(thead,tbody);
-      const edit=button("Manage categories",()=>openSettings(),"lsf-button lsf-flat");
-      const correct=button("Change post categories",()=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin=record.detailsOrigin;},"correction"),"lsf-button lsf-flat");
-      panel.append(heading,table,note,edit,correct);post.append(panel);
-      Object.assign(record,{panel,detailsHeading:heading,detailsRows:tbody,detailsNote:note});
-    }
-    hidden(record.panel,false);
-    if(record.detailsSignature===signature)return;
-    record.detailsSignature=signature;
-    const stale=record.scores&&record.configuration!==settings.configuration;
-    const missing=settings.categories.filter(c=>typeof record.scores?.[c.id]!=="number");
-    textOf(record.detailsHeading,stale?"Stale scores — original post stays visible":record.scores?(missing.length?"Partly scored":"Category scores"):record.pending?"Scoring — original post stays visible":"Not scored — original post stays visible");
-    const rows=[];
-    for(const c of settings.categories){const tr=node("tr");const score=record.scores?.[c.id];tr.append(node("td","",c.name),node("td","",typeof score==="number"?scoreText(score,c.threshold):"Not returned"),node("td","",c.action[0].toUpperCase()+c.action.slice(1)+" above "+pct(c.threshold)));rows.push(tr);}
-    record.detailsRows.replaceChildren(...rows);
-    textOf(record.detailsNote,(hasCorrection(record)?"Your correction determines this post’s categories; these are the original model scores. ":"")+"Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores are self-reported confidence, not calibrated probabilities.":"Model estimates do not establish AI authorship."));
-  }
-  function renderCorrection(post,record,hits) {
-    if(!record.correcting){if(record.correction)hidden(record.correction,true);return;}
+  function renderCategories(post,record,hits) {
+    if(!record.correcting){record.correction?.remove();record.correction=null;record.correctionInputs=null;record.correctionSignature=null;return;}
     if(!record.correction) {
-      const form=shell("lsf-panel lsf-correction");form.setAttribute("role","region");form.setAttribute("aria-label","Change post categories");
-      const heading=node("p","lsf-panel-heading","Which categories apply?");heading.tabIndex=-1;record.correctionHeading=heading;
-      form.append(heading,node("p","lsf-note","Choose every relevant category. Leave all unchecked for none. Only saving records this post body locally; it does not train a model."));
-      const fields=node("div","lsf-correction-fields");record.correctionFields=fields;
+      const form=shell("lsf-panel lsf-correction");form.setAttribute("role","region");form.id="lsf-categories-"+record.id;form.setAttribute("aria-label","Post categories and scores");
+      const heading=node("p","lsf-panel-heading","Post categories");heading.tabIndex=-1;record.correctionHeading=heading;
+      form.append(heading,node("p","lsf-note","Select every category that fits, or none. Saving stores this post locally."));
+      const table=node("table","lsf-score-table"),thead=node("thead"),head=node("tr"),fields=node("tbody","lsf-correction-fields");
+      for(const label of ["Category","Score","Your rule"])head.append(node("th","",label));
+      thead.append(head);table.append(thead,fields);record.correctionFields=fields;
+      const scoreStatus=node("p","lsf-note"),note=node("p","lsf-note");
+      const help=node("details","lsf-score-help");help.append(node("summary","","About scores"),note);
+      Object.assign(record,{scoreStatus,scoreNote:note});
       const message=node("p","lsf-note");message.setAttribute("role","status");
-      const save=button("Save categories and show post",async()=>{
+      const save=button("Save categories",async()=>{
         if(bodyText(post)!==record.text){scan();return;}
         save.disabled=true;textOf(message,"Saving locally…");
         const correctionConfiguration=settings.configuration;
@@ -240,15 +217,24 @@
         }catch{textOf(message,"Could not save the correction. Try again or open settings.");}finally{save.disabled=false;}
       });
       const cancel=button("Cancel",()=>act(post,record,()=>{record.correcting=false;},"cancel"),"lsf-button lsf-flat");
-      form.append(fields,message,save,cancel);post.append(form);record.correction=form;
+      const manage=button("Manage category rules",()=>openSettings(),"lsf-button lsf-flat");
+      const actions=node("div","lsf-panel-actions");actions.append(save,cancel,manage);
+      form.addEventListener("keydown",e=>{if(e.key==="Escape"){e.preventDefault();e.stopPropagation();act(post,record,()=>{record.correcting=false;},"cancel");}});
+      form.append(scoreStatus,table,help,message,actions);post.append(form);record.correction=form;
     }
-    const signature=JSON.stringify(settings.categories.map(c=>[c.id,c.name]));
+    const stale=record.scores&&record.configuration!==settings.configuration;
+    const missing=settings.categories.some(c=>typeof record.scores?.[c.id]!=="number");
+    textOf(record.scoreStatus,stale?"Updating scores — previous scores are stale":record.scores?(missing?"Partly scored":"Model scores"):record.pending?"Scoring…":"Not scored");
+    textOf(record.scoreNote,(hasCorrection(record)?"Your correction determines this post’s categories; these are the original model scores. ":"")+"Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores are self-reported confidence, not calibrated probabilities.":"Model estimates do not establish AI authorship."));
+    const signature=JSON.stringify([settings.categories,record.scores]);
     if(record.correctionSignature!==signature) {
       const focused=document.activeElement;
       const focusId=record.correctionFields.contains(focused)?focused.value:null;
       const previous=new Map((record.correctionInputs||[]).map(i=>[i.value,i.checked]));
       const rows=[],inputs=[];
-      for(const c of settings.categories){const label=node("label"),input=node("input");input.type="checkbox";input.value=c.id;input.checked=previous.has(c.id)?previous.get(c.id):record.correctionIds?record.correctionIds.includes(c.id):hits.some(h=>h.id===c.id);label.append(input,node("span","",c.name));rows.push(label);inputs.push(input);}
+      for(const c of settings.categories){const label=node("label"),input=node("input");input.type="checkbox";input.value=c.id;input.checked=previous.has(c.id)?previous.get(c.id):record.correctionIds?record.correctionIds.includes(c.id):hits.some(h=>h.id===c.id);label.append(input,node("span","",c.name));
+        const row=node("tr"),category=node("td"),score=record.scores?.[c.id];category.append(label);
+        row.append(category,node("td","",typeof score==="number"?scoreText(score,c.threshold):"Not returned"),node("td","",c.action[0].toUpperCase()+c.action.slice(1)+" above "+pct(c.threshold)));rows.push(row);inputs.push(input);}
       record.correctionFields.replaceChildren(...rows);record.correctionInputs=inputs;record.correctionSignature=signature;
       if(focusId)(inputs.find(i=>i.value===focusId)||record.correctionHeading).focus({preventScroll:true});
     }
@@ -259,7 +245,7 @@
     toggle(post,"lsf-feed-card",true);
     attr(post,"data-lsf-scheme",hostScheme(post));
     if(post.dataset.lsfTheme!==experience.appearance.theme)post.dataset.lsfTheme=experience.appearance.theme;
-    if(!settings.enabled){clearFold(post,record);clearTools(record);toggle(post,"lsf-highlight",false);if(record.panel)hidden(record.panel,true);if(record.correction)hidden(record.correction,true);return;}
+    if(!settings.enabled){clearFold(post,record);clearTools(record);toggle(post,"lsf-highlight",false);if(record.correction)hidden(record.correction,true);return;}
     const hits=applying(record),hiding=hits.filter(c=>c.action==="hide");
     if(!hiding.length)record.foldCommitted=false;
     const folded=hiding.length&&!record.revealed&&!experience.showEverything&&(record.foldCommitted||!engaged(post,record));
@@ -278,29 +264,28 @@
       hidden(record.hideNow,!record.deferred);
       hidden(record.arrive,!record.deferred);
       textOf(record.arrive,record.deferred?hiding.map(c=>c.name).join(" · ")+" result arrived · staying visible":"");
-      textOf(record.detailsButton,record.detailsOpen?"Hide category scores":"Show category scores");
-      attr(record.detailsButton,"aria-expanded",!!record.detailsOpen);
       attr(record.correctButton,"aria-expanded",!!record.correcting);
       if(record.corrected){record.correctButton.title="Correction saved locally; no automatic training";}
     } else clearTools(record);
     if(folded) {
+      record.correcting=false;
       ensureBar(post,record);hidden(record.bar,false);
       if(record.bar.className!=="lsf-bar")record.bar.className="lsf-bar";
       textOf(record.show,"Show post");
-      textOf(record.foldLabel,hiding.map(c=>c.corrected?c.name+" · corrected":c.name+" · "+pct(c.p)+" confidence").join("; "));
+      textOf(record.foldLabel,hiding.map(c=>c.name).join(" · "));
       attr(record.bar,"data-label",hiding.map(c=>c.name).join(" · "));
+      attr(record.foldLabel,"title",record.bar.dataset.label);
       attr(record.bar,"aria-label","Hidden post: "+record.bar.dataset.label);
       attr(record.show,"aria-label","Show post hidden as "+record.bar.dataset.label);
-      textOf(record.foldDetails,record.detailsOpen?"Hide category scores":"Show category scores");attr(record.foldDetails,"aria-expanded",!!record.detailsOpen);
       toggle(post,"lsf-folded",true);record.foldCommitted=true;
       if(!record.foldCounted){record.foldCounted=true;send({type:"folded"}).catch(()=>{});}
     } else if(record.revealed&&hiding.length&&!experience.showEverything) {
       clearFold(post,record,true);ensureBar(post,record);hidden(record.bar,false);
       if(record.bar.className!=="lsf-bar lsf-revealed-bar")record.bar.className="lsf-bar lsf-revealed-bar";
       textOf(record.foldLabel,"Shown · "+hiding.map(c=>c.name).join(" · "));textOf(record.show,"Hide post again");
-      attr(record.show,"aria-label","Hide post again");attr(record.bar,"aria-label","Revealed post: "+hiding.map(c=>c.name).join(" · "));textOf(record.foldDetails,record.detailsOpen?"Hide category scores":"Show category scores");attr(record.foldDetails,"aria-expanded",!!record.detailsOpen);
+      attr(record.show,"aria-label","Hide post again");attr(record.bar,"aria-label","Revealed post: "+hiding.map(c=>c.name).join(" · "));
     } else clearFold(post,record);
-    renderDetails(post,record);renderCorrection(post,record,hits);
+    renderCategories(post,record,hits);
   }
   function renderGroups() {
     const ordered=[...records.keys()].filter(p=>p.isConnected);
@@ -329,7 +314,7 @@
       toggle(first,"lsf-group-lead",true);toggle(first,"lsf-group-open",expanded);toggle(first,"lsf-group-suppressed",false);
       for(const p of items.slice(1)){toggle(p,"lsf-group-suppressed",!expanded);toggle(p,"lsf-group-lead",false);toggle(p,"lsf-group-open",false);}
     }
-    if(summaryPost){const record=records.get(summaryPost);(summaryTarget||[record.show,record.detailsButton,toolbar?.all].find(e=>e?.isConnected&&e.getClientRects().length))?.focus({preventScroll:true});}
+    if(summaryPost){const record=records.get(summaryPost);(summaryTarget||[record.show,record.correctButton,toolbar?.all].find(e=>e?.isConnected&&e.getClientRects().length))?.focus({preventScroll:true});}
   }
   async function openSettings(section="categories"){try{await send({type:"openSettings",section});}catch{}}
   function setExperience(next) {

@@ -50,6 +50,25 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../content.js'),'utf8')});
   await page.waitForSelector('.lsf-feed-toolbar');await settle(page);return {page,errors};
  }
+ // Compact hidden rows and one visible-post menu, including draft cancellation and keyboard recovery.
+ for(const width of [1000,320]){
+  const {page,errors}=await fixture([{id:'compact',scores:allScores({slop:.95,advert:.94})}],{top:900,width});
+  await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='advert'?{...c,action:'hide'}:c));await page.waitForFunction(()=>document.querySelector('#compact .lsf-fold-name')?.textContent==='Slop · Advert');
+  const screenshotDir=process.env.FEED_SCREENSHOTS;if(screenshotDir){fs.mkdirSync(screenshotDir,{recursive:true});await atTop(page,'compact',100);await page.locator('#compact').screenshot({path:path.join(screenshotDir,'compact-row-'+width+'.png')});}
+  const row=page.locator('#compact .lsf-bar');assert.equal(await row.locator('button').count(),1);assert.equal(await row.locator('.lsf-fold-name').innerText(),'Slop · Advert');
+  assert.ok(await row.evaluate(e=>e.getBoundingClientRect().height)<=48,'hidden row stays compact');
+  assert.equal(await page.locator('#compact .lsf-panel, #compact .lsf-tools').count(),0);
+  await row.locator('button').click();const menu=page.locator('#compact .lsf-tools button').filter({hasText:/^Categories$/});
+  assert.equal(await page.locator('#compact .lsf-tools button:visible').count(),2,'one category menu plus re-hide');
+  await menu.click();assert.equal(await menu.getAttribute('aria-expanded'),'true');assert.equal(await page.locator('#compact .lsf-panel').count(),1);
+  assert.equal(await page.locator('#compact .lsf-score-table input').count(),cats.length);assert.match(await page.locator('#compact .lsf-panel').innerText(),/Advert\s+94%\s+Hide above 80%/);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'open menu fits narrow feed');
+  if(screenshotDir)await page.locator('#compact .lsf-panel').screenshot({path:path.join(screenshotDir,'category-menu-'+width+'.png')});
+  await page.locator('#compact input[value=slop]').uncheck();await page.keyboard.press('Escape');assert.equal(await menu.evaluate(e=>e===document.activeElement),true);assert.equal(await menu.getAttribute('aria-expanded'),'false');
+  await menu.click();assert.equal(await page.locator('#compact input[value=slop]').isChecked(),true,'Escape discards unsaved edits');
+  await page.locator('#compact .lsf-bar button').click();await page.waitForSelector('#compact.lsf-folded');assert.equal(await page.locator('#compact .lsf-panel, #compact .lsf-tools').count(),0,'re-hide removes the menu');assert.equal(await row.locator('button').evaluate(e=>e===document.activeElement),true);
+  assert.equal(await page.evaluate(()=>window.corrections.length),0,'reading scores and cancelling never stores a post');assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
+ }
  // A late result keeps the reader's actual paragraph and original native controls in place.
  {
   const {page,errors}=await fixture([{id:'late',long:80,hold:true,scores:allScores({slop:.95})}]);
@@ -60,7 +79,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   assert.equal(await folded(page,'late'),false);assert.ok(Math.abs((await paragraph.evaluate(e=>e.getBoundingClientRect().top))-before)<=2);
   assert.equal(await page.locator('#late a').isVisible(),true);assert.equal(await page.locator('#late .native-controls button').first().isVisible(),true);
   await atTop(page,'late',-2500);await page.waitForSelector('#late.lsf-folded');await atTop(page,'late',100);await settle(page);
-  assert.equal(await page.locator('#late .lsf-fold-name').innerText(),'Slop · 95% confidence','hidden rows show the actual category confidence');
+  assert.equal(await page.locator('#late .lsf-fold-name').innerText(),'Slop','hidden rows show category names without scores');
   const rowTop=await page.locator('#late').evaluate(e=>e.getBoundingClientRect().top);
   await page.locator('#late .lsf-bar button').filter({hasText:'Show post'}).click();await settle(page);
   assert.equal(await folded(page,'late'),false);assert.ok(Math.abs((await page.locator('#late').evaluate(e=>e.getBoundingClientRect().top))-rowTop)<=2);
@@ -78,22 +97,19 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.locator('#clipped .lsf-bar button').filter({hasText:'Show post'}).click();await settle(page);
   const header=page.locator('#clipped .lsf-revealed-bar button').filter({hasText:'Hide post again'});assert.equal(await header.evaluate(e=>e===document.activeElement),true);
   await page.evaluate(()=>window.scrollTo({top:scrollY+600,behavior:'instant'}));await settle(page);assert.ok(await header.evaluate(e=>e.getBoundingClientRect().bottom<0),'overflow:hidden can defeat a sticky header');
-  for(const source of ['Change post categories','Show category scores']){
-   const origin=page.locator('#clipped .lsf-tools button').filter({hasText:new RegExp(source==='Show category scores'?'^(Show|Hide) category scores$':'^'+source+'$')});await origin.click();await origin.evaluate(e=>window.correctionOrigin=e);
-   if(source==='Show category scores')await page.locator('#clipped .lsf-panel button').filter({hasText:'Change post categories'}).click();
-   await settle(page);assert.equal(await page.locator('#clipped .lsf-correction input').first().evaluate(e=>e===document.activeElement&&e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<innerHeight),true,'correction focus stays visible at the end of a long card');
-   await page.locator('#clipped .lsf-correction button').filter({hasText:'Cancel'}).click();await settle(page);assert.equal(await origin.evaluate(e=>e===document.activeElement&&e===window.correctionOrigin&&e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<innerHeight),true,'Cancel returns to the same visible footer control');
-  }
+  const origin=page.locator('#clipped .lsf-tools button').filter({hasText:/^Categories$/});await origin.click();await origin.evaluate(e=>window.correctionOrigin=e);
+  await settle(page);assert.equal(await page.locator('#clipped .lsf-correction input').first().evaluate(e=>e===document.activeElement&&e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<innerHeight),true,'category menu focus stays visible at the end of a long card');
+  await page.locator('#clipped .lsf-correction button').filter({hasText:'Cancel'}).click();await settle(page);assert.equal(await origin.evaluate(e=>e===document.activeElement&&e===window.correctionOrigin&&e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<innerHeight),true,'Cancel returns to the same visible footer control');
   const footer=page.locator('#clipped .lsf-tools button').filter({hasText:/^Hide post again$/});await footer.scrollIntoViewIfNeeded();await footer.focus();await settle(page);const before=await footer.evaluate(e=>e.getBoundingClientRect().top);
   await page.keyboard.press('Enter');await settle(page);const show=page.locator('#clipped .lsf-bar button').filter({hasText:'Show post'});assert.equal(await folded(page,'clipped'),true);assert.equal(await show.evaluate(e=>e===document.activeElement),true);assert.ok(Math.abs((await show.evaluate(e=>e.getBoundingClientRect().top))-before)<=2,'footer collapse retains the originating control position');assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
  }
- // Details controls keep their identity and focus when a pending result updates the scores.
+ // Category menu controls keep their identity and focus when a pending result updates the scores.
  for(const offscreen of [false,true]){
   const {page,errors}=await fixture([{id:'detailfocus',long:true,hold:true,scores:allScores({slop:.95})},{id:'detailreader',long:true}]);await page.waitForFunction(()=>!!window.releases.detailfocus);
-  await page.locator('#detailfocus .lsf-tools button').filter({hasText:/^(Show|Hide) category scores$/}).click();const manage=page.locator('#detailfocus .lsf-panel button').filter({hasText:'Manage categories'});await manage.focus();await manage.evaluate(e=>window.originalManage=e);
+  await page.locator('#detailfocus .lsf-tools button').filter({hasText:/^Categories$/}).click();const manage=page.locator('#detailfocus .lsf-panel button').filter({hasText:'Manage category rules'});await manage.focus();await manage.evaluate(e=>window.originalManage=e);
   if(offscreen)await atTop(page,'detailreader',-150);
   await page.evaluate(()=>window.releases.detailfocus());await page.waitForFunction(()=>document.querySelector('#detailfocus .lsf-score-table td:nth-child(2)')?.textContent==='95%');await settle(page);
-  assert.equal(await manage.evaluate(e=>e===document.activeElement&&e===window.originalManage),true);assert.equal(await folded(page,'detailfocus'),false,'a focused Details panel cannot be folded by its arriving result');assert.deepEqual(errors,[]);
+  assert.equal(await manage.evaluate(e=>e===document.activeElement&&e===window.originalManage),true);assert.equal(await folded(page,'detailfocus'),false,'a focused category panel cannot be folded by its arriving result');assert.deepEqual(errors,[]);
  }
  // A rejected obsolete request cannot postpone scoring the current questions.
  {
@@ -179,66 +195,66 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   const {page,errors}=await fixture([{id:'mix',long:true,scores:allScores({slop:.95,advert:.94,nourishment:.97,custom:.92})}],{top:900});
   await page.evaluate(()=>window.categories=window.categories.map(c=>['advert','nourishment','custom'].includes(c.id)?{...c,action:'hide'}:c));await page.waitForSelector('#mix.lsf-folded');
   await page.waitForFunction(()=>document.querySelector('#mix .lsf-fold-name')?.textContent.includes('Custom'));
-  const names=await page.locator('#mix .lsf-fold-name').innerText();for(const label of ['Slop · 95% confidence','Advert · 94% confidence','Good post · 97% confidence','Custom · 92% confidence'])assert.ok(names.includes(label));
+  const names=await page.locator('#mix .lsf-fold-name').innerText();for(const label of ['Slop','Advert','Good post','Custom'])assert.ok(names.includes(label));
   const originals=await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)}));
   assert.equal(await page.locator('.lsf-feed-toolbar select').count(),0);assert.equal(await page.locator('#mix').getAttribute('data-lsf-theme'),'native');assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),names);
   assert.deepEqual(await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)})),originals);
   await page.locator('.lsf-feed-toolbar button').filter({hasText:'Show everything'}).click();await page.waitForFunction(()=>!document.getElementById('mix').classList.contains('lsf-folded'));
   assert.match(await page.locator('.lsf-toolbar-status').innerText(),/temporarily/);assert.equal(await page.locator('#mix .update-components-text').isVisible(),true);
   await page.locator('.lsf-feed-toolbar button').filter({hasText:'Restore filtering'}).click();await page.waitForSelector('#mix.lsf-folded');assert.equal(await page.evaluate(()=>JSON.stringify(window.categories)),originals.categories);
-  await page.locator('#mix .lsf-bar button').filter({hasText:/^(Show|Hide) category scores$/}).click();assert.match(await page.locator('#mix .lsf-panel').innerText(),/Good post\s+97%\s+Hide above 80%/);assert.match(await page.locator('#mix .lsf-panel').innerText(),/Off categories are not requested/);
+  await page.locator('#mix .lsf-bar button').filter({hasText:'Show post'}).click();await page.locator('#mix .lsf-tools button').filter({hasText:/^Categories$/}).click();assert.match(await page.locator('#mix .lsf-panel').innerText(),/Good post\s+97%\s+Hide above 80%/);assert.match(await page.locator('#mix .lsf-panel').textContent(),/Off categories are not requested/);
   const beforeNavigation=await page.evaluate(()=>({calls:window.calls.length,categories:JSON.stringify(window.categories)}));
   await page.locator('.lsf-feed-toolbar button').filter({hasText:/^Categories$/}).click();
   assert.deepEqual(await page.evaluate(()=>window.messages.filter(m=>m.type==='openSettings').at(-1)),{type:'openSettings',section:'categories'});
   await page.locator('.lsf-feed-toolbar button').filter({hasText:/^Settings$/}).click();
   assert.deepEqual(await page.evaluate(()=>window.messages.filter(m=>m.type==='openSettings').at(-1)),{type:'openSettings',section:'feed'});
   assert.deepEqual(await page.evaluate(()=>({calls:window.calls.length,categories:JSON.stringify(window.categories)})),beforeNavigation,'settings navigation leaves rules and scoring untouched');
-  await page.locator('#mix .lsf-panel button').filter({hasText:'Manage categories'}).click();assert.equal(await page.evaluate(()=>window.messages.filter(m=>m.type==='openSettings').at(-1).section),'categories');
-  await page.locator('#mix .lsf-panel button').filter({hasText:'Change post categories'}).click();assert.equal(await page.locator('#mix .lsf-correction input').first().evaluate(e=>e===document.activeElement),true);await page.locator('#mix .lsf-correction button').filter({hasText:'Cancel'}).click();assert.equal(await page.locator('#mix .lsf-bar button').filter({hasText:/^(Show|Hide) category scores$/}).evaluate(e=>e===document.activeElement),true);await page.locator('#mix .lsf-bar button').filter({hasText:/^Change post categories$/}).click();assert.equal(await page.locator('#mix .lsf-correction input').first().evaluate(e=>e===document.activeElement),true);await page.locator('#mix .lsf-correction input').evaluateAll(es=>es.forEach(e=>e.checked=false));
-  await page.locator('#mix .lsf-correction input[value=nourishment]').check();await page.locator('#mix .lsf-correction input[value=custom]').check();await page.locator('#mix .lsf-correction button').filter({hasText:'Save categories and show post'}).click();await page.waitForFunction(()=>window.corrections.length===1);
+  await page.locator('#mix .lsf-panel button').filter({hasText:'Manage category rules'}).click();assert.equal(await page.evaluate(()=>window.messages.filter(m=>m.type==='openSettings').at(-1).section),'categories');
+  await page.locator('#mix .lsf-correction button').filter({hasText:'Cancel'}).click();assert.equal(await page.locator('#mix .lsf-tools button').filter({hasText:/^Categories$/}).evaluate(e=>e===document.activeElement),true);await page.locator('#mix .lsf-tools button').filter({hasText:/^Categories$/}).click();assert.equal(await page.locator('#mix .lsf-correction input').first().evaluate(e=>e===document.activeElement),true);await page.locator('#mix .lsf-correction input').evaluateAll(es=>es.forEach(e=>e.checked=false));
+  await page.locator('#mix .lsf-correction input[value=nourishment]').check();await page.locator('#mix .lsf-correction input[value=custom]').check();await page.locator('#mix .lsf-correction button').filter({hasText:'Save categories'}).click();await page.waitForFunction(()=>window.corrections.length===1);
   assert.equal(await folded(page,'mix'),false);assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),'Shown · Good post · Custom');assert.equal(await page.locator('#mix').evaluate(e=>e.dataset.lsfTone),'nourishment');assert.deepEqual(await page.evaluate(()=>window.corrections[0].categoryIds),['nourishment','custom']);const stored=await page.evaluate(()=>window.corrections[0].text);assert.match(stored,/^\[mix\]/);assert.ok(!stored.includes('Avery')&&!stored.includes('COMMENT TEXT')&&!stored.includes('Like'));
-  await page.locator('#mix .lsf-bar button').filter({hasText:'Hide post again'}).click();await page.waitForSelector('#mix.lsf-folded');assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),'Good post · corrected; Custom · corrected');await page.locator('#mix .lsf-bar button').filter({hasText:/^Show post$/}).click();
-  await page.locator('#mix .lsf-tools button').filter({hasText:'Change post categories'}).click();await page.locator('#mix .lsf-correction input').evaluateAll(es=>es.forEach(e=>e.checked=false));await page.locator('#mix .lsf-correction button').filter({hasText:'Save categories and show post'}).click();await page.waitForFunction(()=>window.corrections.length===2);assert.deepEqual(await page.evaluate(()=>window.corrections[1].categoryIds),[]);await settle(page);assert.equal(await page.locator('#mix .lsf-badge').innerText(),'No category');assert.equal(await page.locator('#mix .lsf-bar').isVisible(),false);assert.equal(await page.locator('#mix .lsf-tools button').filter({hasText:'Hide post again'}).isVisible(),false);await page.locator('#mix .lsf-tools button').filter({hasText:/^Show category scores$/}).click();assert.match(await page.locator('#mix .lsf-panel:not(.lsf-correction)').innerText(),/original model scores/);assert.match(await page.locator('#mix .lsf-panel:not(.lsf-correction)').innerText(),/Slop\s+95%/);
+  await page.locator('#mix .lsf-bar button').filter({hasText:'Hide post again'}).click();await page.waitForSelector('#mix.lsf-folded');assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),'Good post · Custom');await page.locator('#mix .lsf-bar button').filter({hasText:/^Show post$/}).click();
+  await page.locator('#mix .lsf-tools button').filter({hasText:'Categories'}).click();await page.locator('#mix .lsf-correction input').evaluateAll(es=>es.forEach(e=>e.checked=false));await page.locator('#mix .lsf-correction button').filter({hasText:'Save categories'}).click();await page.waitForFunction(()=>window.corrections.length===2);assert.deepEqual(await page.evaluate(()=>window.corrections[1].categoryIds),[]);await settle(page);assert.equal(await page.locator('#mix .lsf-badge').innerText(),'No category');assert.equal(await page.locator('#mix .lsf-bar').isVisible(),false);assert.equal(await page.locator('#mix .lsf-tools button').filter({hasText:'Hide post again'}).isVisible(),false);await page.locator('#mix .lsf-tools button').filter({hasText:/^Categories$/}).click();assert.match(await page.locator('#mix .lsf-panel').textContent(),/original model scores/);assert.match(await page.locator('#mix .lsf-panel').innerText(),/Slop\s+95%/);
   assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
  }
  // Corrected highlights, failed saves, and recycled cards cannot use stale manual labels.
  {
   const {page,errors}=await fixture([{id:'manual',scores:allScores({slop:.95})}],{top:900});await page.waitForSelector('#manual.lsf-folded');
-  await page.locator('#manual .lsf-bar button').filter({hasText:/^Change post categories$/}).click();
+  await page.locator('#manual .lsf-bar button').filter({hasText:'Show post'}).click();await page.locator('#manual .lsf-tools button').filter({hasText:/^Categories$/}).click();
   await page.locator('#manual .lsf-correction input').evaluateAll(es=>es.forEach(e=>e.checked=false));await page.locator('#manual .lsf-correction input[value=opportunity]').check();
-  await page.evaluate(()=>window.correctionError=true);await page.locator('#manual .lsf-correction button').filter({hasText:'Save categories and show post'}).click();await page.waitForFunction(()=>document.querySelector('#manual .lsf-correction').textContent.includes('Could not save'));
-  assert.equal(await folded(page,'manual'),true);assert.equal(await page.locator('#manual .lsf-fold-name').innerText(),'Slop · 95% confidence');assert.equal(await page.evaluate(()=>window.corrections.length),0);
-  await page.evaluate(()=>window.correctionError=false);await page.locator('#manual .lsf-correction button').filter({hasText:'Save categories and show post'}).click();await page.waitForSelector('#manual.lsf-highlight');
+  await page.evaluate(()=>window.correctionError=true);await page.locator('#manual .lsf-correction button').filter({hasText:'Save categories'}).click();await page.waitForFunction(()=>document.querySelector('#manual .lsf-correction').textContent.includes('Could not save'));
+  assert.equal(await folded(page,'manual'),false);assert.equal(await page.locator('#manual .lsf-fold-name').innerText(),'Shown · Slop');assert.equal(await page.evaluate(()=>window.corrections.length),0);
+  await page.evaluate(()=>window.correctionError=false);await page.locator('#manual .lsf-correction button').filter({hasText:'Save categories'}).click();await page.waitForSelector('#manual.lsf-highlight');
   assert.equal(await folded(page,'manual'),false);assert.equal(await page.locator('#manual .lsf-badge').innerText(),'Opportunity');assert.match(await page.locator('#manual .lsf-badge').getAttribute('title'),/saved correction/);
   assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(await page.evaluate(()=>window.corrections[0].scores),allScores({slop:.95}));
-  await page.locator('#manual .lsf-tools button').filter({hasText:'Change post categories'}).click();await page.locator('#manual .lsf-correction input[value=slop]').check();await page.evaluate(()=>window.holdCorrection=true);
-  await page.locator('#manual .lsf-correction button').filter({hasText:'Save categories and show post'}).click();await page.waitForFunction(()=>!!window.releaseCorrection);
+  await page.locator('#manual .lsf-tools button').filter({hasText:'Categories'}).click();await page.locator('#manual .lsf-correction input[value=slop]').check();await page.evaluate(()=>window.holdCorrection=true);
+  await page.locator('#manual .lsf-correction button').filter({hasText:'Save categories'}).click();await page.waitForFunction(()=>!!window.releaseCorrection);
   await page.evaluate(scores=>{window.plan.replacement={scores};document.querySelector('#manual .update-components-text p').textContent='[replacement] A different post body';window.releaseCorrection();},allScores());
-  await page.waitForFunction(()=>document.querySelector('#manual .lsf-badge')?.textContent==='No category');assert.equal(await page.locator('#manual .lsf-tools button').filter({hasText:'Corrected'}).count(),0);assert.equal(await folded(page,'manual'),false);assert.deepEqual(errors,[]);
+  await atTop(page,'manual',100);await page.waitForFunction(()=>document.querySelector('#manual .lsf-badge')?.textContent==='No category');assert.equal(await page.locator('#manual .lsf-tools button').filter({hasText:'Corrected'}).count(),0);assert.equal(await folded(page,'manual'),false);assert.deepEqual(errors,[]);
  }
  // Active category metadata stays current without losing the correction draft or keyboard focus.
  {
   const {page,errors}=await fixture([{id:'edit',scores:allScores({slop:.95})}],{top:900});await page.waitForSelector('#edit.lsf-folded');
-  await page.locator('#edit .lsf-bar button').filter({hasText:/^Change post categories$/}).click();const advert=page.locator('#edit .lsf-correction input[value=advert]');await advert.check();await advert.focus();
+  await page.locator('#edit .lsf-bar button').filter({hasText:'Show post'}).click();await page.locator('#edit .lsf-tools button').filter({hasText:/^Categories$/}).click();const advert=page.locator('#edit .lsf-correction input[value=advert]');await advert.check();await advert.focus();
   await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='custom'?{...c,name:'Renamed custom'}:c));await page.waitForFunction(()=>document.querySelector('#edit .lsf-correction')?.textContent.includes('Renamed custom'));
   assert.equal(await advert.evaluate(e=>e===document.activeElement),true);assert.equal(await advert.isChecked(),true);
   await page.evaluate(()=>{window.categories=window.categories.map(c=>c.id==='advert'?{...c,action:'off'}:c);window.categories.push({id:'fresh',name:'Fresh category',action:'label',threshold:.8});window.config='c2';window.plan.edit.hold=true;window.plan.edit.released=false;});
   await page.waitForFunction(()=>!!window.releases.edit&&!!document.querySelector('#edit .lsf-correction input[value=fresh]'));
   assert.equal(await page.locator('#edit .lsf-correction input[value=advert]').count(),0);assert.equal(await page.locator('#edit .lsf-correction .lsf-panel-heading').evaluate(e=>e===document.activeElement),true);
   assert.equal(await page.locator('#edit .lsf-correction input[value=slop]').isChecked(),true);assert.equal(await folded(page,'edit'),false,'new questions cannot use stale scores to hide');
-  await page.evaluate(()=>window.releases.edit());await page.waitForFunction(()=>document.querySelector('#edit .lsf-arrived')?.textContent.includes('result arrived'));assert.equal(await folded(page,'edit'),false,'focused correction protects the replacement result');
-  await page.locator('#edit .lsf-correction button').filter({hasText:'Cancel'}).click();assert.equal(await page.locator('#edit .lsf-tools button').filter({hasText:/^Change post categories$/}).evaluate(e=>e===document.activeElement),true);assert.equal(await page.evaluate(()=>window.corrections.length),0);assert.deepEqual(errors,[]);
+  await page.evaluate(()=>window.releases.edit());await page.waitForFunction(()=>document.querySelector('#edit .lsf-correction .lsf-note')&&document.querySelector('#edit .lsf-correction').textContent.includes('Partly scored'));assert.equal(await folded(page,'edit'),false,'focused correction protects the replacement result');
+  await page.locator('#edit .lsf-correction button').filter({hasText:'Cancel'}).click();assert.equal(await page.locator('#edit .lsf-tools button').filter({hasText:/^Categories$/}).evaluate(e=>e===document.activeElement),true);assert.equal(await page.evaluate(()=>window.corrections.length),0);assert.deepEqual(errors,[]);
  }
- // Details precision explains strict boundary matches rather than displaying equal percentages.
+ // Score precision explains strict boundary matches rather than displaying equal percentages.
  {
-  const {page,errors}=await fixture([{id:'precision',scores:allScores({slop:.804,custom:.8000000001})}],{top:900});await page.waitForSelector('#precision.lsf-folded');await page.locator('#precision .lsf-bar button').filter({hasText:/^(Show|Hide) category scores$/}).click();const details=await page.locator('#precision .lsf-panel').innerText();assert.match(details,/Slop\s+80\.4%\s+Hide above 80%/);assert.match(details,/Custom\s+80% \(just above\)/);assert.deepEqual(errors,[]);
+  const {page,errors}=await fixture([{id:'precision',scores:allScores({slop:.804,custom:.8000000001})}],{top:900});await page.waitForSelector('#precision.lsf-folded');await page.locator('#precision .lsf-bar button').filter({hasText:'Show post'}).click();await page.locator('#precision .lsf-tools button').filter({hasText:/^Categories$/}).click();const details=await page.locator('#precision .lsf-panel').innerText();assert.match(details,/Slop\s+80\.4%\s+Hide above 80%/);assert.match(details,/Custom\s+80% \(just above\)/);assert.deepEqual(errors,[]);
  }
  // Partial, failed and invalid answers remain readable and never become fabricated rationales.
  {
   const {page,errors}=await fixture([{id:'partial',scores:{slop:.3}},{id:'error',error:'API unavailable SECRET-TEST-MARKER'},{id:'invalid',scores:{slop:'0.99'}}]);
   await page.waitForFunction(()=>window.calls.length===3);await page.waitForFunction(()=>document.querySelector('#partial .lsf-badge')?.textContent==='Partly scored');
   for(const id of ['partial','error','invalid'])assert.equal(await folded(page,id),false);
-  await page.locator('#partial .lsf-tools button').filter({hasText:/^(Show|Hide) category scores$/}).click();assert.match(await page.locator('#partial .lsf-panel').innerText(),/Partly scored/);assert.match(await page.locator('#partial .lsf-panel').innerText(),/Good post\s+Not returned/);
+  await page.locator('#partial .lsf-tools button').filter({hasText:/^Categories$/}).click();assert.match(await page.locator('#partial .lsf-panel').innerText(),/Partly scored/);assert.match(await page.locator('#partial .lsf-panel').innerText(),/Good post\s+Not returned/);
   assert.ok(!(await page.locator('body').innerText()).includes('SECRET-TEST-MARKER'));assert.match(await page.locator('.lsf-toolbar-status').innerText(),/could not be scored/);assert.deepEqual(errors,[]);
  }
  // Fast scrolling recomputes unsent work instead of starting a stale multi-post queue.
@@ -303,5 +319,5 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.waitForFunction(()=>document.querySelectorAll('[data-lsf-ui]').length===0);assert.deepEqual(errors,[]);
  }
  for(const page of pages)await page.close();await browser.close();
- console.log('PASS: native feed appearance, independent Hide precedence, visible/focused deferral, paragraph anchoring (native/fallback), reveal/re-hide focus including clipped long cards, live Details/group focus, stale rejection and pause recovery, trusted feed probe, one-shot folded usage, grouping/order, temporary recovery, multi-label/none corrections, partial/fail-open, bounded priority queue, responsive/dark/reduced motion');
+ console.log('PASS: native feed appearance, independent Hide precedence, visible/focused deferral, paragraph anchoring (native/fallback), reveal/re-hide focus including clipped long cards, category menu/group focus, stale rejection and pause recovery, trusted feed probe, one-shot folded usage, grouping/order, temporary recovery, multi-label/none corrections, partial/fail-open, bounded priority queue, responsive/dark/reduced motion');
 })().catch(e=>{console.error(e);process.exit(1);});
