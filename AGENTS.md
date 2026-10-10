@@ -17,6 +17,15 @@ Several agents may work here at once. Everything below uses GitHub issues, label
 
 Do not merge your own PR unless the owner has asked you to.
 
+## Delivering and verifying the owner's app
+
+- When the owner requests merging and testing in Brave, complete the authorized PR merges, update the existing unpacked extension installation, reload the extension and LinkedIn feed, and verify the resulting behavior in the owner's signed-in Brave session before reporting completion.
+- For UI work in this project, the owner expects the installed Brave experience to be verified. A passing test suite, draft PR, standalone preview or synthetic feed is not a substitute for that check. Do not stop at those milestones when merge and installation are authorized.
+- Deliver genuine screenshots from the running Brave extension and live LinkedIn feed when screenshots are requested. Do not present synthetic fixtures or mockups as the delivered app or as proof that the live installation works. Automated fixture checks remain supplementary regression tests.
+- Verify feed discovery, the updated appearance, a hidden-post reveal/re-hide, popup temporary recovery and settings as applicable to the change. Keep saved category rules and credentials intact. Do not post, react, message or save corrections merely to test the UI.
+- Keep credentials and real feed text out of commits, issue/PR bodies and logs. Live screenshots may be delivered directly to the owner when requested; do not publish them to GitHub. Avoid including unrelated private UI such as open messages or credentials.
+- If live testing is blocked, identify the concrete blocker and what remains unverified. Do not claim completion or silently substitute synthetic evidence.
+
 ## Project basics
 
 A Chrome Manifest V3 extension with no build step and no runtime dependencies.
