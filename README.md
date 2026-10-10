@@ -32,9 +32,9 @@ A category applies only when its score is **strictly greater** than its own thre
 | Label | The original post stays open with a quiet matching label. |
 | Off | The category is not requested or applied. |
 
-Slop, Brainrot, Advert, Opportunity, Nourishment and custom categories all have the same controls. Each can be edited, reordered, removed or switched off. Up to 12 categories are supported. A post can match several; **any applying Hide rule wins**, including when another category says Highlight. Details show available scores, thresholds and actions. Missing answers never apply, and Off categories are not requested.
+Slop, Brainrot, Advert, Opportunity, Good post and custom categories all have the same controls. Each can be edited, reordered, removed or switched off. Up to 12 categories are supported. A post can match several; **any applying Hide rule wins**, including when another category says Highlight. Details show available scores, thresholds and actions. Missing answers never apply, and Off categories are not requested.
 
-Default actions hide Slop, label Brainrot and Advert, and highlight Opportunity and Nourishment. The explicit **Less noise** preset hides Slop, Brainrot and Advert and keeps positive categories on Highlight. Presets preview changes, preserve custom categories and can be undone before saving. They change actions only.
+Default actions hide Slop, label Brainrot and Advert, and highlight Opportunity and Good post. The explicit **Less noise** preset hides Slop, Brainrot and Advert and keeps positive categories on Highlight. Presets preview changes, preserve custom categories and can be undone before saving. They change actions only.
 
 An empty category list or all categories Off can be saved while filtering is disabled. Enabling filtering requires an active category. Defaults are never silently restored after removing everything.
 

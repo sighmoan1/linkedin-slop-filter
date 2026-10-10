@@ -33,7 +33,7 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
  // Fresh install: the five defaults, all alike: each has a name, action, threshold, definition and Remove.
  await open();
  let r=await rows();
- assert.deepEqual(r.map(x=>x.name),['Slop','Brainrot','Advert','Opportunity','Nourishment']);
+ assert.deepEqual(r.map(x=>x.name),['Slop','Brainrot','Advert','Opportunity','Good post']);
  assert.deepEqual(r.map(x=>x.action),['hide','label','label','highlight','highlight']);
  assert.deepEqual(r.map(x=>x.threshold),['80','80','80','80','80']);
  assert.ok(r.every(x=>x.hasText&&x.hasRemove),'slop is an ordinary category');
@@ -91,7 +91,7 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
 
  // Reset restores the five defaults once saved.
  await page.click('#resetCats');
- r=await rows();assert.deepEqual(r.map(x=>x.name),['Slop','Brainrot','Advert','Opportunity','Nourishment']);assert.deepEqual(r.map(x=>x.action),['hide','label','label','highlight','highlight']);
+ r=await rows();assert.deepEqual(r.map(x=>x.name),['Slop','Brainrot','Advert','Opportunity','Good post']);assert.deepEqual(r.map(x=>x.action),['hide','label','label','highlight','highlight']);
  assert.equal(await page.locator(row('brainrot')+'textarea').inputValue(),defaultInstructions('brainrot'));
  await save();st=await stored();assert.equal(st.categories.length,5);assert.equal(st.categories[0].instructions,defaultInstructions('slop'));
 

@@ -13,7 +13,7 @@ const assert=require('node:assert/strict');
  await page.evaluate(()=>{
   window.calls=[];window.mockEnabled=true;window.mockConfig='c1';window.releaseSlow=null;
   const interval=window.setInterval.bind(window);window.setInterval=(fn,ms)=>interval(fn,ms===5000?100:ms);
-  window.mockCats=[{id:'slop',name:'Slop',action:'hide',threshold:.8},{id:'advert',name:'Advert',action:'label',threshold:.8},{id:'nourishment',name:'Nourishment',action:'highlight',threshold:.8}];
+  window.mockCats=[{id:'slop',name:'Slop',action:'hide',threshold:.8},{id:'advert',name:'Advert',action:'label',threshold:.8},{id:'nourishment',name:'Good post',action:'highlight',threshold:.8}];
   const slop=t=>t.includes('SLOP')?.95:t.includes('HIGH')?.7:t.includes('MID')?.5:t.includes('SLOW')?.2:t.includes('LOW')?.1:.8;
   const view=()=>({enabled:window.mockEnabled,provider:'jev',configuration:window.mockConfig,categories:window.mockCats});
   window.chrome={runtime:{id:'test-extension',sendMessage:async m=>{
@@ -203,11 +203,11 @@ const assert=require('node:assert/strict');
  await card('maybe','MULTI MAYBE borderline');
  await waitBadge('maybe',/^No category$/);
  await card('nourish','MULTI NOURISH solid analysis');
- await waitBadge('nourish',/^Nourishment$/);
+ await waitBadge('nourish',/^Good post$/);
  assert.match(await badge('nourish').getAttribute('class'),/lsf-c-highlight/);
  assert.equal(await page.locator('#nourish').evaluate(e=>e.classList.contains('lsf-highlight')),true);
  await card('both','MULTI ADVERT NOURISH sponsored but useful');
- await waitBadge('both',/^Nourishment · Advert$/,'strongest first');
+ await waitBadge('both',/^Good post · Advert$/,'strongest first');
 
  // Changing an action or threshold applies to posts already scored, with no new request and no reset.
  const callsBefore=await page.evaluate(()=>window.calls.length);
