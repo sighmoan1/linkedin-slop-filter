@@ -18,8 +18,8 @@
 .lsf-feed-card.lsf-group-suppressed { display:none!important; }
 .lsf-group-lead:not(.lsf-group-open) > [data-lsf-ui]:not(.lsf-group-bar) { display:none!important; }
 .lsf-feed-card.lsf-highlight { box-shadow:inset 3px 0 0 #34724e; }
-.lsf-feed-card[data-lsf-theme="reader"] { background:var(--lsf-paper)!important; }
-.lsf-feed-card[data-lsf-theme="reader"] .lsf-reader-body { color:var(--lsf-ink); font:17px/1.7 Georgia,"Times New Roman",serif; }
+.lsf-feed-card[data-lsf-theme="reader"] .lsf-reader-body { background:var(--lsf-paper); color:var(--lsf-ink); font:17px/1.7 Georgia,"Times New Roman",serif; }
+.lsf-feed-card[data-lsf-theme="reader"] .lsf-reader-body a { color:var(--lsf-brand); }
 [data-lsf-ui], [data-lsf-ui] * { box-sizing:border-box; }
 [data-lsf-ui] { color:var(--lsf-ink); font:13px/1.5 system-ui,-apple-system,sans-serif; }
 .lsf-bar, .lsf-group-bar { display:flex; gap:12px; align-items:center; justify-content:space-between; min-height:52px; padding:10px 14px; background:var(--lsf-surface); border-radius:8px; }
@@ -29,7 +29,7 @@
 .lsf-fold-name::before { content:""; display:inline-block; vertical-align:middle; width:5px; height:5px; border-radius:50%; background:var(--lsf-tone); margin-right:9px; }
 .lsf-feed-card[data-lsf-theme="punchy"] .lsf-bar { min-height:68px; border-left:3px solid var(--lsf-tone); }
 .lsf-feed-card[data-lsf-theme="punchy"] .lsf-fold-name { color:var(--lsf-tone); font-size:18px; font-weight:650; letter-spacing:-.25px; }
-.lsf-feed-card[data-lsf-theme="reader"] .lsf-bar { background:transparent; border-top:1px solid var(--lsf-line); border-bottom:1px solid var(--lsf-line); border-radius:0; }
+.lsf-feed-card[data-lsf-theme="reader"] .lsf-bar { background:var(--lsf-paper); border-top:1px solid var(--lsf-line); border-bottom:1px solid var(--lsf-line); border-radius:0; }
 .lsf-actions { display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin-left:auto; }
 .lsf-button { appearance:none; min-height:32px; border:1px solid var(--lsf-line); border-radius:7px; padding:4px 10px; background:var(--lsf-paper); color:var(--lsf-brand); font:inherit; line-height:1.5; cursor:pointer; white-space:nowrap; }
 .lsf-button:hover { background:var(--lsf-surface); border-color:var(--lsf-brand); }

@@ -18,11 +18,11 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
 (async()=>{
  const browser=await chromium.launch({headless:true});
  const pages=[];
- async function fixture(posts,{top=0,theme='native',groupHidden=false,anchor=true,width=1000}={}) {
+ async function fixture(posts,{top=0,theme='native',groupHidden=false,anchor=true,width=1000,clipCard=false}={}) {
   const page=await browser.newPage({viewport:{width,height:720}});pages.push(page);page.setDefaultTimeout(10000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const cards=posts.map(p=>`<article id="${p.id}" class="feed-shared-update-v2"><header class="native-header"><span class="avatar">A</span><div><strong>Avery Example</strong><div>Researcher · synthetic demonstration</div></div></header><div class="update-components-text"><p>[${p.id}] ${escape(p.text||'A useful original post with specific detail.')}</p>${p.long?'<p>'+escape('Here is the original paragraph the reader is following. '.repeat(typeof p.long==='number'?p.long:8))+'</p>':''}<p><a href="https://example.com/example">Original post link</a></p></div><div class="native-controls"><button>Like</button><button>Comment</button></div><section class="native-comments">COMMENT TEXT — excluded from classification</section></article>`).join('');
-  const html=`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${!anchor?'html{overflow-anchor:none}':''}body{margin:0;background:#f4f2ee;color:#263238;font:14px/1.55 system-ui,sans-serif}nav{height:52px;padding:12px 24px;background:white;border-bottom:1px solid #ddd;box-sizing:border-box}main{max-width:620px;margin:24px auto;padding:0 12px;padding-top:${top}px}.feed-shared-update-v2{margin-bottom:12px;border:1px solid #d9dee2;border-radius:9px;background:#fff}.native-header{display:flex;gap:10px;align-items:center;padding:16px}.native-header strong{display:block}.native-header div div{font-size:12px;color:#64727a}.avatar{display:grid;place-items:center;width:34px;height:34px;background:#e8edf1;border-radius:50%;color:#456}.update-components-text{padding:0 18px}.update-components-text p{margin:0 0 16px}.native-controls{display:flex;gap:12px;padding:10px 18px;border-top:1px solid #eee}.native-controls button{background:transparent;border:0;padding:4px;font:inherit;color:#64727a}.native-comments{padding:10px 18px;font:12px/1.5 system-ui;color:#64727a}#outside{padding:20px;font:14px system-ui}a{color:#0a66c2}</style></head><body><nav id="global-nav">LinkedIn · Home · My network · Messages</nav><main id="feed">${cards}<div style="height:2000px"></div></main><aside id="outside">Messages and profiles stay unchanged.</aside></body></html>`;
+  const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${!anchor?'html{overflow-anchor:none}':''}body{margin:0;background:#f4f2ee;color:#263238;font:14px/1.55 system-ui,sans-serif}nav{height:52px;padding:12px 24px;background:white;border-bottom:1px solid #ddd;box-sizing:border-box}main{max-width:620px;margin:24px auto;padding:0 12px;padding-top:${top}px}.feed-shared-update-v2{${clipCard?'overflow:hidden;':''}margin-bottom:12px;border:1px solid #d9dee2;border-radius:9px;background:#fff}.native-header{display:flex;gap:10px;align-items:center;padding:16px}.native-header strong{display:block}.native-header div div{font-size:12px;color:#64727a}.avatar{display:grid;place-items:center;width:34px;height:34px;background:#e8edf1;border-radius:50%;color:#456}.update-components-text{padding:0 18px}.update-components-text p{margin:0 0 16px}.native-controls{display:flex;gap:12px;padding:10px 18px;border-top:1px solid #eee}.native-controls button{background:transparent;border:0;padding:4px;font:inherit;color:#64727a}.native-comments{padding:10px 18px;font:12px/1.5 system-ui;color:#64727a}#outside{padding:20px;font:14px system-ui}a{color:#0a66c2}</style></head><body><nav id="global-nav">LinkedIn · Home · My network · Messages</nav><main id="feed">${cards}<div style="height:2000px"></div></main><aside id="outside">Messages and profiles stay unchanged.</aside></body></html>`;
   await page.route('https://www.linkedin.com/feed/',r=>r.fulfill({contentType:'text/html',body:html}));await page.goto('https://www.linkedin.com/feed/');
   await page.addStyleTag({content:fs.readFileSync(path.join(__dirname,'../content.css'),'utf8')});
   await page.evaluate(({posts,cats,theme,groupHidden})=>{
@@ -31,7 +31,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
    const copy=v=>JSON.parse(JSON.stringify(v));
    const interval=window.setInterval.bind(window);window.setInterval=(fn,ms)=>interval(fn,ms===5000?80:ms);
    const view=()=>({enabled:window.enabled,provider:'ollama',configuration:window.config,categories:copy(window.categories.filter(c=>c.action!=='off'))});
-   window.chrome={runtime:{sendMessage:async m=>{
+   window.chrome={runtime:{id:'test-extension',onMessage:{addListener(fn){window.feedStatusListener=fn;}},sendMessage:async m=>{
     window.messages.push(copy(m));
     if(m.type==='settings')return view();
     if(m.type==='experience')return copy(window.experience);
@@ -40,9 +40,10 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
     if(m.type==='correction'){window.corrections.push(copy(m));return {ok:true,id:'local-'+window.corrections.length};}
     if(m.type!=='classify')return {ok:true};
     window.calls.push(m.text);window.inflight++;window.maxInFlight=Math.max(window.maxInFlight,window.inflight);
-    const id=m.text.match(/^\[([^\]]+)\]/)?.[1],p=window.plan[id]||{},snapshot=view();
+    const id=m.text.match(/^\[([^\]]+)\]/)?.[1],p=window.plan[id]||{},snapshot=view(),snapshotScores=copy(p.scores);
     try{if(p.hold&&!p.released)await new Promise(r=>window.releases[id]=()=>{p.released=true;r();});
-     if(p.error)return {error:p.error};return {...snapshot,scores:p.scores};
+     if(p.disabledOnce){p.disabledOnce=false;return {disabled:true};}if(p.rejectOnce){p.rejectOnce=false;throw new Error('Synthetic old-context rejection');}
+     if(p.error)return {error:p.error};return {...snapshot,scores:snapshotScores};
     }finally{window.inflight--;}
    }}};
   },{posts:posts.map(p=>({...p,scores:p.scores||allScores()})),cats,theme,groupHidden});
@@ -69,6 +70,44 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   assert.equal(await page.locator('#late .lsf-bar button').filter({hasText:'Show'}).evaluate(e=>e===document.activeElement),true);
   await page.locator('#late .lsf-bar button').filter({hasText:'Show'}).click();await settle(page);await page.evaluate(()=>window.scrollTo({top:scrollY+600,behavior:'instant'}));await settle(page);const sticky=page.locator('#late .lsf-revealed-bar button').filter({hasText:'Hide again'}),stickyTop=await sticky.evaluate(e=>e.getBoundingClientRect().top);assert.ok(stickyTop>=60&&stickyTop<130);await sticky.click();await settle(page);assert.ok(Math.abs((await page.locator('#late .lsf-bar button').filter({hasText:'Show'}).evaluate(e=>e.getBoundingClientRect().top))-stickyTop)<=2,'long-post collapse retains the visible originating control');
   assert.equal(await page.evaluate(()=>window.messages.filter(m=>m.type==='folded').length),1);assert.equal(await page.evaluate(()=>window.corrections.length),0);assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
+ }
+ // Clipped native cards still offer a reachable collapse control at the end of a long reveal.
+ {
+  const {page,errors}=await fixture([{id:'clipped',long:80,scores:allScores({slop:.95})}],{top:900,clipCard:true});await page.waitForSelector('#clipped.lsf-folded');
+  await page.locator('#clipped .lsf-bar button').filter({hasText:'Show'}).click();await settle(page);
+  const header=page.locator('#clipped .lsf-revealed-bar button').filter({hasText:'Hide again'});assert.equal(await header.evaluate(e=>e===document.activeElement),true);
+  await page.evaluate(()=>window.scrollTo({top:scrollY+600,behavior:'instant'}));await settle(page);assert.ok(await header.evaluate(e=>e.getBoundingClientRect().bottom<0),'overflow:hidden can defeat a sticky header');
+  const footer=page.locator('#clipped .lsf-tools button').filter({hasText:/^Hide again$/});await footer.scrollIntoViewIfNeeded();await footer.focus();await settle(page);const before=await footer.evaluate(e=>e.getBoundingClientRect().top);
+  await page.keyboard.press('Enter');await settle(page);const show=page.locator('#clipped .lsf-bar button').filter({hasText:'Show'});assert.equal(await folded(page,'clipped'),true);assert.equal(await show.evaluate(e=>e===document.activeElement),true);assert.ok(Math.abs((await show.evaluate(e=>e.getBoundingClientRect().top))-before)<=2,'footer collapse retains the originating control position');assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
+ }
+ // Details controls keep their identity and focus when a pending result updates the scores.
+ for(const offscreen of [false,true]){
+  const {page,errors}=await fixture([{id:'detailfocus',long:true,hold:true,scores:allScores({slop:.95})},{id:'detailreader',long:true}]);await page.waitForFunction(()=>!!window.releases.detailfocus);
+  await page.locator('#detailfocus .lsf-tools button').filter({hasText:'Details'}).click();const manage=page.locator('#detailfocus .lsf-panel button').filter({hasText:'Manage categories'});await manage.focus();await manage.evaluate(e=>window.originalManage=e);
+  if(offscreen)await atTop(page,'detailreader',-150);
+  await page.evaluate(()=>window.releases.detailfocus());await page.waitForFunction(()=>document.querySelector('#detailfocus .lsf-score-table td:nth-child(2)')?.textContent==='95%');await settle(page);
+  assert.equal(await manage.evaluate(e=>e===document.activeElement&&e===window.originalManage),true);assert.equal(await folded(page,'detailfocus'),false,'a focused Details panel cannot be folded by its arriving result');assert.deepEqual(errors,[]);
+ }
+ // A rejected obsolete request cannot postpone scoring the current questions.
+ {
+  const {page,errors}=await fixture([{id:'obsoleteerror',hold:true,rejectOnce:true,scores:allScores()}],{top:900});await page.waitForFunction(()=>!!window.releases.obsoleteerror);
+  await page.evaluate(()=>{window.config='c2';window.settingsBefore=window.messages.filter(m=>m.type==='settings').length;});await page.waitForFunction(()=>window.messages.filter(m=>m.type==='settings').length>window.settingsBefore);
+  await page.evaluate(()=>window.releases.obsoleteerror());await page.waitForFunction(()=>window.calls.length===2);await page.waitForFunction(()=>document.querySelector('#obsoleteerror .lsf-badge')?.textContent==='No category');assert.equal(await folded(page,'obsoleteerror'),false);assert.deepEqual(errors,[]);
+ }
+ // Paused responses are transient; resuming the same configuration retries immediately.
+ {
+  const {page,errors}=await fixture([{id:'resumed',hold:true,disabledOnce:true,scores:allScores()}]);await page.waitForFunction(()=>!!window.releases.resumed);
+  await page.evaluate(()=>{window.enabled=false;});await page.waitForFunction(()=>document.querySelector('.lsf-toolbar-status')?.textContent.includes('paused'));await page.evaluate(()=>window.releases.resumed());await page.waitForFunction(()=>window.inflight===0);assert.equal(await page.evaluate(()=>window.calls.length),1);
+  await page.evaluate(()=>window.enabled=true);await page.waitForFunction(()=>window.calls.length===2);await page.waitForFunction(()=>document.querySelector('#resumed .lsf-badge')?.textContent==='No category');assert.deepEqual(errors,[]);
+ }
+ // Resuming global filtering does not collapse a scored post the reader opened while paused.
+ {
+  const {page,errors}=await fixture([{id:'pausedread',long:true,scores:allScores({slop:.95})}],{top:900});await page.waitForSelector('#pausedread.lsf-folded');await page.evaluate(()=>window.enabled=false);await page.waitForFunction(()=>!document.getElementById('pausedread').classList.contains('lsf-folded'));await atTop(page,'pausedread',60);
+  await page.evaluate(()=>window.enabled=true);await page.waitForFunction(()=>document.querySelector('#pausedread .lsf-arrived')?.textContent.includes('result arrived'));assert.equal(await folded(page,'pausedread'),false);assert.equal(await page.locator('#pausedread .update-components-text').isVisible(),true);assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
+ }
+ // The popup probe accepts only this extension, returns no post data, and follows SPA navigation.
+ {
+  const {page,errors}=await fixture([{id:'probe'}]);const reply=await page.evaluate(()=>{let own,foreign,other;window.feedStatusListener({type:'feedStatus'},{id:'test-extension'},v=>own=v);window.feedStatusListener({type:'feedStatus'},{id:'other-extension'},v=>foreign=v);window.feedStatusListener({type:'settings'},{id:'test-extension'},v=>other=v);history.pushState({},'', '/messaging/');let away;window.feedStatusListener({type:'feedStatus'},{id:'test-extension'},v=>away=v);return {own,foreign:foreign??null,other:other??null,away};});assert.deepEqual(reply,{own:{isFeed:true},foreign:null,other:null,away:{isFeed:false}});assert.deepEqual(errors,[]);
  }
  // Keyboard focus still protects an offscreen card, then leaving focus permits its fold.
  {
@@ -103,7 +142,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.evaluate(()=>window.experience.appearance.groupHidden=true);await page.waitForFunction(()=>document.querySelectorAll('.lsf-group-bar:not([hidden])').length===2);
   assert.equal(await page.locator('#s1 .lsf-group-name').innerText(),'2 hidden posts · Slop ×1, Brainrot ×1');
   assert.deepEqual(await page.locator('#feed > article').evaluateAll(es=>es.map(e=>e.id)),originalOrder);
-  await page.locator('#s1 .lsf-group-bar button').click();assert.equal(await page.locator('#b1 .lsf-bar').isVisible(),true);
+  await page.locator('#s1 .lsf-group-bar button').click();assert.equal(await page.locator('#b1 .lsf-bar').isVisible(),true);await page.locator('#s1 .lsf-group-bar button').click();assert.equal(await page.locator('#s1 .lsf-group-bar button').getAttribute('aria-expanded'),'false');assert.equal(await page.locator('#b1 .lsf-bar').isVisible(),false);await page.locator('#s1 .lsf-group-bar button').click();assert.equal(await page.locator('#b1 .lsf-bar').isVisible(),true);
   await page.locator('#b1 .lsf-bar button').filter({hasText:'Show'}).click();await settle(page);
   assert.equal(await folded(page,'b1'),false);assert.equal(await page.locator('#b1 .update-components-text').isVisible(),true);assert.equal(await folded(page,'good'),false);assert.equal(await page.evaluate(()=>window.calls.length),5);assert.deepEqual(errors,[]);
  }
@@ -113,6 +152,12 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.locator('#g1 .lsf-group-bar button').click();const target=page.locator('#g2 .lsf-bar button').filter({hasText:'Show'});await target.focus();await atTop(page,'g2',60);await settle(page);
   const before=await page.locator('#g2').evaluate(e=>e.getBoundingClientRect().top);await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='custom'?{...c,action:'hide'}:c));await page.waitForFunction(()=>document.getElementById('beforegroup').classList.contains('lsf-group-open'));await settle(page);
   assert.equal(await target.isVisible(),true);assert.equal(await target.evaluate(e=>e===document.activeElement),true);assert.equal(await page.locator('#g2').evaluate(e=>e.classList.contains('lsf-group-suppressed')),false);assert.ok(Math.abs((await page.locator('#g2').evaluate(e=>e.getBoundingClientRect().top))-before)<=2);assert.deepEqual(errors,[]);
+ }
+ // A focused group summary follows its run when a newly hidden card becomes the lead.
+ for(const expanded of [false,true]){
+  const {page,errors}=await fixture([{id:'newlead',long:true,scores:allScores({custom:.95})},{id:'lead',scores:allScores({slop:.95})},{id:'last',scores:allScores({slop:.95})}],{groupHidden:true});await page.waitForFunction(()=>window.calls.length===3);await atTop(page,'last',-450);await page.waitForFunction(()=>document.querySelector('#lead .lsf-group-bar:not([hidden])'));
+  if(expanded)await page.locator('#lead .lsf-group-bar button').click();await page.locator('#lead .lsf-group-bar button').focus();await atTop(page,'lead',-60);await settle(page);await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='custom'?{...c,action:'hide'}:c));await page.waitForFunction(()=>document.querySelector('#newlead .lsf-group-bar:not([hidden])'));await settle(page);
+  assert.equal(await page.locator('#newlead .lsf-group-bar button').evaluate(e=>e===document.activeElement),true);assert.equal(await page.locator('#newlead .lsf-group-bar button').isVisible(),true);assert.equal(await page.locator('#newlead .lsf-group-bar button').getAttribute('aria-expanded'),String(expanded));assert.deepEqual(errors,[]);
  }
  // Every category can hide; themes and temporary recovery keep the same decisions.
  {
@@ -179,9 +224,12 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   for(const width of [736,360,320]){await page.setViewportSize({width,height:900});await settle(page);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'no horizontal overflow at '+width);}
   await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});await page.locator('.lsf-feed-toolbar select').selectOption('punchy');await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfTheme==='punchy');
   assert.equal(await page.locator('#look1 .lsf-bar').evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
+  await page.locator('.lsf-feed-toolbar select').selectOption('reader');await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfTheme==='reader');
+  const styles=await page.locator('#look3').evaluate(e=>({card:getComputedStyle(e).backgroundColor,header:getComputedStyle(e.querySelector('.native-header strong')).color,body:getComputedStyle(e.querySelector('.update-components-text')).backgroundColor,link:getComputedStyle(e.querySelector('.update-components-text a')).color,controls:getComputedStyle(e.querySelector('.native-controls button')).color,comments:getComputedStyle(e.querySelector('.native-comments')).color}));
+  assert.deepEqual(styles,{card:'rgb(255, 255, 255)',header:'rgb(38, 50, 56)',body:'rgb(37, 40, 33)',link:'rgb(176, 208, 166)',controls:'rgb(100, 114, 122)',comments:'rgb(100, 114, 122)'},'Reader styles only the extracted body and extension UI; native metadata/controls remain on their original surface');
   const output=process.env.FEED_SCREENSHOTS;if(output){fs.mkdirSync(output,{recursive:true});for(const theme of ['native','punchy','reader']){await page.locator('.lsf-feed-toolbar select').selectOption(theme);await page.waitForFunction(theme=>document.getElementById('look1').dataset.lsfTheme===theme,theme);await page.setViewportSize({width:1000,height:1000});await page.emulateMedia({colorScheme:'light',reducedMotion:'reduce'});await atTop(page,'look1',150);await settle(page);await page.screenshot({path:path.join(output,theme+'.png')});}await page.setViewportSize({width:360,height:900});await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});await atTop(page,'look1',180);await settle(page);await page.screenshot({path:path.join(output,'mobile-dark.png')});}
   assert.deepEqual(errors,[]);
  }
  for(const page of pages)await page.close();await browser.close();
- console.log('PASS: shipped feed themes, independent Hide precedence, visible/focused deferral, paragraph anchoring (native/fallback), reveal/re-hide focus, one-shot folded usage, grouping/order, temporary recovery, multi-label/none corrections, partial/fail-open, bounded priority queue, responsive/dark/reduced motion');
+ console.log('PASS: shipped feed themes, independent Hide precedence, visible/focused deferral, paragraph anchoring (native/fallback), reveal/re-hide focus including clipped long cards, live Details/group focus, stale rejection and pause recovery, trusted feed probe, one-shot folded usage, grouping/order, temporary recovery, multi-label/none corrections, partial/fail-open, bounded priority queue, responsive/dark/reduced motion');
 })().catch(e=>{console.error(e);process.exit(1);});

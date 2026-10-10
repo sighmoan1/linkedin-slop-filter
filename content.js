@@ -9,6 +9,9 @@
   let experience = {appearance:{...defaults},showEverything:false};
   let toolbar, timer, frame, activeRequest, nextId = 0, scrollIntent = 0;
   const isFeed = () => location.pathname === "/feed" || location.pathname.startsWith("/feed/");
+  chrome.runtime.onMessage?.addListener((message,sender,reply)=>{
+    if(chrome.runtime.id&&sender?.id===chrome.runtime.id&&message?.type==="feedStatus")reply({isFeed:isFeed()});
+  });
   const pct = p => (p * 100).toFixed(6).replace(/\.?0+$/,"") + "%";
   const scoreText = (p,threshold) => pct(p)+(p!==threshold&&pct(p)===pct(threshold)?p>threshold?" (just above)":" (just below)":"");
   const safeScores = scores => scores && typeof scores === "object" && !Array.isArray(scores) && Object.keys(scores).length && Object.values(scores).every(p => typeof p === "number" && Number.isFinite(p) && p >= 0 && p <= 1);
@@ -123,8 +126,9 @@
     const correct=button("Correct",()=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening){record.detailsOpen=false;record.correctionOrigin="correct";}},opening?"correction":"correct");},"lsf-button lsf-flat");
         const arrive=node("span","lsf-arrived");
     const hideNow=button("Hide now",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"show"));
-    controls.append(details,correct,hideNow);tools.append(badge,arrive,controls);post.append(tools);
-    Object.assign(record,{tools,badge,detailsButton:details,correctButton:correct,arrive,hideNow});
+    const hideAgain=button("Hide again",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"row"));
+    controls.append(details,correct,hideAgain,hideNow);tools.append(badge,arrive,controls);post.append(tools);
+    Object.assign(record,{tools,badge,detailsButton:details,correctButton:correct,arrive,hideNow,hideAgain});
   }
   function ensureBar(post,record) {
     if(record.bar)return;
@@ -141,24 +145,26 @@
   function renderDetails(post,record) {
     if(!record.detailsOpen){if(record.panel)hidden(record.panel,true);return;}
     const signature=JSON.stringify([settings.categories,record.scores,record.configuration,settings.configuration,record.pending,record.provider]);
-    if(!record.panel) {record.panel=shell("lsf-panel");record.panel.id="lsf-details-"+record.id;record.panel.setAttribute("role","region");record.panel.setAttribute("aria-label","Category score details");post.append(record.panel);}
+    if(!record.panel) {
+      const panel=shell("lsf-panel");panel.id="lsf-details-"+record.id;panel.setAttribute("role","region");panel.setAttribute("aria-label","Category score details");
+      const heading=node("p","lsf-panel-heading"),table=node("table","lsf-score-table"),thead=node("thead"),head=node("tr"),tbody=node("tbody"),note=node("p","lsf-note");
+      for(const label of ["Category","Score","Your rule"])head.append(node("th","",label));
+      thead.append(head);table.append(thead,tbody);
+      const edit=button("Manage categories",()=>openSettings(),"lsf-button lsf-flat");
+      const correct=button("Correct this post",()=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin="details";},"correction"),"lsf-button lsf-flat");
+      panel.append(heading,table,note,edit,correct);post.append(panel);
+      Object.assign(record,{panel,detailsHeading:heading,detailsRows:tbody,detailsNote:note});
+    }
     hidden(record.panel,false);
     if(record.detailsSignature===signature)return;
     record.detailsSignature=signature;
-    const panel=record.panel;panel.replaceChildren();
     const stale=record.scores&&record.configuration!==settings.configuration;
     const missing=settings.categories.filter(c=>typeof record.scores?.[c.id]!=="number");
-    const heading=node("p","lsf-panel-heading",stale?"Stale scores — original post stays visible":record.scores?(missing.length?"Partly scored":"Category scores"):record.pending?"Scoring — original post stays visible":"Not scored — original post stays visible");
-    const table=node("table","lsf-score-table");
-    const head=node("tr");for(const label of ["Category","Score","Your rule"])head.append(node("th","",label));
-    const thead=node("thead");thead.append(head);table.append(thead);
-    const tbody=node("tbody");
-    for(const c of settings.categories){const tr=node("tr");const score=record.scores?.[c.id];tr.append(node("td","",c.name),node("td","",typeof score==="number"?scoreText(score,c.threshold):"Not returned"),node("td","",c.action[0].toUpperCase()+c.action.slice(1)+" above "+pct(c.threshold)));tbody.append(tr);}
-    table.append(tbody);
-    const note=node("p","lsf-note","Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores are self-reported confidence, not calibrated probabilities.":"Model estimates do not establish AI authorship."));
-    const edit=button("Manage categories",()=>openSettings(),"lsf-button lsf-flat");
-    const correct=button("Correct this post",()=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin="details";},"correction"),"lsf-button lsf-flat");
-    panel.append(heading,table,note,edit,correct);
+    textOf(record.detailsHeading,stale?"Stale scores — original post stays visible":record.scores?(missing.length?"Partly scored":"Category scores"):record.pending?"Scoring — original post stays visible":"Not scored — original post stays visible");
+    const rows=[];
+    for(const c of settings.categories){const tr=node("tr");const score=record.scores?.[c.id];tr.append(node("td","",c.name),node("td","",typeof score==="number"?scoreText(score,c.threshold):"Not returned"),node("td","",c.action[0].toUpperCase()+c.action.slice(1)+" above "+pct(c.threshold)));rows.push(tr);}
+    record.detailsRows.replaceChildren(...rows);
+    textOf(record.detailsNote,"Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores are self-reported confidence, not calibrated probabilities.":"Model estimates do not establish AI authorship."));
   }
   function renderCorrection(post,record,hits) {
     if(!record.correcting){if(record.correction)hidden(record.correction,true);return;}
@@ -214,6 +220,7 @@
       if(record.badge.className!==cls)record.badge.className=cls;
       textOf(record.badge,badge.text);if(record.badge.title!==badge.title)record.badge.title=badge.title;
       hidden(record.badge,experience.appearance.labels==="off"||!!record.deferred||(record.revealed&&hiding.length&&!experience.showEverything));
+      hidden(record.hideAgain,!(record.revealed&&hiding.length&&!experience.showEverything));
       hidden(record.hideNow,!record.deferred);
       hidden(record.arrive,!record.deferred);
       textOf(record.arrive,record.deferred?hiding.map(c=>c.name).join(" · ")+" result arrived · staying visible":"");
@@ -242,6 +249,11 @@
   }
   function renderGroups() {
     const ordered=[...records.keys()].filter(p=>p.isConnected);
+    const focused=document.activeElement;
+    const focusedSummary=focused.closest?.(".lsf-group-bar");
+    const summaryPost=focusedSummary?ordered.find(p=>p.contains(focusedSummary)):null;
+    const summaryExpanded=focusedSummary?.querySelector("button")?.getAttribute("aria-expanded")==="true";
+    let summaryTarget;
     const runs=[];let run=[];
     const flush=()=>{if(run.length>1)runs.push(run);run=[];};
     for(const post of ordered){const eligible=experience.appearance.groupHidden&&settings.enabled&&!experience.showEverything&&post.classList.contains("lsf-folded");if(!eligible){flush();continue;}if(run.length&&run[run.length-1].nextElementSibling!==post)flush();run.push(post);}flush();
@@ -250,16 +262,19 @@
     for(const post of ordered){const record=records.get(post);if(!members.has(post)){toggle(post,"lsf-group-suppressed",false);toggle(post,"lsf-group-lead",false);toggle(post,"lsf-group-open",false);}if(!leadToRun.has(post)&&record.groupBar)hidden(record.groupBar,true);}
     for(const items of runs) {
       const first=items[0],record=records.get(first),key=items.map(p=>records.get(p).id).join(",");
-      const focusedMember=items.some(p=>p.contains(document.activeElement)&&!document.activeElement.closest?.(".lsf-group-bar"));
+      const focusedMember=items.some(p=>p.contains(focused)&&!focusedSummary);
+      if(summaryExpanded&&items.includes(summaryPost)&&records.get(summaryPost).groupKey!==key)openGroups.add(key);
       const expanded=openGroups.has(key)||focusedMember;
       if(!record.groupBar){const bar=shell("lsf-group-bar"),label=node("span","lsf-group-name");const toggleButton=button("Show list",()=>{const anchor=anchorFor(first);openGroups.has(record.groupKey)?openGroups.delete(record.groupKey):openGroups.add(record.groupKey);renderGroups();record.groupButton.focus({preventScroll:true});restoreAnchor(anchor);});bar.append(label,toggleButton);first.prepend(bar);Object.assign(record,{groupBar:bar,groupLabel:label,groupButton:toggleButton});}
       record.groupKey=key;hidden(record.groupBar,false);
+      if(items.includes(summaryPost))summaryTarget=record.groupButton;
       const counts=new Map();for(const p of items)for(const c of applying(records.get(p)).filter(c=>c.action==="hide"))counts.set(c.name,(counts.get(c.name)||0)+1);
       textOf(record.groupLabel,items.length+" hidden posts · "+[...counts].map(([name,count])=>name+" ×"+count).join(", "));
       textOf(record.groupButton,expanded?"Close list":"Show list");attr(record.groupButton,"aria-expanded",expanded);
       toggle(first,"lsf-group-lead",true);toggle(first,"lsf-group-open",expanded);toggle(first,"lsf-group-suppressed",false);
       for(const p of items.slice(1)){toggle(p,"lsf-group-suppressed",!expanded);toggle(p,"lsf-group-lead",false);toggle(p,"lsf-group-open",false);}
     }
+    if(summaryPost){const record=records.get(summaryPost);(summaryTarget||[record.show,record.detailsButton,toolbar?.theme].find(e=>e?.isConnected&&e.getClientRects().length))?.focus({preventScroll:true});}
   }
   async function openSettings(){try{await chrome.runtime.sendMessage({type:"openSettings",section:"categories"});}catch{}}
   function setExperience(next) {
@@ -296,7 +311,7 @@
     const r=post.getBoundingClientRect();return r.height>0&&r.bottom>=-200&&r.top<=innerHeight+700&&bodyText(post)===record.text;
   }
   function pump() {
-    if(activeRequest||!settings.enabled||!isFeed())return;
+    if(activeRequest||!settings.enabled||!settings.categories.length||!isFeed())return;
     // Queue is recomputed from the current viewport: at most six nearby candidates,
     // one request in flight, with visible/upcoming cards ahead of old cards above.
     const queue=[...records].filter(([post,r])=>eligible(post,r)).map(([post,r])=>({post,record:r,rect:post.getBoundingClientRect()}))
@@ -307,9 +322,10 @@
     chrome.runtime.sendMessage({type:"classify",text}).then(result=>{
       if(records.get(post)!==record||bodyText(post)!==text||configuration!==settings.configuration)return;
       if(result?.configuration&&result.configuration!==configuration){record.retryAt=Date.now()+1000;refresh();return;}
-      if(result?.error||result?.disabled||!safeScores(result?.scores)){record.retryAt=Date.now()+60000;record.error=true;return;}
+      if(result?.disabled){record.retryAt=Date.now()+1000;record.error=false;refresh().then(()=>{if(records.get(post)===record&&configuration===settings.configuration&&settings.enabled){record.retryAt=0;schedulePaint();}});return;}
+      if(result?.error||!safeScores(result?.scores)){record.retryAt=Date.now()+60000;record.error=true;return;}
       record.scores=result.scores;record.configuration=configuration;record.provider=result.provider||settings.provider;record.retryAt=0;record.error=false;
-    }).catch(()=>{if(records.get(post)===record&&bodyText(post)===text){record.retryAt=Date.now()+60000;record.error=true;}}).finally(()=>{
+    }).catch(()=>{if(records.get(post)===record&&bodyText(post)===text&&configuration===settings.configuration){record.retryAt=Date.now()+60000;record.error=true;}}).finally(()=>{
       if(records.get(post)===record)record.pending=false;
       if(activeRequest===token)activeRequest=null;schedulePaint();
     });
@@ -348,7 +364,8 @@
     try {
       const next=await chrome.runtime.sendMessage({type:"settings"})||{enabled:false,categories:[]};
       if(!Array.isArray(next.categories))next.categories=[];
-      if(next.configuration!==settings.configuration)for(const record of records.values()){record.foldCommitted=false;record.error=false;record.retryAt=0;}
+      const changed=next.configuration!==settings.configuration,resumed=!settings.enabled&&next.enabled;
+      if(changed||resumed)for(const record of records.values()){record.foldCommitted=false;record.error=false;record.retryAt=0;}
       settings=next;
     } catch {settings={...settings,enabled:false};}
     try{setExperience(await chrome.runtime.sendMessage({type:"experience"}));}catch{}
