@@ -5,6 +5,8 @@ const assert=require('node:assert/strict');
 const root=path.join(__dirname,'..');
 const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css'};
 (async()=>{
+ const {DEFAULT_CATEGORIES}=await import('../core.mjs');
+ const defaultInstructions=id=>DEFAULT_CATEGORIES.find(c=>c.id===id).instructions;
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage({viewport:{width:380,height:900}});
  const pageErrors=[];page.on('pageerror',e=>pageErrors.push(e));
@@ -36,8 +38,8 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
  assert.equal(await page.locator('#rule').count(),0,'no separate slop definition field');
  assert.equal(await page.locator('#threshold, #openaiThreshold, #localThreshold').count(),0,'no per-provider thresholds');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false,'fits popup width');
- assert.match(await page.locator(row('advert')+'textarea').inputValue(),/Is this post an advert\?/);
- assert.match(await page.locator(row('slop')+'textarea').inputValue(),/Is this post AI slop\?/);
+ assert.equal(await page.locator(row('advert')+'textarea').inputValue(),defaultInstructions('advert'));
+ assert.equal(await page.locator(row('slop')+'textarea').inputValue(),defaultInstructions('slop'));
 
  // Add: bad input is refused with a message; a good one appears at the end, shown on the chip only.
  await page.click('#addCat');assert.match(await status(),/Give the category a name/);
@@ -87,8 +89,8 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
  // Reset restores the five defaults once saved.
  await page.click('#resetCats');
  r=await rows();assert.deepEqual(r.map(x=>x.name),['Slop','Brainrot','Advert','Opportunity','Nourishment']);assert.deepEqual(r.map(x=>x.action),['hide','label','label','highlight','highlight']);
- assert.match(await page.locator(row('brainrot')+'textarea').inputValue(),/Define brainrot as/);
- await save();st=await stored();assert.equal(st.categories.length,5);assert.match(st.categories[0].instructions,/Is this post AI slop\?/);
+ assert.equal(await page.locator(row('brainrot')+'textarea').inputValue(),defaultInstructions('brainrot'));
+ await save();st=await stored();assert.equal(st.categories.length,5);assert.equal(st.categories[0].instructions,defaultInstructions('slop'));
 
  // The limit: adding stops at 12 categories.
  for(let i=0;i<7;i++){await page.fill('#newCatName','Extra '+i);await page.fill('#newCatRule','Is this extra '+i+'?');await page.click('#addCat');}

@@ -1,0 +1,486 @@
+{
+  "status": "Fresh synthetic validation; authored after revision and before scoring, with no subsequent tuning. No signed-in LinkedIn, live cloud APIs or independent accuracy benchmark.",
+  "model": "qwen3.5:4b-q4_K_M",
+  "temperature": 0,
+  "threshold": 0.8,
+  "rows": [
+    {
+      "version": "current",
+      "id": "short-team-update",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 3516,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "current",
+      "id": "humor-with-lesson",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1964,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "current",
+      "id": "personal-achievement",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1780,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": [
+        "nourishment"
+      ]
+    },
+    {
+      "version": "current",
+      "id": "actual-opening",
+      "expected": [
+        "opportunity"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 1,
+        "nourishment": 0
+      },
+      "ms": 1674,
+      "applied": [
+        "opportunity"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "current",
+      "id": "registration-is-sale",
+      "expected": [
+        "advert"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 1,
+        "opportunity": 1,
+        "nourishment": 0
+      },
+      "ms": 1822,
+      "applied": [
+        "advert",
+        "opportunity"
+      ],
+      "mismatches": [
+        "opportunity"
+      ]
+    },
+    {
+      "version": "current",
+      "id": "meme-explanation",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1839,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "current",
+      "id": "tribe-bait",
+      "expected": [
+        "brainrot"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 1,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 1868,
+      "applied": [
+        "brainrot"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "current",
+      "id": "circular-advice",
+      "expected": [
+        "slop"
+      ],
+      "scores": {
+        "slop": 1,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 1603,
+      "applied": [
+        "slop"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "current",
+      "id": "neutral-recommendation",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 2560,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "current",
+      "id": "useful-paid-pitch",
+      "expected": [
+        "advert",
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 1,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 1661,
+      "applied": [
+        "advert"
+      ],
+      "mismatches": [
+        "nourishment"
+      ]
+    },
+    {
+      "version": "current",
+      "id": "expired-opening",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 1607,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "current",
+      "id": "substantive-question",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1670,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "short-team-update",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 3007,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "humor-with-lesson",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1767,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "personal-achievement",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 1539,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "actual-opening",
+      "expected": [
+        "opportunity"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 1,
+        "nourishment": 0
+      },
+      "ms": 2365,
+      "applied": [
+        "opportunity"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "registration-is-sale",
+      "expected": [
+        "advert"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 1,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 2219,
+      "applied": [
+        "advert"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "meme-explanation",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1678,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "tribe-bait",
+      "expected": [
+        "brainrot"
+      ],
+      "scores": {
+        "slop": 0.2,
+        "brainrot": 0.95,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0.1
+      },
+      "ms": 2903,
+      "applied": [
+        "brainrot"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "circular-advice",
+      "expected": [
+        "slop"
+      ],
+      "scores": {
+        "slop": 1,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 1736,
+      "applied": [
+        "slop"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "neutral-recommendation",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0.1,
+        "brainrot": 0,
+        "advert": 0.2,
+        "opportunity": 0,
+        "nourishment": 0.8
+      },
+      "ms": 2695,
+      "applied": [],
+      "mismatches": [
+        "nourishment"
+      ]
+    },
+    {
+      "version": "draft",
+      "id": "useful-paid-pitch",
+      "expected": [
+        "advert",
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 1,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 1903,
+      "applied": [
+        "advert"
+      ],
+      "mismatches": [
+        "nourishment"
+      ]
+    },
+    {
+      "version": "draft",
+      "id": "expired-opening",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 2461,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "draft",
+      "id": "substantive-question",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1786,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    }
+  ],
+  "summary": {
+    "current": {
+      "total": 12,
+      "valid": 12,
+      "errors": 0,
+      "exactMatches": 9,
+      "slopFalsePositives": 0,
+      "slopMisses": 0,
+      "categoryErrors": {
+        "nourishment": 2,
+        "opportunity": 1
+      }
+    },
+    "draft": {
+      "total": 12,
+      "valid": 12,
+      "errors": 0,
+      "exactMatches": 10,
+      "slopFalsePositives": 0,
+      "slopMisses": 0,
+      "categoryErrors": {
+        "nourishment": 2
+      }
+    }
+  },
+  "provider": "ollama",
+  "options": {
+    "temperature": 0,
+    "num_ctx": 4096,
+    "think": false
+  },
+  "textLimit": 2000,
+  "date": "2026-10-10"
+}
