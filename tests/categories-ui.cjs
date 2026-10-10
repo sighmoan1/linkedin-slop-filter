@@ -19,7 +19,7 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   const write=o=>localStorage.setItem('chromeStore',JSON.stringify(o));
   window.chrome={storage:{local:{get:async q=>typeof q==='string'?{[q]:read()[q]}:{...q,...read()},set:async v=>write({...read(),...v}),remove:async k=>{const d=read();delete d[k];write(d);}}}};
  });
- const open=async()=>{await page.goto('https://ext.test/options.html');await page.waitForFunction(()=>document.querySelectorAll('.cat').length>0);};
+ const open=async()=>{await page.goto('https://ext.test/options.html');await page.waitForFunction(()=>document.querySelectorAll('.cat').length>0||document.getElementById('categoryList').textContent.includes('No categories yet'));};
  const rows=()=>page.evaluate(()=>[...document.querySelectorAll('.cat')].map(r=>({id:r.dataset.id,name:r.querySelector('.cat-name').value,action:r.querySelector('.cat-action').value,threshold:r.querySelector('.cat-threshold').value,hasText:!!r.querySelector('textarea'),hasRemove:!!r.querySelector('.cat-remove')})));
  const stored=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('chromeStore')||'{}'));
  const save=async(re=/Saved/)=>{await page.click('button[type=submit]');await page.waitForFunction(src=>new RegExp(src).test(document.getElementById('status').textContent),re.source);};
@@ -69,11 +69,12 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
  assert.equal(await page.locator(row('brainrot')+'textarea').inputValue(),'Is this brainrot? EDITED');
  assert.equal(await page.locator(row('slop')+'.cat-up').isDisabled(),true);assert.equal(await page.locator('.cat:last-child .cat-down').isDisabled(),true);
 
- // Rows that would not survive saving are refused, not silently dropped; so is switching everything off.
+ // Rows that would not survive saving are refused; enabling requires an active category.
  await page.fill(row('advert')+'.cat-name','');await save(/needs a name/);
  await page.fill(row('advert')+'.cat-name','Advert');await page.fill(row('advert')+'.cat-threshold','');await save(/threshold from 1 to 100/);
  await page.fill(row('advert')+'.cat-threshold','65');
  for(const id of ['brainrot','advert','nourishment','opportunity','img-src-x-onerror-alert'])await page.selectOption(row(id)+'.cat-action','off');
+ await page.check('#enabled');
  await save(/at least one category/);
  assert.equal((await stored()).categories[2].action,'hide','nothing was saved');
  await open();
@@ -99,6 +100,23 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
  await page.fill('#newCatName','Extra 0');await page.fill('#newCatRule','Again');await page.click('#addCat');
  const ids=(await rows()).map(x=>x.id);assert.equal(new Set(ids).size,ids.length);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false);
+
+ // An intentionally disabled filter can keep every category Off, or remove every category.
+ for (const id of (await rows()).map(x=>x.id)) await page.selectOption(row(id)+'.cat-action','off');
+ await page.uncheck('#enabled');await save();
+ assert.ok((await stored()).categories.every(c=>c.action==='off'));
+ await open();assert.ok((await rows()).every(c=>c.action==='off'),'all-Off survives reload');
+ await page.check('#enabled');await save(/at least one category/);
+ assert.equal((await stored()).enabled,false,'a refused enable preserves disabled state');
+ await page.uncheck('#enabled');
+ while(await page.locator('.cat-remove').count()) await page.locator('.cat-remove').first().click();
+ await save();assert.deepEqual((await stored()).categories,[]);
+ await open();assert.equal((await rows()).length,0,'saved empty rows never silently return');
+ assert.match(await page.locator('#categoryList').innerText(),/No categories yet/);
+ await page.check('#enabled');await save(/at least one category/);
+ assert.deepEqual((await stored()).categories,[]);assert.equal((await stored()).enabled,false);
+ await page.uncheck('#enabled');await page.click('#resetCats');await save();await open();
+ assert.equal((await rows()).length,5,'restoring defaults is explicit');
  assert.deepEqual(pageErrors.map(e=>e.message),[]);
  console.log('PASS: category settings (defaults, slop is ordinary, add with validation, text-only names, action, threshold, rename, reorder, edit, refuse invalid rows, remove, reset, limit, ids, persistence)');
  await browser.close();
