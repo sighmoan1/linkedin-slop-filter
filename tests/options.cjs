@@ -33,7 +33,7 @@ const KEY='sk-or-SECRET-TEST-KEY';
    return {ok:m.status>=200&&m.status<300,status:m.status,json:async()=>url.includes('openai.com')?good.openai:good.jev};
   };
  });
- const open=async()=>{await page.goto('https://ext.test/options.html');await page.waitForFunction(()=>document.querySelectorAll('.cat').length>0);};
+ const open=async()=>{await page.goto('https://ext.test/options.html#provider');await page.waitForFunction(()=>document.querySelectorAll('.cat').length>0);};
  const text=id=>page.locator('#'+id).innerText();
  await open();
 
@@ -76,7 +76,7 @@ const KEY='sk-or-SECRET-TEST-KEY';
  await page.selectOption('#provider','jev');
  await page.click('#jevKeyTest');
  await page.waitForFunction(()=>/Key works/.test(document.getElementById('jevKeyStatus').textContent));
- await page.check('#enabled');
+ await page.click('[data-panel=feed]');await page.check('#enabled');
  await page.click('button[type=submit]');
  await page.waitForFunction(()=>/Saved/.test(document.getElementById('status').textContent));
  await open();
@@ -88,6 +88,7 @@ const KEY='sk-or-SECRET-TEST-KEY';
  await page.waitForFunction(()=>/Key works/.test(document.getElementById('jevKeyStatus').textContent));
 
  // Deleting keys clears results and the stored record.
+ await page.click('[data-panel=provider]');await page.locator('.cache-tools summary').click();
  await page.click('#forget');
  await page.waitForFunction(()=>/Keys deleted/.test(document.getElementById('status').textContent));
  assert.equal(await text('jevKeyStatus'),'');

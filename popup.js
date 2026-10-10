@@ -32,7 +32,7 @@ async function refresh(){
   }
   try {
     const usage=await send({type:"usage"});
-    for (const key of ["requests","scored","cacheHits"]) $(key).textContent=Number.isFinite(usage[key])?usage[key].toLocaleString():"—";
+    for (const key of ["requests","folded","cacheHits"]) $(key).textContent=Number.isFinite(usage[key])?usage[key].toLocaleString():"—";
     $("requestLimit").textContent=Number.isFinite(usage.limit)?"/ "+usage.limit.toLocaleString():"";
     $("usageNote").textContent=usage.requests>=usage.limit?"Session limit reached. New posts stay visible.":"Cached scores save repeat requests. Cloud API usage is billed separately.";
     $("serviceIssue").hidden=!usage.lastError;
