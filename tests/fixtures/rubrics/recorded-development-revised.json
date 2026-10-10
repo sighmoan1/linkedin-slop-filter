@@ -1,0 +1,471 @@
+{
+  "status": "Synthetic development comparison; no signed-in LinkedIn, live cloud APIs or independent accuracy benchmark",
+  "model": "qwen3.5:4b-q4_K_M",
+  "temperature": 0,
+  "threshold": 0.8,
+  "rows": [
+    {
+      "version": "revised",
+      "id": "empty-motivation",
+      "expected": [
+        "slop"
+      ],
+      "scores": {
+        "slop": 0.95,
+        "brainrot": 0.1,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 3118,
+      "applied": [
+        "slop"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "trope-pile",
+      "expected": [
+        "slop"
+      ],
+      "scores": {
+        "slop": 0.95,
+        "brainrot": 0.1,
+        "advert": 0.05,
+        "opportunity": 0,
+        "nourishment": 0.05
+      },
+      "ms": 2530,
+      "applied": [
+        "slop"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "engagement-bait",
+      "expected": [
+        "brainrot",
+        "slop"
+      ],
+      "scores": {
+        "slop": 0.1,
+        "brainrot": 0.95,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 2782,
+      "applied": [
+        "brainrot"
+      ],
+      "mismatches": [
+        "slop"
+      ]
+    },
+    {
+      "version": "revised",
+      "id": "meme-loop",
+      "expected": [
+        "brainrot"
+      ],
+      "scores": {
+        "slop": 0.1,
+        "brainrot": 1,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 2377,
+      "applied": [
+        "brainrot"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "real-technical",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1867,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "trope-with-substance",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1722,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "non-native",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1829,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "short-practical",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0.1,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0.9
+      },
+      "ms": 2783,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "specific-opinion",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0.1,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0.9
+      },
+      "ms": 2880,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "celebration",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 2396,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "grief",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 2487,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "harmless-joke",
+      "expected": [],
+      "scores": {
+        "slop": 0.1,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0.2,
+        "nourishment": 0.3
+      },
+      "ms": 2527,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "critical-analysis",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 2188,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "job-open",
+      "expected": [
+        "opportunity"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 1,
+        "nourishment": 0
+      },
+      "ms": 2442,
+      "applied": [
+        "opportunity"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "job-obtained",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 1776,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "job-teaser",
+      "expected": [],
+      "scores": {
+        "slop": 0.1,
+        "brainrot": 0.2,
+        "advert": 0.3,
+        "opportunity": 0.9,
+        "nourishment": 0
+      },
+      "ms": 2683,
+      "applied": [
+        "opportunity"
+      ],
+      "mismatches": [
+        "opportunity"
+      ]
+    },
+    {
+      "version": "revised",
+      "id": "closed-call",
+      "expected": [],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 2228,
+      "applied": [],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "open-source-task",
+      "expected": [
+        "opportunity"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 1,
+        "nourishment": 0
+      },
+      "ms": 2319,
+      "applied": [
+        "opportunity"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "direct-sale",
+      "expected": [
+        "advert"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 1,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 2346,
+      "applied": [
+        "advert"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "free-lead-magnet",
+      "expected": [
+        "advert"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 1,
+        "opportunity": 0,
+        "nourishment": 0
+      },
+      "ms": 2225,
+      "applied": [
+        "advert"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "useful-with-pitch",
+      "expected": [
+        "advert",
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 1,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1525,
+      "applied": [
+        "advert",
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "neutral-brand",
+      "expected": [
+        "nourishment"
+      ],
+      "scores": {
+        "slop": 0,
+        "brainrot": 0,
+        "advert": 0,
+        "opportunity": 0,
+        "nourishment": 1
+      },
+      "ms": 1732,
+      "applied": [
+        "nourishment"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "technical-vapor",
+      "expected": [
+        "slop"
+      ],
+      "scores": {
+        "slop": 0.95,
+        "brainrot": 0.15,
+        "advert": 0.25,
+        "opportunity": 0,
+        "nourishment": 0.05
+      },
+      "ms": 2757,
+      "applied": [
+        "slop"
+      ],
+      "mismatches": []
+    },
+    {
+      "version": "revised",
+      "id": "prompt-injection",
+      "expected": [
+        "slop"
+      ],
+      "scores": {
+        "slop": 0.95,
+        "brainrot": 0.15,
+        "advert": 0.2,
+        "opportunity": 0,
+        "nourishment": 0.05
+      },
+      "ms": 3099,
+      "applied": [
+        "slop"
+      ],
+      "mismatches": []
+    }
+  ],
+  "summary": {
+    "revised": {
+      "total": 24,
+      "valid": 24,
+      "errors": 0,
+      "exactMatches": 22,
+      "slopFalsePositives": 0,
+      "slopMisses": 1,
+      "categoryErrors": {
+        "slop": 1,
+        "opportunity": 1
+      }
+    }
+  },
+  "provider": "ollama",
+  "options": {
+    "temperature": 0,
+    "num_ctx": 4096,
+    "think": false
+  },
+  "textLimit": 2000,
+  "date": "2026-10-10"
+}
