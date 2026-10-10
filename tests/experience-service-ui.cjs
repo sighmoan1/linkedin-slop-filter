@@ -59,8 +59,8 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   assert.equal(JSON.stringify(local).includes('Synthetic ordinary post body'),false,'normal scoring/cache never retains the text');assert.equal(local.corrections,undefined);
   await page.click('#classifyPost');await page.waitForFunction(()=>document.getElementById('playgroundStatus').textContent.startsWith('Finished'));
   assert.equal(calls,1,'explicit testing reuses the real worker cache');assert.equal(session.requests,1);assert.equal(session.usage.cacheHits,1);
-  await page.locator('[data-panel=feed]').click();assert.equal(await page.locator('input[name=theme]').count(),0);await page.check('#groupHidden');await page.getByRole('button',{name:'Save settings'}).click();await page.waitForFunction(()=>document.getElementById('status').textContent.startsWith('Saved'));
-  assert.deepEqual(local.appearance,{theme:'native',groupHidden:true,labels:'matches'});assert.equal(calls,1,'appearance does not classify');
+  await page.locator('[data-panel=feed]').click();assert.equal(await page.locator('input[name=theme]').count(),0);await page.check('#groupHidden');await page.check('#showAuthor');await page.getByRole('button',{name:'Save settings'}).click();await page.waitForFunction(()=>document.getElementById('status').textContent.startsWith('Saved'));
+  assert.deepEqual(local.appearance,{theme:'native',groupHidden:true,showAuthor:true,labels:'matches'});assert.equal(calls,1,'appearance does not classify');
   const classified=await send({type:'settings'},feed);assert.deepEqual(Object.keys(classified).sort(),['categories','configuration','enabled','provider']);assert.equal(JSON.stringify(classified).includes('instructions'),false);
   await send({type:'correction',text:'Explicitly corrected synthetic post.',categoryIds:['slop','advert'],scores:{slop:.95,advert:.96},configuration:classified.configuration,provider:'jev'},feed);
   await page.locator('[data-panel=corrections]').click();await page.waitForFunction(()=>document.querySelectorAll('.correction').length===1);assert.equal(await page.locator('.correction-labels').innerText(),'Slop\nAdvert');

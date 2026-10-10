@@ -5,7 +5,7 @@
   const UI = '[data-lsf-ui]';
   const records = new Map();
   const openGroups = new Set();
-  const defaults = {theme:"native",groupHidden:false,labels:"matches"};
+  const defaults = {theme:"native",groupHidden:false,showAuthor:false,labels:"matches"};
   let neverHide = new Set();
   let settings = {enabled:false,categories:[]};
   let experience = {appearance:{...defaults},showEverything:false};
@@ -117,6 +117,22 @@
       const u = new URL(actor.href);
       return u.origin === "https://www.linkedin.com" && /^\/in\/[^/]+\/?$/.test(u.pathname) && neverHide.has(u.origin+u.pathname.replace(/\/$/,"").toLowerCase());
     } catch { return false; }
+  }
+  // Read only the outer post's author for display. Never add it to requests or storage.
+  function postAuthor(post) {
+    const excluded=TEXT+", [data-lsf-ui], .comments-comment-item, .comments-comments-list, [data-view-name*=\"comment\"], [componentkey^=\"comment\"]";
+    const own=e=>e.closest(POST)===post&&!e.closest(excluded);
+    for(const button of post.querySelectorAll('button[aria-label^="Open control menu for post by "], button[aria-label^="Hide post by "]')) {
+      if(!own(button))continue;
+      const name=button.getAttribute("aria-label").replace(/^(?:Open control menu for post by |Hide post by )/,"").trim();
+      if(name)return name.slice(0,200);
+    }
+    for(const actor of post.querySelectorAll('.update-components-actor__title, .feed-shared-actor__title, [data-testid="actor-name"]')) {
+      if(!own(actor))continue;
+      const name=(actor.querySelector('[aria-hidden="true"]')||actor).textContent.split("\n")[0].replace(/\s+/g," ").trim();
+      if(name)return name.slice(0,200);
+    }
+    return "";
   }
   const hasCorrection = record => record.corrected && record.correctionConfiguration===settings.configuration;
   function applying(record) {
@@ -294,10 +310,12 @@
       ensureBar(post,record);hidden(record.bar,false);
       if(record.bar.className!=="lsf-bar")record.bar.className="lsf-bar";
       textOf(record.show,"Show post");
-      const label=hiding.map(c=>{
+      const author=experience.appearance.showAuthor?postAuthor(post):"";
+      const categories=hiding.map(c=>{
         const score=record.scores?.[c.id];
         return c.name+(!c.corrected&&Number.isFinite(score)?" "+Math.round(score*100)+"% sure":"");
       }).join(" · ");
+      const label=(author?author+" · ":"")+categories;
       textOf(record.foldLabel,label);
       attr(record.bar,"data-label",label);
       attr(record.foldLabel,"title",label+". "+status(record,hits).title);
@@ -347,7 +365,7 @@
   function setExperience(next) {
     if(stopped||!next||!next.appearance)return;
     const a=next.appearance;
-    experience={appearance:{theme:"native",groupHidden:a.groupHidden===true,labels:a.labels==="off"?"off":"matches"},showEverything:next.showEverything===true};
+    experience={appearance:{theme:"native",groupHidden:a.groupHidden===true,showAuthor:a.showAuthor===true,labels:a.labels==="off"?"off":"matches"},showEverything:next.showEverything===true};
   }
   function renderToolbar() {
     const first=[...records.keys()].find(p=>p.isConnected);
