@@ -244,6 +244,32 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   const output=process.env.FEED_SCREENSHOTS;if(output){fs.mkdirSync(output,{recursive:true});for(const theme of ['native','punchy','reader']){await page.locator('.lsf-feed-toolbar select').selectOption(theme);await page.waitForFunction(theme=>document.getElementById('look1').dataset.lsfTheme===theme,theme);await page.setViewportSize({width:1000,height:1000});await page.emulateMedia({colorScheme:'light',reducedMotion:'reduce'});await atTop(page,'look1',150);await settle(page);await page.screenshot({path:path.join(output,theme+'.png')});}await page.setViewportSize({width:360,height:900});await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});await atTop(page,'look1',180);await settle(page);await page.screenshot({path:path.join(output,'mobile-dark.png')});}
   assert.deepEqual(errors,[]);
  }
+ // Reload/disabling invalidates the old content context: restore originals and stop all work.
+ {
+  const {page,errors}=await fixture([{id:'shutdown1',scores:allScores({slop:.96})},{id:'shutdown2',scores:allScores({slop:.96})}],{top:900,theme:'reader',groupHidden:true});
+  await page.waitForSelector('.lsf-group-suppressed',{state:'attached'});
+  await page.evaluate(()=>{delete chrome.runtime.id;window.dispatchEvent(new Event('scroll'));});
+  await page.waitForFunction(()=>document.querySelectorAll('[data-lsf-ui],.lsf-folded,.lsf-group-suppressed,.lsf-reader-body,.lsf-feed-card').length===0);
+  const messages=await page.evaluate(()=>window.messages.length);
+  await page.evaluate(()=>{document.querySelector('#shutdown1 .update-components-text').append(document.createTextNode(' Synthetic change after disconnect.'));window.dispatchEvent(new Event('resize'));document.querySelector('#shutdown1 button').focus();});
+  await page.waitForTimeout(5500);
+  assert.equal(await page.evaluate(()=>window.messages.length),messages,'invalidated context stops polling, scoring and event-driven requests');
+  assert.equal(await page.locator('#shutdown2 .update-components-text').isVisible(),true,'group members are restored');assert.deepEqual(errors,[]);
+ }
+ // A late result and a synchronous invalidation cannot recreate disconnected controls.
+ {
+  const {page,errors}=await fixture([{id:'lateDisconnect',hold:true,scores:allScores({slop:.96})}]);
+  await page.waitForFunction(()=>!!window.releases.lateDisconnect);
+  await page.evaluate(()=>{delete chrome.runtime.id;window.dispatchEvent(new Event('scroll'));window.releases.lateDisconnect();});
+  await page.waitForFunction(()=>document.querySelectorAll('[data-lsf-ui]').length===0);await settle(page);
+  assert.equal(await folded(page,'lateDisconnect'),false);assert.deepEqual(errors,[]);
+ }
+ {
+  const {page,errors}=await fixture([{id:'syncDisconnect'}]);
+  await page.evaluate(()=>{chrome.runtime.sendMessage=()=>{throw new Error('Extension context invalidated.');};});
+  await page.locator('.lsf-theme-label select').selectOption('reader');
+  await page.waitForFunction(()=>document.querySelectorAll('[data-lsf-ui]').length===0);assert.deepEqual(errors,[]);
+ }
  for(const page of pages)await page.close();await browser.close();
  console.log('PASS: shipped feed themes, independent Hide precedence, visible/focused deferral, paragraph anchoring (native/fallback), reveal/re-hide focus including clipped long cards, live Details/group focus, stale rejection and pause recovery, trusted feed probe, one-shot folded usage, grouping/order, temporary recovery, multi-label/none corrections, partial/fail-open, bounded priority queue, responsive/dark/reduced motion');
 })().catch(e=>{console.error(e);process.exit(1);});

@@ -13,6 +13,8 @@ Jev through OpenRouter is the default provider. OpenAI Decisions and downloaded 
 
 After updating an unpacked installation, press **Reload** on its card in `chrome://extensions`, then reload the feed. Chrome does not automatically reload an extension when Git changes its files.
 
+From 2.0.2, an invalidated feed script stops its polling, observers and requests, removes its controls and restores original posts. Reload the feed to reconnect. Late results from the old script cannot fold posts. Ordinary provider failures still leave posts visible and allow recovery; they do not permanently disconnect the script.
+
 The popup reports **Feed connected** and the number of readable posts found. Home, **For you** and **Network** feed routes are supported; individual post pages are excluded. If you navigate to the feed from another LinkedIn page and controls are missing, reload the feed. A disconnected popup offers **Reload current tab** when it can safely identify a candidate tab.
 
 Existing category definitions are preserved. To adopt revised built-in prompts, use **Review revised definitions** in Categories, review, apply and save. This keeps custom categories, names, actions, thresholds and order. **Restore defaults** is a separate, deliberate reset of the whole category draft.
@@ -94,6 +96,8 @@ npm test
 The suite checks provider schemas, response validation, strict thresholds, migration, credential isolation, sequential queue/cache/limits, fail-open behavior, experience-message permissions, corrections, rubric fixtures and metrics, syntax, simulated-feed scrolling/recovery and settings/popup browser behavior. CI runs the same command. Browser fixtures use synthetic text and mocked responses; Playwright is a development dependency only.
 
 `npm run verify:release` loads the actual unpacked extension in a temporary Chromium profile with synthetic posts and pre-seeded scores. It checks feed/settings/popup behavior together without provider calls or a LinkedIn login. Set `QA_OUTPUT_DIR` to retain local screenshots; the temporary profile is removed afterwards.
+
+The release check now also records console errors and failed extension resources, reloads the actual extension, verifies old controls/folds are removed, and reconnects after a page reload. The owner's reported `chrome-extension://invalid/` flood was traced to a matching public LinkedIn script containing extension-file probes; see [the scoped diagnosis and lifecycle repair](docs/resource-lifecycle.md). This extension does not suppress site console errors or alter LinkedIn's probing code.
 
 Optional provider checks are `npm run smoke:ollama`, `npm run smoke:extension` and `npm run smoke:jev`. The Jev smoke requires your `OPENROUTER_API_KEY` environment variable and makes one billed synthetic request; never put the key in a file, issue, log or commit. Local checks require the downloaded model/service. Neither establishes live-feed compatibility or accuracy.
 
