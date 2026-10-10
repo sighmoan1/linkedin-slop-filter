@@ -157,12 +157,12 @@
     observer.unobserve(post);records.delete(post);
   }
   function status(record,hits) {
-    if(hasCorrection(record))return {text:hits.length?hits.map(c=>c.name).join(" · "):"No category",level:hits.some(c=>c.action==="hide")?"lsf-c-hide":hits.some(c=>c.action==="highlight")?"lsf-c-highlight":hits.length?"lsf-c-label":"lsf-c-none",title:"Your saved correction applies to this post. Details retain the original model scores; no automatic training."};
+    if(hasCorrection(record))return {text:hits.length?hits.map(c=>c.name).join(" · "):"No category",level:hits.some(c=>c.action==="hide")?"lsf-c-hide":hits.some(c=>c.action==="highlight")?"lsf-c-highlight":hits.length?"lsf-c-label":"lsf-c-none",title:"Your saved correction applies to this post. Category scores retain the original model scores; no automatic training."};
     if(record.scores&&record.configuration!==settings.configuration)return {text:"Updating scores",level:"lsf-muted",title:"Previous scores are stale. The original post stays visible while the new questions are scored."};
     if(record.scores) {
       const partial=settings.categories.some(c=>typeof record.scores[c.id]!=="number");
       const level=hits.some(c=>c.action==="hide")?"lsf-c-hide":hits.some(c=>c.action==="highlight")?"lsf-c-highlight":hits.length?"lsf-c-label":"lsf-c-none";
-      return {text:hits.length?hits.map(c=>c.name).join(" · "):partial?"Partly scored":"No category",level,title:(record.provider==="ollama"?"Local self-reported confidence, not a calibrated probability. ":"Model estimates, not proof of AI authorship. ")+"A category applies only above its threshold. See Details for every available score."};
+      return {text:hits.length?hits.map(c=>c.name).join(" · "):partial?"Partly scored":"No category",level,title:(record.provider==="ollama"?"Local self-reported confidence, not a calibrated probability. ":"Model estimates, not proof of AI authorship. ")+"A category applies only above its threshold. Select Show category scores for every available score."};
     }
     if(record.pending)return {text:"Scoring…",level:"lsf-muted",title:"The original post stays visible while the model scores it."};
     if(record.error)return {text:"Not scored",level:"lsf-muted",title:"The post stays visible. Check provider status in extension settings."};
@@ -173,12 +173,12 @@
     const tools=shell("lsf-tools");
     const badge=node("span","lsf-badge");
     const controls=node("div","lsf-actions");
-    const details=button("Details",origin=>act(post,record,()=>{if(!record.detailsOpen)record.detailsOrigin=origin;record.detailsOpen=!record.detailsOpen;},"details"),"lsf-button lsf-flat");
+    const details=button("Show category scores",origin=>act(post,record,()=>{if(!record.detailsOpen)record.detailsOrigin=origin;record.detailsOpen=!record.detailsOpen;},"details"),"lsf-button lsf-flat");
     details.setAttribute("aria-controls","lsf-details-"+record.id);
-    const correct=button("Correct",origin=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening){record.detailsOpen=false;record.correctionOrigin=origin;}},opening?"correction":"correct");},"lsf-button lsf-flat");
+    const correct=button("Change post categories",origin=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening){record.detailsOpen=false;record.correctionOrigin=origin;}},opening?"correction":"correct");},"lsf-button lsf-flat");
         const arrive=node("span","lsf-arrived");
-    const hideNow=button("Hide now",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"show"));
-    const hideAgain=button("Hide again",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"row"));
+    const hideNow=button("Hide post",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"show"));
+    const hideAgain=button("Hide post again",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"row"));
     controls.append(details,correct,hideAgain,hideNow);tools.append(badge,arrive,controls);post.append(tools);
     Object.assign(record,{tools,badge,detailsButton:details,correctButton:correct,arrive,hideNow,hideAgain});
   }
@@ -187,10 +187,10 @@
     const bar=shell("lsf-bar");
     const label=node("span","lsf-fold-name");
     const controls=node("div","lsf-actions");
-    const show=button("Show",()=>{const revealing=!record.revealed;act(post,record,()=>{record.revealed=revealing;if(!revealing)record.foldCommitted=true;},"row");});
-    const details=button("Details",origin=>act(post,record,()=>{if(!record.detailsOpen)record.detailsOrigin=origin;record.detailsOpen=!record.detailsOpen;},"details"),"lsf-button lsf-flat");
+    const show=button("Show post",()=>{const revealing=!record.revealed;act(post,record,()=>{record.revealed=revealing;if(!revealing)record.foldCommitted=true;},"row");});
+    const details=button("Show category scores",origin=>act(post,record,()=>{if(!record.detailsOpen)record.detailsOrigin=origin;record.detailsOpen=!record.detailsOpen;},"details"),"lsf-button lsf-flat");
     details.setAttribute("aria-controls","lsf-details-"+record.id);
-    const correct=button("Correct",origin=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin=origin;},"correction"),"lsf-button lsf-flat");
+    const correct=button("Change post categories",origin=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin=origin;},"correction"),"lsf-button lsf-flat");
     controls.append(show,details,correct);bar.append(label,controls);post.prepend(bar);
     Object.assign(record,{bar,foldLabel:label,show,foldDetails:details,foldCorrect:correct});
   }
@@ -203,7 +203,7 @@
       for(const label of ["Category","Score","Your rule"])head.append(node("th","",label));
       thead.append(head);table.append(thead,tbody);
       const edit=button("Manage categories",()=>openSettings(),"lsf-button lsf-flat");
-      const correct=button("Correct this post",()=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin=record.detailsOrigin;},"correction"),"lsf-button lsf-flat");
+      const correct=button("Change post categories",()=>act(post,record,()=>{record.correcting=true;record.detailsOpen=false;record.correctionOrigin=record.detailsOrigin;},"correction"),"lsf-button lsf-flat");
       panel.append(heading,table,note,edit,correct);post.append(panel);
       Object.assign(record,{panel,detailsHeading:heading,detailsRows:tbody,detailsNote:note});
     }
@@ -221,12 +221,12 @@
   function renderCorrection(post,record,hits) {
     if(!record.correcting){if(record.correction)hidden(record.correction,true);return;}
     if(!record.correction) {
-      const form=shell("lsf-panel lsf-correction");form.setAttribute("role","region");form.setAttribute("aria-label","Correct post categories");
+      const form=shell("lsf-panel lsf-correction");form.setAttribute("role","region");form.setAttribute("aria-label","Change post categories");
       const heading=node("p","lsf-panel-heading","Which categories apply?");heading.tabIndex=-1;record.correctionHeading=heading;
       form.append(heading,node("p","lsf-note","Choose every relevant category. Leave all unchecked for none. Only saving records this post body locally; it does not train a model."));
       const fields=node("div","lsf-correction-fields");record.correctionFields=fields;
       const message=node("p","lsf-note");message.setAttribute("role","status");
-      const save=button("Keep visible & save correction",async()=>{
+      const save=button("Save categories and show post",async()=>{
         if(bodyText(post)!==record.text){scan();return;}
         save.disabled=true;textOf(message,"Saving locally…");
         const correctionConfiguration=settings.configuration;
@@ -278,26 +278,27 @@
       hidden(record.hideNow,!record.deferred);
       hidden(record.arrive,!record.deferred);
       textOf(record.arrive,record.deferred?hiding.map(c=>c.name).join(" · ")+" result arrived · staying visible":"");
+      textOf(record.detailsButton,record.detailsOpen?"Hide category scores":"Show category scores");
       attr(record.detailsButton,"aria-expanded",!!record.detailsOpen);
       attr(record.correctButton,"aria-expanded",!!record.correcting);
-      if(record.corrected){record.correctButton.title="Correction saved locally; no automatic training";textOf(record.correctButton,"Corrected");}
+      if(record.corrected){record.correctButton.title="Correction saved locally; no automatic training";}
     } else clearTools(record);
     if(folded) {
       ensureBar(post,record);hidden(record.bar,false);
       if(record.bar.className!=="lsf-bar")record.bar.className="lsf-bar";
-      textOf(record.show,"Show");
+      textOf(record.show,"Show post");
       textOf(record.foldLabel,hiding.map(c=>c.corrected?c.name+" · corrected":c.name+" · "+pct(c.p)+" confidence").join("; "));
       attr(record.bar,"data-label",hiding.map(c=>c.name).join(" · "));
       attr(record.bar,"aria-label","Hidden post: "+record.bar.dataset.label);
       attr(record.show,"aria-label","Show post hidden as "+record.bar.dataset.label);
-      attr(record.foldDetails,"aria-expanded",!!record.detailsOpen);
+      textOf(record.foldDetails,record.detailsOpen?"Hide category scores":"Show category scores");attr(record.foldDetails,"aria-expanded",!!record.detailsOpen);
       toggle(post,"lsf-folded",true);record.foldCommitted=true;
       if(!record.foldCounted){record.foldCounted=true;send({type:"folded"}).catch(()=>{});}
     } else if(record.revealed&&hiding.length&&!experience.showEverything) {
       clearFold(post,record,true);ensureBar(post,record);hidden(record.bar,false);
       if(record.bar.className!=="lsf-bar lsf-revealed-bar")record.bar.className="lsf-bar lsf-revealed-bar";
-      textOf(record.foldLabel,"Shown · "+hiding.map(c=>c.name).join(" · "));textOf(record.show,"Hide again");
-      attr(record.show,"aria-label","Hide this post again");attr(record.bar,"aria-label","Revealed post: "+hiding.map(c=>c.name).join(" · "));attr(record.foldDetails,"aria-expanded",!!record.detailsOpen);
+      textOf(record.foldLabel,"Shown · "+hiding.map(c=>c.name).join(" · "));textOf(record.show,"Hide post again");
+      attr(record.show,"aria-label","Hide post again");attr(record.bar,"aria-label","Revealed post: "+hiding.map(c=>c.name).join(" · "));textOf(record.foldDetails,record.detailsOpen?"Hide category scores":"Show category scores");attr(record.foldDetails,"aria-expanded",!!record.detailsOpen);
     } else clearFold(post,record);
     renderDetails(post,record);renderCorrection(post,record,hits);
   }
