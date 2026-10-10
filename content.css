@@ -39,7 +39,6 @@
 .lsf-badge { color:var(--lsf-muted); font-size:14px; overflow-wrap:anywhere; min-width:0; }
 .lsf-badge.lsf-c-highlight { color:var(--lsf-brand); font-weight:700; }
 .lsf-badge.lsf-c-label, .lsf-badge.lsf-c-hide { color:var(--lsf-tone); }
-.lsf-arrived { color:var(--lsf-ink); font-size:14px; overflow-wrap:anywhere; min-width:0; }
 .lsf-panel { padding:12px; background:var(--lsf-surface); border-top:1px solid var(--lsf-line); }
 .lsf-panel-heading { font-size:16px; font-weight:600; margin:0 0 12px; }
 .lsf-note { font-size:14px; color:var(--lsf-muted); margin:12px 0; max-width:66ch; }

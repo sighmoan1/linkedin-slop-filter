@@ -49,7 +49,7 @@ The interface uses system sans-serif fonts, neutral white/grey surfaces and blue
 - **Disable filtering** restores posts and pauses classification. It is separate from Show everything.
 - **Correct** lets you choose every applicable active category, or none, and explicitly save a local correction. That post stays visible. Corrections do not automatically train the model or rewrite prompts.
 
-New scores do not automatically collapse a card that is visible, hovered or has keyboard focus. **Hide now** offers immediate control; otherwise the fold waits until the card is out of view and disengaged. Scoring and deliberate reveal/collapse use measured anchoring to preserve reading position. There are no animated post-height transitions or automatic feed scrolling. See [the feed design and release checks](docs/feed-experience.md).
+A current result above a Hide category’s threshold collapses the post immediately, including posts on screen, hovered or keyboard focused. **Show post** keeps an explicitly revealed post open until you choose **Hide post again**; temporary **Show everything** also keeps posts visible. If a focused post folds, focus moves to Show post. Scoring and deliberate reveal/collapse use measured anchoring to preserve reading position. There are no animated post-height transitions. See [the feed design and release checks](docs/feed-experience.md).
 
 ## Requests, failures and storage
 

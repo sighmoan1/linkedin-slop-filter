@@ -109,7 +109,6 @@
       .map(c=>({...c,p:record.scores[c.id]})).sort((a,b)=>b.p-a.p);
   }
   const visible = post => {const r=post.getBoundingClientRect();return r.height>0&&r.bottom>0&&r.top<innerHeight;};
-  const engaged = (post,record) => visible(post)||record.hover||post.contains(document.activeElement);
   function anchorFor(preferred) {
     if(preferred?.isConnected&&preferred.getClientRects().length)return {post:preferred,top:preferred.getBoundingClientRect().top,intent:scrollIntent};
     const focused=[...records.keys()].find(p=>p.isConnected&&visible(p)&&p.contains(document.activeElement));
@@ -163,7 +162,6 @@
     for(const e of [record.bar,record.tools,record.correction,record.groupBar])e?.remove();
     for(const cls of ["lsf-folded","lsf-highlight","lsf-group-suppressed","lsf-group-lead","lsf-group-open","lsf-feed-card"])toggle(post,cls,false);
     delete post.dataset.lsfTheme;delete post.dataset.lsfTone;delete post.dataset.lsfScheme;
-    post.removeEventListener("mouseenter",record.enter);post.removeEventListener("mouseleave",record.leave);
     observer.unobserve(post);records.delete(post);
   }
   function status(record,hits) {
@@ -185,18 +183,16 @@
     const controls=node("div","lsf-actions");
     const correct=button("Categories",origin=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening)record.correctionOrigin=origin;},opening?"correction":"correct");},"lsf-button lsf-flat");
     correct.setAttribute("aria-controls","lsf-categories-"+record.id);
-    const arrive=node("span","lsf-arrived");
-    const hideNow=button("Hide post",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"show"));
-    const hideAgain=button("Hide post again",()=>act(post,record,()=>{record.foldCommitted=true;record.revealed=false;},"row"));
-    controls.append(correct,hideAgain,hideNow);tools.append(badge,arrive,controls);post.append(tools);
-    Object.assign(record,{tools,badge,correctButton:correct,arrive,hideNow,hideAgain});
+    const hideAgain=button("Hide post again",()=>act(post,record,()=>{record.revealed=false;},"row"));
+    controls.append(correct,hideAgain);tools.append(badge,controls);post.append(tools);
+    Object.assign(record,{tools,badge,correctButton:correct,hideAgain});
   }
   function ensureBar(post,record) {
     if(record.bar)return;
     const bar=shell("lsf-bar");
     const label=node("span","lsf-fold-name");
     const controls=node("div","lsf-actions");
-    const show=button("Show post",()=>{const revealing=!record.revealed;act(post,record,()=>{record.revealed=revealing;if(!revealing)record.foldCommitted=true;},"row");});
+    const show=button("Show post",()=>{const revealing=!record.revealed;act(post,record,()=>{record.revealed=revealing;},"row");});
     controls.append(show);bar.append(label,controls);post.prepend(bar);
     Object.assign(record,{bar,foldLabel:label,show});
   }
@@ -257,9 +253,8 @@
     if(post.dataset.lsfTheme!==experience.appearance.theme)post.dataset.lsfTheme=experience.appearance.theme;
     if(!settings.enabled||exempt(post)){clearFold(post,record);clearTools(record);toggle(post,"lsf-highlight",false);if(record.correction)hidden(record.correction,true);return;}
     const hits=applying(record),hiding=hits.filter(c=>c.action==="hide");
-    if(!hiding.length)record.foldCommitted=false;
-    const folded=hiding.length&&!record.revealed&&!experience.showEverything&&(record.foldCommitted||!engaged(post,record));
-    record.deferred=!!(hiding.length&&!record.revealed&&!experience.showEverything&&!folded);
+    const folded=hiding.length&&!record.revealed&&!experience.showEverything;
+    const moveFocus=folded&&post.contains(document.activeElement)&&!record.bar?.contains(document.activeElement)&&!record.groupBar?.contains(document.activeElement);
     const tone=(hiding[0]||hits[0])?.id||"none";
     if(post.dataset.lsfTone!==tone)post.dataset.lsfTone=tone;
     toggle(post,"lsf-highlight",!hiding.length&&hits.some(c=>c.action==="highlight"));
@@ -269,11 +264,8 @@
       const cls="lsf-badge "+badge.level;
       if(record.badge.className!==cls)record.badge.className=cls;
       textOf(record.badge,badge.text);if(record.badge.title!==badge.title)record.badge.title=badge.title;
-      hidden(record.badge,experience.appearance.labels==="off"||!!record.deferred||(record.revealed&&hiding.length&&!experience.showEverything));
+      hidden(record.badge,experience.appearance.labels==="off"||(record.revealed&&hiding.length&&!experience.showEverything));
       hidden(record.hideAgain,!(record.revealed&&hiding.length&&!experience.showEverything));
-      hidden(record.hideNow,!record.deferred);
-      hidden(record.arrive,!record.deferred);
-      textOf(record.arrive,record.deferred?hiding.map(c=>c.name).join(" · ")+" result arrived · staying visible":"");
       attr(record.correctButton,"aria-expanded",!!record.correcting);
       if(record.corrected){record.correctButton.title="Correction saved locally; no automatic training";}
     } else clearTools(record);
@@ -287,7 +279,8 @@
       attr(record.foldLabel,"title",record.bar.dataset.label);
       attr(record.bar,"aria-label","Hidden post: "+record.bar.dataset.label);
       attr(record.show,"aria-label","Show post hidden as "+record.bar.dataset.label);
-      toggle(post,"lsf-folded",true);record.foldCommitted=true;
+      toggle(post,"lsf-folded",true);
+      if(moveFocus)record.show.focus({preventScroll:true});
       if(!record.foldCounted){record.foldCounted=true;send({type:"folded"}).catch(()=>{});}
     } else if(record.revealed&&hiding.length&&!experience.showEverything) {
       clearFold(post,record,true);ensureBar(post,record);hidden(record.bar,false);
@@ -391,8 +384,6 @@
       if(old?.text===text)continue;
       if(old)forget(post,old);
       const record={id:++nextId,text,body:post.querySelector(TEXT),revealed:false};
-      record.enter=()=>{record.hover=true;schedulePaint();};record.leave=()=>{record.hover=false;schedulePaint();};
-      post.addEventListener("mouseenter",record.enter);post.addEventListener("mouseleave",record.leave);
       records.set(post,record);observer.observe(post);
     }
     // Preserve actual DOM order for grouping even if LinkedIn inserts an older card above.
@@ -423,7 +414,7 @@
       if(!connected())return;
       if(!Array.isArray(next.categories))next.categories=[];
       const changed=next.configuration!==settings.configuration,resumed=!settings.enabled&&next.enabled;
-      if(changed||resumed)for(const record of records.values()){record.foldCommitted=false;record.error=false;record.retryAt=0;}
+      if(changed||resumed)for(const record of records.values()){record.error=false;record.retryAt=0;}
       settings=next;
     } catch {settings={...settings,enabled:false};}
     if(!connected())return;
