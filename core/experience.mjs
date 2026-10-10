@@ -1,5 +1,5 @@
 // Display preferences and explicit local corrections are independent of model configuration.
-export const APPEARANCE_DEFAULTS = {theme: "native", groupHidden: false, labels: "matches"};
+export const APPEARANCE_DEFAULTS = {theme: "native", groupHidden: false, showAuthor: false, labels: "matches"};
 export const CORRECTIONS_KEY = "corrections";
 export const MAX_CORRECTIONS = 200;
 export const CORRECTION_TEXT_MAX = 12000;
@@ -9,6 +9,7 @@ export function normalizeAppearance(value) {
     // Keep the stored field compatible, but retire all alternative theme values.
     theme: "native",
     groupHidden: value?.groupHidden === true,
+    showAuthor: value?.showAuthor === true,
     labels: value?.labels === "off" ? "off" : "matches"
   };
 }

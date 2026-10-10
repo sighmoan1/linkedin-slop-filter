@@ -67,9 +67,9 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   assert.equal(await page.locator('#jevKey').isVisible(),false);
   assert.equal((await page.locator('body').innerText()).includes('FAKE-KEY-NEVER-SHOW'),false);
   const before=await state();
-  assert.equal(await page.locator('input[name=theme]').count(),0);await page.check('#groupHidden');await page.selectOption('#labels','off');
+  assert.equal(await page.locator('input[name=theme]').count(),0);await page.check('#groupHidden');await page.check('#showAuthor');await page.selectOption('#labels','off');
   assert.deepEqual((await state()).categories,before.categories,'appearance draft does not change rules');
-  await save();let stored=await state();assert.deepEqual(stored.appearance,{theme:'native',groupHidden:true,labels:'off'});assert.deepEqual(stored.categories,before.categories);
+  await save();let stored=await state();assert.deepEqual(stored.appearance,{theme:'native',groupHidden:true,showAuthor:true,labels:'off'});assert.deepEqual(stored.categories,before.categories);
   assert.equal(await page.evaluate(()=>window.runtimeCalls.filter(call=>call.type==='playground').length),0,'appearance does not classify');
   await navigate('categories');assert.equal(await page.locator('.cat').count(),6);
   assert.deepEqual(await page.locator('.cat').first().locator('.cat-action option').allTextContents(),['Hide','Highlight','Label','Off']);

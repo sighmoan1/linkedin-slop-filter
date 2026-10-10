@@ -57,7 +57,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   const screenshotDir=process.env.FEED_SCREENSHOTS;if(screenshotDir){fs.mkdirSync(screenshotDir,{recursive:true});await atTop(page,'compact',100);await page.locator('#compact').screenshot({path:path.join(screenshotDir,'compact-row-'+width+'.png')});}
   const row=page.locator('#compact .lsf-bar');assert.equal(await row.locator('button').count(),1);assert.equal(await row.locator('.lsf-fold-name').innerText(),'Slop 95% sure · Advert 94% sure');
   assert.equal(await row.getAttribute('aria-label'),'Hidden post: Slop 95% sure · Advert 94% sure');
-  assert.match(await row.locator('.lsf-fold-name').getAttribute('title'),/not a calibrated probability/);
+  assert.match(await row.locator('.lsf-fold-name').getAttribute('title'),/not been checked against measured probabilities/);
   assert.ok(await row.evaluate(e=>e.getBoundingClientRect().height)<=48,'hidden row stays compact');
   assert.equal(await page.locator('#compact .lsf-panel, #compact .lsf-tools').count(),0);
   await row.locator('button').click();const menu=page.locator('#compact .lsf-tools button').filter({hasText:/^Review scores$/});
@@ -70,6 +70,33 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await menu.click();assert.equal(await page.locator('#compact input[value=slop]').isChecked(),true,'Escape discards unsaved edits');
   await page.locator('#compact .lsf-bar button').click();await page.waitForSelector('#compact.lsf-folded');assert.equal(await page.locator('#compact .lsf-panel, #compact .lsf-tools').count(),0,'re-hide removes the menu');assert.equal(await row.locator('button').evaluate(e=>e===document.activeElement),true);
   assert.equal(await page.evaluate(()=>window.corrections.length),0,'reading scores and cancelling never stores a post');assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
+ }
+ // Author display is optional, local, and uses the outer author rather than social context.
+ {
+  const {page,errors}=await fixture([{id:'author',scores:allScores({slop:.951})},{id:'legacy',scores:allScores({slop:.95})},{id:'unknown',scores:allScores({slop:.95})}],{width:320});
+  await page.evaluate(()=>{
+   const post=document.getElementById('author');post.setAttribute('role','listitem');post.setAttribute('componentkey','update-card-author');
+   post.querySelector('header').innerHTML='<a href="/in/liker">Liker likes this</a><button aria-label="Open control menu for post by Amazon">Menu</button>';
+   post.querySelector('.native-comments').innerHTML='<div class="comments-comment-item"><button aria-label="Open control menu for post by Commenter">Menu</button></div>';
+   const legacy=document.getElementById('legacy');legacy.querySelector('header').innerHTML='<a class="update-components-actor__title" href="/in/avery"><span aria-hidden="true">Avery Example</span><span class="visually-hidden">Avery Example Premium Profile</span></a>';
+   const unknown=document.getElementById('unknown');unknown.querySelector('header').innerHTML='<a href="/in/liker">Another liker</a>';
+   unknown.querySelector('.native-comments').innerHTML='<div class="comments-comment-item"><span data-testid="actor-name">Commenter</span></div>';
+  });
+  await page.waitForSelector('#author.lsf-folded');assert.equal(await page.locator('#author .lsf-fold-name').innerText(),'Slop 95% sure');
+  const calls=await page.evaluate(()=>window.calls.length);
+  await page.evaluate(()=>window.experience.appearance.showAuthor=true);
+  await page.waitForFunction(()=>document.querySelector('#author .lsf-fold-name')?.textContent==='Amazon · Slop 95% sure');
+  await page.waitForSelector('#legacy.lsf-folded');assert.equal(await page.locator('#legacy .lsf-fold-name').innerText(),'Avery Example · Slop 95% sure');
+  await page.waitForSelector('#unknown.lsf-folded');assert.equal(await page.locator('#unknown .lsf-fold-name').innerText(),'Slop 95% sure');
+  assert.equal(await page.locator('#author .lsf-bar').getAttribute('aria-label'),'Hidden post: Amazon · Slop 95% sure');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.locator('#author .lsf-bar button').click();await page.locator('#author .lsf-bar button').click();
+  assert.equal(await page.locator('#author .lsf-fold-name').innerText(),'Amazon · Slop 95% sure');
+  await page.evaluate(()=>window.experience.appearance.showAuthor=false);
+  await page.waitForFunction(()=>document.querySelector('#author .lsf-fold-name')?.textContent==='Slop 95% sure');
+  assert.equal(await page.evaluate(()=>window.calls.length),calls,'display preference never rescores');
+  assert.equal(await page.evaluate(()=>window.messages.some(m=>m.type==='classify'&&JSON.stringify(m).match(/Amazon|Liker|Commenter|Avery/))),false,'author names stay out of classification');
+  assert.deepEqual(errors,[]);
  }
  // A late result folds the visible hovered post immediately, with reversible reveal/re-hide.
  {

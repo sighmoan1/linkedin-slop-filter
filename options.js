@@ -9,11 +9,11 @@ const el=(tag,props={},...children)=>{const node=Object.assign(document.createEl
 const copyCats=list=>list.map(c=>({...c}));
 let savedSettings=await loadSettings(chrome.storage.local), cats=copyCats(savedSettings.categories), dirty=false, preset=null, undo=null, corrections=[], revisedDefinitions=null;
 let feedbackConfiguration="", correctionRefresh=0;
-let appearance={theme:"native",groupHidden:false,labels:"matches"};
+let appearance={theme:"native",groupHidden:false,showAuthor:false,labels:"matches"};
 const bridgeAvailable=Boolean(chrome.runtime?.sendMessage);
 const percent=value=>(value*100).toLocaleString(undefined,{maximumFractionDigits:6})+"%";
 const providerName=id=>({jev:"Jev · OpenRouter",openai:"OpenAI Decisions",ollama:"Local Ollama"}[id]||"Unknown provider");
-function safeAppearance(value){return {theme:"native",groupHidden:value?.groupHidden===true,labels:value?.labels==="off"?"off":"matches"};}
+function safeAppearance(value){return {theme:"native",groupHidden:value?.groupHidden===true,showAuthor:value?.showAuthor===true,labels:value?.labels==="off"?"off":"matches"};}
 async function send(message){
   if (!bridgeAvailable) throw new Error("The extension service is unavailable. Reopen settings or reload the extension.");
   const result=await chrome.runtime.sendMessage(message);
@@ -46,7 +46,7 @@ for (const id of FIELDS) {
   $(id).addEventListener(id==="enabled"||id==="provider"?"change":"input",markDirty);
 }
 function renderAppearance(){
-  $("groupHidden").checked=appearance.groupHidden;$("labels").value=appearance.labels;
+  $("groupHidden").checked=appearance.groupHidden;$("showAuthor").checked=appearance.showAuthor;$("labels").value=appearance.labels;
 }
 try {appearance=safeAppearance((await send({type:"experience"})).appearance);}
 catch {appearance=safeAppearance((await chrome.storage.local.get("appearance")).appearance);}
@@ -64,6 +64,7 @@ $("imageEnabled").addEventListener("change",async()=>{
   } catch {$("imageEnabled").checked=false;$("imagePermissionStatus").textContent="Image access is unavailable. Reload the updated extension and reopen settings.";}
 });
 $("groupHidden").addEventListener("change",()=>{appearance.groupHidden=$("groupHidden").checked;markDirty();});
+$("showAuthor").addEventListener("change",()=>{appearance.showAuthor=$("showAuthor").checked;markDirty();});
 $("labels").addEventListener("change",()=>{appearance.labels=$("labels").value;markDirty();});
 const updateProvider=()=>{
   const provider=$("provider").value;
