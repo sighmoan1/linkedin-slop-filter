@@ -51,7 +51,7 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   for(const id of ['brainrot','slop-one','slop-two','advert','slop-three']){
    await feed.locator('#'+id).scrollIntoViewIfNeeded();
    await feed.waitForFunction(id=>document.getElementById(id).classList.contains('lsf-folded')||!!document.querySelector('#'+id+' .lsf-arrived:not([hidden])'),id);
-   if(!await feed.locator('#'+id+'.lsf-folded').count())await feed.locator('#'+id+' .lsf-actions button').filter({hasText:'Hide now'}).click();
+   if(!await feed.locator('#'+id+'.lsf-folded').count())await feed.locator('#'+id+' .lsf-actions button').filter({hasText:/^Hide post$/}).click();
   }
   await feed.locator('#useful').scrollIntoViewIfNeeded();
   await feed.waitForFunction(()=>document.getElementById('useful').classList.contains('lsf-highlight'));
@@ -74,9 +74,9 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   if(screenshots)await feed.screenshot({path:path.join(screenshots,'feed-grouped.png'),fullPage:true});
   await feed.getByRole('button',{name:'Show list',exact:true}).first().click();
   assert.equal(await feed.locator('.lsf-group-suppressed').count(),0);
-  await feed.locator('#slop-one .lsf-bar button').filter({hasText:/^Show$/}).click();
+  await feed.locator('#slop-one .lsf-bar button').filter({hasText:/^Show post$/}).click();
   assert.equal(await feed.locator('#slop-one .update-components-text').isVisible(),true,'group members reveal the original post');
-  await feed.locator('#slop-one .lsf-bar button').filter({hasText:'Hide again'}).click();
+  await feed.locator('#slop-one .lsf-bar button').filter({hasText:'Hide post again'}).click();
   assert.deepEqual(await feed.locator('#feed > article').evaluateAll(posts=>posts.map(p=>p.id)),order);
   await worker.evaluate(()=>chrome.storage.local.set({appearance:{theme:'reader',groupHidden:false,labels:'matches'}}));
   await feed.waitForFunction(()=>document.querySelectorAll('.lsf-group-suppressed').length===0&&document.getElementById('useful').dataset.lsfTheme==='native');
@@ -87,12 +87,15 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   assert.deepEqual(await worker.evaluate(()=>chrome.storage.local.get('categories')),before);
   await feed.locator('.lsf-toolbar-main button').filter({hasText:'Restore filtering'}).click();
   await feed.waitForSelector('#brainrot.lsf-folded');
-  await feed.locator('#brainrot .lsf-bar button').filter({hasText:'Correct'}).click();
+  assert.equal(await feed.locator('#brainrot .lsf-bar button').count(),1,'hidden row only offers reveal');
+  await feed.locator('#brainrot .lsf-bar button').filter({hasText:/^Show post$/}).click();
+  await feed.locator('#brainrot .lsf-tools button').filter({hasText:/^Categories$/}).click();
+  assert.equal(await feed.locator('#brainrot .lsf-panel').count(),1,'scores and corrections share one panel');
   const correction=feed.locator('#brainrot .lsf-correction');
   for(const c of before.categories)await correction.locator('input[value="'+c.id+'"]').uncheck();
   await correction.locator('input[value="nourishment"]').check();
   await correction.locator('input[value="advert"]').check();
-  await correction.getByRole('button',{name:'Keep visible & save correction'}).click();
+  await correction.getByRole('button',{name:'Save categories'}).click();
   await feed.waitForFunction(()=>!document.getElementById('brainrot').classList.contains('lsf-folded'));
   const records=await worker.evaluate(()=>chrome.storage.local.get('corrections'));
   assert.equal(records.corrections.length,1);assert.deepEqual(records.corrections[0].categoryIds,['advert','nourishment']);

@@ -13,11 +13,15 @@
 [data-lsf-ui] { color:var(--lsf-ink); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; }
 .lsf-bar, .lsf-group-bar {
   display:flex; gap:12px; align-items:center; justify-content:space-between;
-  min-height:60px; padding:8px 12px; background:var(--lsf-paper);
+  min-height:44px; padding:0 12px; background:var(--lsf-paper);
   border:1px solid var(--lsf-line); border-radius:4px;
 }
+.lsf-bar > .lsf-fold-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lsf-actions { flex-shrink:0; }
+.lsf-bar .lsf-button { background:transparent; color:var(--lsf-brand); border-color:transparent; padding:6px 8px; }
+.lsf-bar .lsf-button:hover { background:var(--lsf-surface); }
 .lsf-revealed-bar { position:sticky; top:60px; z-index:1; background:var(--lsf-paper); }
-.lsf-fold-name, .lsf-group-name { min-width:0; overflow-wrap:anywhere; font-weight:600; font-size:16px; color:var(--lsf-ink); }
+.lsf-fold-name, .lsf-group-name { min-width:0; overflow-wrap:anywhere; font-weight:500; font-size:14px; color:var(--lsf-ink); }
 .lsf-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-left:auto; }
 .lsf-button {
   appearance:none; min-height:44px; border:1px solid var(--lsf-brand); border-radius:4px;
@@ -28,7 +32,7 @@
 .lsf-flat:hover { background:var(--lsf-surface); border-color:var(--lsf-muted); color:var(--lsf-ink); }
 .lsf-button:disabled { opacity:.65; cursor:default; }
 .lsf-flat { background:transparent; border-color:var(--lsf-line); color:var(--lsf-ink); font-weight:400; }
-[data-lsf-ui] :is(button,select,input):focus-visible {
+[data-lsf-ui] :is(button,select,input,summary):focus-visible {
   outline:2px solid var(--lsf-focus); outline-offset:2px;
 }
 .lsf-tools { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:8px 12px; margin-top:4px; border-top:1px solid var(--lsf-line); min-height:56px; background:var(--lsf-paper); }
@@ -43,21 +47,24 @@
 .lsf-score-table th, .lsf-score-table td { text-align:left; border-bottom:1px solid var(--lsf-line); padding:8px 6px; overflow-wrap:anywhere; vertical-align:top; }
 .lsf-score-table th:first-child, .lsf-score-table td:first-child { width:34%; }
 .lsf-score-table th:nth-child(2), .lsf-score-table td:nth-child(2) { width:24%; }
-.lsf-correction-fields { display:flex; flex-wrap:wrap; gap:8px 16px; margin:12px 0; }
-.lsf-correction-fields label { display:flex; gap:8px; align-items:center; cursor:pointer; min-height:44px; }
-.lsf-correction-fields input { accent-color:var(--lsf-brand); width:18px; height:18px; margin:0; }
-.lsf-correction .lsf-button { white-space:normal; margin:4px 8px 4px 0; }
+.lsf-correction-fields label { display:flex; gap:8px; align-items:center; cursor:pointer; min-height:44px; min-width:0; overflow-wrap:anywhere; }
+.lsf-correction-fields input { accent-color:var(--lsf-brand); width:18px; height:18px; margin:0; flex-shrink:0; }
+.lsf-score-help { margin:12px 0; color:var(--lsf-muted); }
+.lsf-score-help summary { cursor:pointer; }
+.lsf-panel-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.lsf-panel-actions .lsf-button { white-space:normal; }
 .lsf-feed-toolbar { border:1px solid var(--lsf-line); border-radius:4px; background:var(--lsf-paper); padding:12px; margin:0 0 12px; }
 .lsf-toolbar-main { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
 .lsf-toolbar-title { font-size:16px; font-weight:600; color:var(--lsf-ink); flex:1 0 100%; }
 .lsf-toolbar-status { color:var(--lsf-muted); font-size:14px; margin:8px 0 0; }
 @media (max-width:600px) {
-  .lsf-bar, .lsf-group-bar { padding:8px 12px; gap:8px; flex-wrap:wrap; }
-  .lsf-bar > .lsf-actions { width:100%; margin-left:0; }
-  .lsf-fold-name { flex:1 1 100%; }
+  .lsf-bar { gap:8px; padding:0 8px; }
+  .lsf-group-bar { padding:8px 12px; gap:8px; flex-wrap:wrap; }
   .lsf-tools { padding:8px 12px; gap:8px; }
-  .lsf-tools > .lsf-actions { margin-left:0; }
+  .lsf-tools > .lsf-actions { margin-left:auto; }
   .lsf-panel { padding:12px; }
+  .lsf-score-table th:first-child, .lsf-score-table td:first-child { width:48%; }
+  .lsf-score-table th:nth-child(2), .lsf-score-table td:nth-child(2) { width:20%; }
   .lsf-group-name { font-size:16px; }
 }
 /* Follow the LinkedIn card surface, which can differ from the OS theme. */

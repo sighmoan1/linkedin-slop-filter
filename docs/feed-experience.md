@@ -2,13 +2,15 @@
 
 The feed keeps its original order and original posts. The filter adds reversible omissions and a separate appearance choice. Each category uses the same Hide, Highlight, Label and Off actions, with its own strict score-above-threshold rule. Any applying Hide rule takes precedence.
 
-The feed uses one Native appearance that keeps familiar LinkedIn cards. Individual hidden rows include each matching category’s model confidence. Manual corrections are labelled as corrected rather than assigned a model confidence. Consecutive hidden posts can be grouped separately; a visible post always breaks a group.
+The feed uses one Native appearance that keeps familiar LinkedIn cards. Individual hidden rows show category names and a compact Show post control. Once the post is visible, one Categories menu combines correction checkboxes, model scores and current rules. Cancel or Escape discards unsaved edits and returns focus to the menu control; re-hiding removes the menu. Consecutive hidden posts can be grouped separately; a visible post always breaks a group.
 
 Show reveals one original post in place. Hide again reverses that action. Show everything temporarily reveals the current feed without changing saved rules. Disabling filtering pauses scoring and restores posts. Corrections are explicit local records, separate from ordinary reveals.
 
-New results must leave a visible, hovered or keyboard-focused card open until it leaves view or the reader chooses Hide now. Offscreen layout changes and deliberate reveals keep the reading position stable. Details show actual model scores, thresholds and actions, including missing answers; they do not invent model explanations or establish AI authorship.
+New results must leave a visible, hovered or keyboard-focused card open until it leaves view or the reader chooses Hide now. Offscreen layout changes and deliberate reveals keep the reading position stable. The Categories menu shows actual model scores, thresholds and actions, including missing answers; they do not invent model explanations or establish AI authorship.
 
 ## Release checks
+
+Issue [#88](https://github.com/sighmoan1/linkedin-slop-filter/issues/88) replaces the oversized hidden row and separate score/correction panels. The full local `npm test` suite and `npm run verify:release` passed for this change, including compact rows and a shared category panel at 320px, unsaved-edit cancellation, focus and scroll recovery, actual unpacked-extension reload, popup recovery and correction privacy. The release check made zero provider requests and reported zero console errors or failed extension resources. At initial PR readiness, the owner’s signed-in Brave session was available, but native automation twice refused the reload because it detected active user interaction. Subsequent installation and signed-in verification are tracked on issue #88.
 
 The release review checks the combined implementation, rather than relying on the design prototype. Required checks include the full npm test suite, a real unpacked extension in a temporary Chromium profile, feed and settings layouts at 320px and desktop widths, Native appearance, keyboard access, correction privacy, temporary overrides, slow/error/partial results, and stable scrolling.
 

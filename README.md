@@ -27,12 +27,12 @@ A category applies only when its score is **strictly greater** than its own thre
 
 | Action | Result |
 | --- | --- |
-| Hide | A compact row replaces the post, with Show, Details and Correct controls. |
+| Hide | A compact row replaces the post, with category names and a Show post control. |
 | Highlight | The original post stays open with a subtle accent and matching label. |
 | Label | The original post stays open with a quiet matching label. |
 | Off | The category is not requested or applied. |
 
-Slop, Brainrot, Advert, Opportunity, Good post and custom categories all have the same controls. Each can be edited, reordered, removed or switched off. Up to 12 categories are supported. A post can match several; **any applying Hide rule wins**, including when another category says Highlight. Details show available scores, thresholds and actions. Missing answers never apply, and Off categories are not requested.
+Slop, Brainrot, Advert, Opportunity, Good post and custom categories all have the same controls. Each can be edited, reordered, removed or switched off. Up to 12 categories are supported. A post can match several; **any applying Hide rule wins**, including when another category says Highlight. The Categories menu on visible posts combines available scores, thresholds, actions and correction checkboxes. Missing answers never apply, and Off categories are not requested.
 
 Default actions hide Slop, label Brainrot and Advert, and highlight Opportunity and Good post. The explicit **Less noise** preset hides Slop, Brainrot and Advert and keeps positive categories on Highlight. Presets preview changes, preserve custom categories and can be undone before saving. They change actions only.
 
@@ -57,7 +57,7 @@ Only extracted post body text is sent: at most 12,000 characters for cloud provi
 
 Requests are sequential with a bounded feed prefetch queue; upcoming cards are prioritized. The default cap is 100 API attempts per browser session across tabs. **Try a post** shares that cap. Reloading a feed, changing settings, clearing scores or deleting corrections does not reset it. Restart Chrome or raise the cap to continue. The popup and Provider panel show session usage and a quiet error summary; the toolbar marks service failures.
 
-Network errors, refusals, timeouts, invalid answers, a missing key and the request cap leave unscored posts visible. Partial answers use only their valid scores and are marked partly scored. Details report actual scores/rules, not invented explanations. If a provider refuses several questions (HTTP 400/422), the worker retries only Hide categories and reports the fallback; a scoring-configuration change retries all categories. Live multi-question billing and fallback behavior are unverified.
+Network errors, refusals, timeouts, invalid answers, a missing key and the request cap leave unscored posts visible. Partial answers use only their valid scores and are marked partly scored. The Categories menu reports actual scores/rules, not invented explanations. If a provider refuses several questions (HTTP 400/422), the worker retries only Hide categories and reports the fallback; a scoring-configuration change retries all categories. Live multi-question billing and fallback behavior are unverified.
 
 Cloud score caches contain a hash, scores and time, never post text. They last up to 30 days, with a 2,000-entry cap. Local scores last for the browser session. **Clear score cache** removes both. Changing a definition, active questions, provider, local model or endpoint starts fresh scores. Names, actions, thresholds, order and appearance reuse scores. Obsolete results cannot hide a recycled or differently configured post.
 
@@ -105,4 +105,10 @@ LinkedIn's DOM and virtualization change frequently. Current selectors support o
 
 Release checks use synthetic Chromium feeds and a real unpacked extension in a temporary profile. Version 2.0.1 also received a limited signed-in Brave/OpenAI For You check; see [#58 and its evidence](docs/readable-feed.md). Wider signed-in compatibility, other cloud accounts/providers and representative real-post accuracy remain open verification work in [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3). A prior real local Qwen3.5 4B synthetic smoke passed; see [local evidence](docs/local-ollama.md).
 
-Individual hidden rows show the model confidence for each matching Hide category. Manually corrected categories are labelled “corrected” instead; original model scores remain in Details.
+Hidden rows show category names and Show post. Scores and corrections are available only while the post is visible, in one Categories menu. Cancel or Escape discards unsaved edits; re-hiding closes the menu. Saved corrections retain the original model scores.
+
+### Never hide selected people
+
+In Settings → Never hide, open Connections or Following and use Never hide beside a person. Selections save immediately in this browser profile. You can also add a profile URL directly and remove selections in settings. Only selected names and profile links are stored locally; neither is sent to the classification provider. A recognized selected post author bypasses classification and stays visible, including when a cached score or correction would otherwise hide it. Changes reach open feed tabs on the next settings refresh.
+
+Author matching uses the outer post’s actor profile link, not mentions or embedded repost authors. LinkedIn markup can change; an unrecognized actor is classified normally. This feature has not yet been verified on a signed-in Brave connections/following list or live feed.
