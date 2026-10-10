@@ -20,9 +20,9 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
 (async()=>{
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'slop-release-'));
  const screenshots=process.env.QA_OUTPUT_DIR;
- if(screenshots)fs.mkdirSync(screenshots,{recursive:true});
  let context;
  try{
+  if(screenshots)fs.mkdirSync(screenshots,{recursive:true});
   context=await chromium.launchPersistentContext(profile,{channel:'chromium',headless:true,viewport:{width:1280,height:900},args:['--disable-extensions-except='+root,'--load-extension='+root]});
   const errors=[];context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
   const providerRequests=[];
@@ -76,7 +76,7 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   assert.equal(await feed.locator('.lsf-group-suppressed').count(),0);
   await feed.locator('#slop-one .lsf-bar button').filter({hasText:/^Show$/}).click();
   assert.equal(await feed.locator('#slop-one .update-components-text').isVisible(),true,'group members reveal the original post');
-  await feed.locator('#slop-one button').filter({hasText:'Hide again'}).click();
+  await feed.locator('#slop-one .lsf-bar button').filter({hasText:'Hide again'}).click();
   assert.deepEqual(await feed.locator('#feed > article').evaluateAll(posts=>posts.map(p=>p.id)),order);
   await worker.evaluate(()=>chrome.storage.local.set({appearance:{theme:'reader',groupHidden:false,labels:'matches'}}));
   await feed.waitForFunction(()=>document.querySelectorAll('.lsf-group-suppressed').length===0&&document.getElementById('useful').dataset.lsfTheme==='reader');
@@ -139,7 +139,10 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   assert.equal(state.requests,0,'seeded scores and missing credentials make no provider request');
   assert.deepEqual(providerRequests,[],'release QA makes no cloud request');
   assert.equal(state.usage.folded,5,'first folds count once, reveals/recovery do not add events');
+  await feed.evaluate(()=>history.pushState(null,'','/feed/update/synthetic/'));
+  assert.deepEqual(await worker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:false},'a nested route is not the feed');
+  await feed.waitForFunction(()=>document.querySelectorAll('.lsf-feed-card,.lsf-feed-toolbar').length===0);
   assert.deepEqual(errors,[]);
   console.log('PASS: actual unpacked worker/feed/settings/popup; themes, visible deferral, reversible groups, temporary recovery, multi-label corrections, no text-bearing ordinary cache, missing-key fail-open, 320px and dark/reduced-motion layouts. Provider calls: 0.');
- }finally{if(context)await context.close();fs.rmSync(profile,{recursive:true,force:true});}
+ }finally{try{if(context)await context.close();}finally{fs.rmSync(profile,{recursive:true,force:true});}}
 })().catch(error=>{console.error('Release QA failed: '+error.message);process.exitCode=1;});
