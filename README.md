@@ -111,6 +111,8 @@ LinkedIn's DOM and virtualization change frequently. Current selectors support o
 
 Release checks use synthetic Chromium feeds and a real unpacked extension in a temporary profile. Version 2.0.1 also received a limited signed-in Brave/OpenAI For You check; see [#58 and its evidence](docs/readable-feed.md). Wider signed-in compatibility, other cloud accounts/providers and representative real-post accuracy remain open verification work in [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3). A prior real local Qwen3.5 4B synthetic smoke passed; see [local evidence](docs/local-ollama.md).
 
+The interface copy review in [#104](https://github.com/sighmoan1/linkedin-slop-filter/issues/104) passed `npm test`, including responsive light/dark layout checks and simulated reveal, corrections and popup recovery. This copy revision has not been installed or checked in the signed-in Brave feed.
+
 Hidden rows show category names and Show post. Scores and corrections are available only while the post is visible, in one Review scores panel. Cancel or Escape discards unsaved edits; re-hiding closes the menu. Saved corrections retain the original model scores.
 
 ### Never hide selected people
