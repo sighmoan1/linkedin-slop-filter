@@ -237,10 +237,20 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await atTop(page,'look1',150);
   for(const width of [736,360,320]){await page.setViewportSize({width,height:900});await settle(page);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'no horizontal overflow at '+width);}
   await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});await page.locator('.lsf-feed-toolbar select').selectOption('punchy');await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfTheme==='punchy');
+  assert.equal(await page.locator('#look1').getAttribute('data-lsf-scheme'),'light','light LinkedIn stays light when the OS prefers dark');
+  assert.equal(await page.locator('.lsf-feed-toolbar').getAttribute('data-lsf-scheme'),'light','toolbar follows the native feed surface');
   assert.equal(await page.locator('#look1 .lsf-bar').evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
   await page.locator('.lsf-feed-toolbar select').selectOption('reader');await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfTheme==='reader');
+  assert.equal(await page.locator('#look3 .update-components-text').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(250, 250, 250)');
+  await page.addStyleTag({content:'.host-dark .feed-shared-update-v2{background:#1b1f23}'});
+  await page.evaluate(()=>document.documentElement.classList.add('host-dark'));
+  await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfScheme==='dark'&&document.querySelector('.lsf-feed-toolbar').dataset.lsfScheme==='dark');
+  await page.emulateMedia({colorScheme:'light',reducedMotion:'reduce'});
+  assert.equal(await page.locator('#look1').getAttribute('data-lsf-scheme'),'dark','dark LinkedIn stays dark when the OS prefers light');
   const styles=await page.locator('#look3').evaluate(e=>({card:getComputedStyle(e).backgroundColor,header:getComputedStyle(e.querySelector('.native-header strong')).color,body:getComputedStyle(e.querySelector('.update-components-text')).backgroundColor,link:getComputedStyle(e.querySelector('.update-components-text a')).color,controls:getComputedStyle(e.querySelector('.native-controls button')).color,comments:getComputedStyle(e.querySelector('.native-comments')).color}));
-  assert.deepEqual(styles,{card:'rgb(255, 255, 255)',header:'rgb(38, 50, 56)',body:'rgb(32, 37, 42)',link:'rgb(180, 213, 255)',controls:'rgb(100, 114, 122)',comments:'rgb(100, 114, 122)'},'Reader styles only the extracted body and extension UI; native metadata/controls remain on their original surface');
+  assert.deepEqual(styles,{card:'rgb(27, 31, 35)',header:'rgb(38, 50, 56)',body:'rgb(32, 37, 42)',link:'rgb(180, 213, 255)',controls:'rgb(100, 114, 122)',comments:'rgb(100, 114, 122)'},'Reader styles only the extracted body and extension UI; native metadata/controls remain on their original surface');
+  await page.evaluate(()=>document.documentElement.classList.remove('host-dark'));
+  await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfScheme==='light');
   const output=process.env.FEED_SCREENSHOTS;if(output){fs.mkdirSync(output,{recursive:true});for(const theme of ['native','punchy','reader']){await page.locator('.lsf-feed-toolbar select').selectOption(theme);await page.waitForFunction(theme=>document.getElementById('look1').dataset.lsfTheme===theme,theme);await page.setViewportSize({width:1000,height:1000});await page.emulateMedia({colorScheme:'light',reducedMotion:'reduce'});await atTop(page,'look1',150);await settle(page);await page.screenshot({path:path.join(output,theme+'.png')});}await page.setViewportSize({width:360,height:900});await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});await atTop(page,'look1',180);await settle(page);await page.screenshot({path:path.join(output,'mobile-dark.png')});}
   assert.deepEqual(errors,[]);
  }

@@ -79,17 +79,16 @@
   .lsf-panel { padding:12px; }
   .lsf-group-name { font-size:16px; }
 }
-@media (prefers-color-scheme:dark) {
-  .lsf-feed-card, .lsf-feed-toolbar { --lsf-paper:#1b1f23; --lsf-surface:#252a30; --lsf-ink:#f3f4f5; --lsf-muted:#b9c0c7; --lsf-line:#59616a; --lsf-brand:#9acbff; --lsf-focus:#9acbff; --lsf-button-text:#17212b; }
-  .lsf-feed-card[data-lsf-theme="reader"], .lsf-feed-toolbar[data-lsf-theme="reader"] { --lsf-paper:#20252a; --lsf-surface:#20252a; }
-  .lsf-feed-card[data-lsf-theme="punchy"] .lsf-bar { background:var(--lsf-surface); }
-  .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="slop"] { --lsf-tone:#ffc3a9; }
-  .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="brainrot"] { --lsf-tone:#d5bcf3; }
-  .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="advert"] { --lsf-tone:#f3d294; }
-  .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="opportunity"] { --lsf-tone:#b4d5ff; }
-  .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="nourishment"] { --lsf-tone:#8bd8c8; }
-  .lsf-button:hover { background:#b4d7fa; border-color:#b4d7fa; color:var(--lsf-button-text); }
-  .lsf-flat:hover { background:var(--lsf-surface); border-color:var(--lsf-muted); color:var(--lsf-ink); }
-  .lsf-feed-card[data-lsf-theme="reader"] .lsf-reader-body a { color:#b4d5ff; }
-}
+/* Follow the LinkedIn card surface, which can differ from the OS theme. */
+.lsf-feed-card[data-lsf-scheme="dark"],.lsf-feed-toolbar[data-lsf-scheme="dark"] { --lsf-paper:#1b1f23; --lsf-surface:#252a30; --lsf-ink:#f3f4f5; --lsf-muted:#b9c0c7; --lsf-line:#59616a; --lsf-brand:#9acbff; --lsf-focus:#9acbff; --lsf-button-text:#17212b; }
+.lsf-feed-card[data-lsf-scheme="dark"][data-lsf-theme="reader"],.lsf-feed-toolbar[data-lsf-scheme="dark"][data-lsf-theme="reader"] { --lsf-paper:#20252a; --lsf-surface:#20252a; }
+.lsf-feed-card[data-lsf-scheme="dark"][data-lsf-theme="punchy"] .lsf-bar { background:var(--lsf-surface); }
+.lsf-feed-card[data-lsf-scheme="dark"][data-lsf-theme="punchy"][data-lsf-tone="slop"] { --lsf-tone:#ffc3a9; }
+.lsf-feed-card[data-lsf-scheme="dark"][data-lsf-theme="punchy"][data-lsf-tone="brainrot"] { --lsf-tone:#d5bcf3; }
+.lsf-feed-card[data-lsf-scheme="dark"][data-lsf-theme="punchy"][data-lsf-tone="advert"] { --lsf-tone:#f3d294; }
+.lsf-feed-card[data-lsf-scheme="dark"][data-lsf-theme="punchy"][data-lsf-tone="opportunity"] { --lsf-tone:#b4d5ff; }
+.lsf-feed-card[data-lsf-scheme="dark"][data-lsf-theme="punchy"][data-lsf-tone="nourishment"] { --lsf-tone:#8bd8c8; }
+[data-lsf-scheme="dark"] .lsf-button:hover { background:#b4d7fa; border-color:#b4d7fa; color:var(--lsf-button-text); }
+[data-lsf-scheme="dark"] .lsf-flat:hover { background:var(--lsf-surface); border-color:var(--lsf-muted); color:var(--lsf-ink); }
+.lsf-feed-card[data-lsf-scheme="dark"][data-lsf-theme="reader"] .lsf-reader-body a { color:#b4d5ff; }
 /* No height animation or global scrolling styles: reading-position mechanics stay unchanged. */
