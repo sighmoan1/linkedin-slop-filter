@@ -134,7 +134,15 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   await popup.click('#showEverything');await popup.waitForFunction(()=>document.getElementById('showEverything').textContent==='Show everything');
   assert.equal(await popup.evaluate(()=>window.runtimeCalls.filter(call=>call.type==='playground').length),0);
   assert.equal((await popup.locator('body').innerText()).includes('FAKE-KEY-NEVER-SHOW'),false);
-  const unrelated=await context.newPage();await unrelated.addInitScript(()=>{if(location.origin==='https://ext.test')chrome.tabs.query=async()=>[{id:9,url:'https://example.org/'}];});await unrelated.goto('https://ext.test/popup.html');await unrelated.waitForFunction(()=>document.getElementById('requests').textContent==='3');assert.equal(await unrelated.locator('#showEverything').isDisabled(),true,'recovery targets feed tabs only');assert.match(await unrelated.locator('#revealNote').innerText(),/LinkedIn feed/);
+  const unrelated=await context.newPage();await unrelated.addInitScript(()=>{if(location.origin!=='https://ext.test')return;chrome.tabs.query=async()=>[{id:9,url:'https://example.org/'}];window.feedProbes=[];chrome.tabs.sendMessage=async()=>{window.feedProbes.push('unexpected');return {isFeed:true};};});await unrelated.goto('https://ext.test/popup.html');await unrelated.waitForFunction(()=>document.getElementById('requests').textContent==='3');assert.equal(await unrelated.locator('#showEverything').isDisabled(),true,'recovery targets feed tabs only');assert.match(await unrelated.locator('#revealNote').innerText(),/LinkedIn feed/);assert.deepEqual(await unrelated.evaluate(()=>window.feedProbes),[],'explicit non-feed URL does not probe');
+  // Chrome may expose only the tab id without additional host permissions.
+  for(const response of ['feed','other','disconnected']){
+   const noUrl=await context.newPage();await noUrl.addInitScript(mode=>{if(location.origin!=='https://ext.test')return;chrome.tabs.query=async()=>[{id:9}];window.feedProbes=[];chrome.tabs.sendMessage=async(id,message)=>{window.feedProbes.push({id,message});if(mode==='disconnected')throw new Error('No receiving content script');return {isFeed:mode==='feed'};};},response);
+   await noUrl.goto('https://ext.test/popup.html');await noUrl.waitForFunction(()=>document.getElementById('requests').textContent==='3');assert.deepEqual(await noUrl.evaluate(()=>window.feedProbes),[{id:9,message:{type:'feedStatus'}}]);assert.equal(await noUrl.locator('#showEverything').isDisabled(),response!=='feed','absent URL uses only a positive feed probe');
+   if(response==='feed'){await noUrl.click('#showEverything');await noUrl.waitForFunction(()=>document.getElementById('showEverything').textContent==='Restore filtering');await noUrl.click('#showEverything');await noUrl.waitForFunction(()=>document.getElementById('showEverything').textContent==='Show everything');}
+   else assert.match(await noUrl.locator('#revealNote').innerText(),/LinkedIn feed/);
+   await noUrl.close();
+  }
   await popup.click('#openSettings');assert.equal(await popup.evaluate(()=>window.optionsOpened),1);
   for(const colorScheme of ['light','dark']) {
    await page.emulateMedia({colorScheme,reducedMotion:'reduce'});await popup.emulateMedia({colorScheme,reducedMotion:'reduce'});
