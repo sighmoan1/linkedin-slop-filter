@@ -89,7 +89,9 @@ npm test
 
 The suite checks provider schemas, response validation, strict thresholds, migration, credential isolation, sequential queue/cache/limits, fail-open behavior, experience-message permissions, corrections, rubric fixtures and metrics, syntax, simulated-feed scrolling/recovery and settings/popup browser behavior. CI runs the same command. Browser fixtures use synthetic text and mocked responses; Playwright is a development dependency only.
 
-Optional real checks are `npm run smoke:ollama`, `npm run smoke:extension` and `npm run smoke:jev`. The Jev smoke requires your `OPENROUTER_API_KEY` environment variable and makes one billed synthetic request; never put the key in a file, issue, log or commit. Local checks require the downloaded model/service. Neither establishes live-feed compatibility or accuracy.
+`npm run verify:release` loads the actual unpacked extension in a temporary Chromium profile with synthetic posts and pre-seeded scores. It checks feed/settings/popup behavior together without provider calls or a LinkedIn login. Set `QA_OUTPUT_DIR` to retain local screenshots; the temporary profile is removed afterwards.
+
+Optional provider checks are `npm run smoke:ollama`, `npm run smoke:extension` and `npm run smoke:jev`. The Jev smoke requires your `OPENROUTER_API_KEY` environment variable and makes one billed synthetic request; never put the key in a file, issue, log or commit. Local checks require the downloaded model/service. Neither establishes live-feed compatibility or accuracy.
 
 Configured cloud contracts are Jev `typesafe/jev-1.13` through OpenRouter's alpha Decisions endpoint and OpenAI `gpt-6-luna` through `/v1/decisions`. These are source configuration, not a claim that account access, billing or live multi-category calls have been verified. Local Ollama uses an HTTP loopback origin and rejects cloud model tags.
 

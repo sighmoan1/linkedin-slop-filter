@@ -14,6 +14,10 @@ The release review checks the combined implementation, rather than relying on th
 
 Signed-in LinkedIn DOM compatibility, cloud API contracts and representative classification accuracy remain separate verification work. Synthetic cards and mocked scores cannot establish those claims.
 
+After installing test dependencies, run `npm test` for the offline checks. `npm run verify:release` additionally loads the actual unpacked extension in a fresh temporary Chromium profile. It serves authored synthetic feed cards, seeds hash-only scores, and uses no provider credentials. It verifies the worker, feed, options and popup together; first folds and reveals, all three themes, reversible grouping and original order, multi-label corrections, temporary Show everything, missing-key failures, and 320px/dark layouts. The profile is deleted when the check exits.
+
+Set `QA_OUTPUT_DIR` to a local directory when running that command to retain screenshots. Those screenshots are synthetic previews, not captures from a signed-in account. The optional verification is separate from CI's offline suite so its unpacked-extension browser requirements are explicit.
+
 ## Design references
 
 - [Reddit Enhancement Suite placeholders](https://redditenhancementsuite.com/releases/5.14.2/) informed visible, reversible omissions.
