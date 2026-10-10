@@ -173,11 +173,27 @@ meter::-webkit-meter-optimum-value{background:var(--accent);border-radius:2px}
 #error:empty{display:none}
 
 .correction-list{margin:14px 0 20px}
-.feedback-rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px;margin:18px 0}
-.feedback-row{border-top:2px solid var(--line);padding-top:12px;overflow-wrap:anywhere}
-.feedback-row h3{margin:0 0 8px;font-size:19px}
-.feedback-row p{font-size:16px;margin:8px 0}
-.feedback-row button{margin-top:8px}
+.feedback-table{width:100%;border-collapse:collapse;font-size:16px;margin:16px 0}
+.feedback-table th,.feedback-table td{padding:14px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;overflow-wrap:anywhere}
+.feedback-table thead th{font-weight:500;color:var(--muted)}
+.feedback-table tbody th{font-weight:600;width:32%}
+.feedback-table small{display:block;font-size:16px;font-weight:400;color:var(--muted);margin-top:3px}
+.feedback-suggestion{width:28%}
+.feedback-suggestion button{font-size:16px;white-space:nowrap}
+.feedback-overview{font-weight:600}
+.feedback-mobile-label{display:none}
+.feedback-help{font-size:16px;margin:18px 0;color:var(--muted)}
+.feedback-help summary{cursor:pointer;min-height:44px;display:list-item;padding:10px 0}
+.feedback-help p{font-size:16px;margin:10px 0}
+@media(max-width:650px){
+ .feedback-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ .feedback-table,.feedback-table tbody{display:block}
+ .feedback-row{display:grid;grid-template-columns:1fr 1fr;column-gap:12px;border-bottom:1px solid var(--line);padding:10px 0}
+ .feedback-table tbody th{grid-column:1/-1;width:auto}
+ .feedback-table th,.feedback-table td{border:0;padding:6px 0}
+ .feedback-suggestion{grid-column:1/-1;width:auto}
+ .feedback-mobile-label{display:block;color:var(--muted);font-size:16px}
+}
 .empty-state{border:1px dashed var(--line);border-radius:2px;padding:25px 21px;color:var(--muted);font-size:17px;background:var(--surface);line-height:1.7}
 .correction{background:var(--surface);border:2px solid var(--line);padding:17px 19px;border-radius:2px;margin:12px 0}
 .correction-top{display:flex;align-items:center;justify-content:space-between;gap:15px}

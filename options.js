@@ -237,31 +237,39 @@ $("clearCache").addEventListener("click",async()=>{
 
 function renderFeedback(){
   const summary=feedbackSummary(corrections,savedSettings.categories,{provider:savedSettings.provider,configuration:feedbackConfiguration});
-  $("feedbackCoverage").textContent=`${summary.comparable} comparable posts · ${summary.excluded} excluded for a different provider or scoring configuration · ${summary.duplicates} earlier duplicate corrections ignored. Unsaved edits are not used.`;
+  $("feedbackAnalysis").hidden=!corrections.length;
+  $("feedbackCoverage").textContent=`${summary.comparable} ${summary.comparable===1?"post":"posts"} included · ${summary.excluded} excluded`;
+  $("feedbackRows").closest("table").hidden=!summary.comparable;
   const hiding=summary.hiding;
-  $("feedbackHiding").textContent=hiding.active?`All Hide rules together: ${hiding.falseHides} false hides · ${hiding.missedHides} missed hides across ${hiding.complete} posts with every Hide score. ${hiding.missing} posts lack a Hide score. These are predictions under saved rules, not a record of actual folds.`:"No saved Hide rules are active.";
+  $("feedbackHiding").textContent=!summary.comparable?"No corrections match the current provider and definitions.":!hiding.active?"No Hide rules are active.":!hiding.complete?"Not enough Hide scores to compare hidden posts.":`Wrongly hidden: ${hiding.falseHides} · Missed hides: ${hiding.missedHides} · ${hiding.complete} posts checked`;
+  $("feedbackDetails").textContent=`${summary.duplicates} earlier duplicate corrections ignored. ${summary.excluded} posts excluded for a different provider or scoring configuration. Hide predictions use ${hiding.complete} posts with every Hide score; ${hiding.missing} posts lack a Hide score. These are predictions under saved rules, not a record of actual folds. Category coverage is listed with each rule.`;
+  $("feedbackLabels").textContent=summary.rows.filter(row=>row.action!=="off").map(row=>`${row.name}: ${row.positives} chosen / ${row.scored-row.positives} unchosen scored examples`).join("; ");
   $("feedbackRows").replaceChildren();
   for(const row of summary.rows){
-    const card=el("article",{className:"feedback-row"},el("h3",{textContent:row.name}));
-    card.dataset.category=row.id;
-    card.append(el("p",{textContent:row.action==="off"?"Off · not analysed":`${ACTION_LABELS[row.action]} above ${percent(row.threshold)} · ${row.scored} scored · ${row.missing} missing` }));
-    if(row.action!=="off"){
-      card.append(el("p",{textContent:`${row.falseMatches} false matches${row.action==="hide"?" (would trigger Hide)":""} · ${row.misses} missed matches · ${row.positives} chosen / ${row.scored-row.positives} unchosen examples` }));
-      if(row.suggestion){
-        const suggestion=row.suggestion;
-        card.append(el("p",{textContent:`Try above ${Math.round(suggestion.threshold*100)}%: ${suggestion.falseMatches} false matches and ${suggestion.misses} misses on these same examples.`}));
-        const apply=el("button",{type:"button",className:"secondary",textContent:"Copy to category draft",disabled:dirty});
-        apply.dataset.feedbackApply=row.id;apply.setAttribute("aria-label",`Copy ${row.name} threshold suggestion to category draft`);
-        apply.addEventListener("click",()=>{
-          if(dirty)return;
-          const category=cats.find(c=>c.id===row.id);if(!category)return;
-          invalidatePreviews();clearUndo();category.threshold=suggestion.threshold;markDirty();renderCats();selectPanel("categories",true);
-          catStatus.textContent=`${row.name} threshold set to ${Math.round(suggestion.threshold*100)}% in your draft. Review and Save settings to apply. This suggestion fits selected corrections, not measured feed accuracy.`;
-        });
-        card.append(apply,el("p",{className:"note",textContent:dirty?"Save your existing edits before copying a suggestion.":"Review in Categories before saving."}));
-      }else card.append(el("p",{className:"note",textContent:row.positives<5||row.scored-row.positives<5?"More chosen and unchosen scored examples are needed for a suggestion.":"No whole-percent threshold reduces disagreements without increasing false matches on these examples."}));
+    const off=row.action==="off", card=el("tr",{className:"feedback-row"});card.setAttribute("role","row");card.dataset.category=row.id;
+    const category=el("th",{scope:"row"},el("span",{textContent:row.name}),el("small",{textContent:off?"Off":`${ACTION_LABELS[row.action]} above ${percent(row.threshold)} · ${row.scored} scored` }));category.setAttribute("role","rowheader");
+    if(!off&&row.missing)category.append(el("small",{textContent:`${row.missing} missing scores`,title:`${row.positives} chosen and ${row.scored-row.positives} unchosen scored examples`}));
+    card.append(category);
+    for(const [label,value] of [["Wrong matches",row.falseMatches],["Missed matches",row.misses]]){
+      const mobileLabel=el("span",{className:"feedback-mobile-label",textContent:label});mobileLabel.setAttribute("aria-hidden","true");
+      const cell=el("td",{},mobileLabel,el("span",{textContent:off||!row.scored?"—":String(value)}));cell.setAttribute("role","cell");card.append(cell);
     }
-    $("feedbackRows").append(card);
+    const threshold=el("td",{className:"feedback-suggestion"});threshold.setAttribute("role","cell");
+    if(row.suggestion){
+      const suggestion=row.suggestion;
+      const apply=el("button",{type:"button",className:"secondary",textContent:`Review ${percent(suggestion.threshold)}`,disabled:dirty});
+      apply.dataset.feedbackApply=row.id;apply.setAttribute("aria-label",`Review ${row.name} threshold suggestion: ${percent(suggestion.threshold)}`);
+      apply.title=`${suggestion.falseMatches} wrong matches and ${suggestion.misses} misses on these examples`;
+      apply.addEventListener("click",()=>{
+        if(dirty)return;
+        const category=cats.find(c=>c.id===row.id);if(!category)return;
+        invalidatePreviews();clearUndo();category.threshold=suggestion.threshold;markDirty();renderCats();selectPanel("categories",true);
+        catStatus.textContent=`${row.name} threshold set to ${percent(suggestion.threshold)} in your draft. Review and Save settings to apply.`;
+      });
+      threshold.append(apply);
+      if(dirty)threshold.append(el("small",{textContent:"Save existing edits first."}));
+    }else threshold.append(el("span",{textContent:off?"Off":row.positives<5||row.scored-row.positives<5?"More examples needed":"No change suggested"}));
+    card.append(threshold);$("feedbackRows").append(card);
   }
 }
 function renderCorrections(){
@@ -280,7 +288,7 @@ function renderCorrections(){
     const details=el("details",{},el("summary",{textContent:"Full text and original scores"}),el("p",{textContent:correction.text}),el("small",{textContent:"Original provider: "+providerName(correction.provider)+". "+Object.entries(correction.scores||{}).map(([id,value])=>(names.get(id)||id)+" "+Math.round(value*100)+"%").join(" · ")}));
     $("correctionList").append(el("article",{className:"correction"},el("div",{className:"correction-top"},el("time",{textContent:new Date(correction.at).toLocaleString()}),remove),el("div",{className:"correction-labels"},...labels.map(name=>el("span",{textContent:name}))),el("p",{textContent:preview}),details));
   }
-  if (!corrections.length) $("correctionList").append(el("p",{className:"empty-state",textContent:"No corrections yet. On a feed post, choose Correct, select every category that applies (or none), and save. Simply showing a hidden post does not add it here."}));
+  if (!corrections.length) $("correctionList").append(el("p",{className:"empty-state",textContent:"No corrections yet. On a feed post, choose Correct, select its categories (or none), and save."}));
   $("exportCorrections").disabled=!corrections.length;$("clearCorrections").disabled=!corrections.length;
 }
 async function refreshCorrections(){
@@ -292,7 +300,7 @@ async function refreshCorrections(){
     feedbackConfiguration=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
     corrections=records;renderCorrections();
   }
-  catch(error){if(refresh!==correctionRefresh)return;$("feedbackRows").replaceChildren();$("feedbackHiding").textContent="";$("feedbackCoverage").textContent="Correction analysis is unavailable.";$("correctionList").replaceChildren(el("p",{className:"empty-state",textContent:"Corrections are unavailable. Reopen settings or reload the extension. Saved corrections have not been cleared."}));$("correctionStatus").textContent=error.message;}
+  catch(error){if(refresh!==correctionRefresh)return;$("feedbackAnalysis").hidden=true;$("feedbackRows").replaceChildren();$("correctionList").replaceChildren(el("p",{className:"empty-state",textContent:"Corrections are unavailable. Reopen settings or reload the extension. Saved corrections have not been cleared."}));$("correctionStatus").textContent=error.message;}
 }
 $("refreshCorrections").addEventListener("click",refreshCorrections);await refreshCorrections();
 $("clearCorrections").addEventListener("click",()=>{$("clearCorrectionConfirm").hidden=false;});
