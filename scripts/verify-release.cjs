@@ -25,7 +25,9 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
  try{
   if(screenshots)fs.mkdirSync(screenshots,{recursive:true});
   context=await chromium.launchPersistentContext(profile,{channel:'chromium',headless:true,viewport:{width:1280,height:900},args:['--disable-extensions-except='+root,'--load-extension='+root]});
-  const errors=[];context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
+  const errors=[],consoleErrors=[],failedResources=[];
+  context.on('page',p=>{p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});});
+  context.on('requestfailed',r=>{if(r.url().startsWith('chrome-extension://'))failedResources.push({url:r.url(),error:r.failure()?.errorText});});
   const providerRequests=[];
   context.on('request',request=>{if(/^https:\/\/(?:openrouter\.ai|api\.openai\.com)\//.test(request.url()))providerRequests.push(request.url());});
   const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
@@ -142,12 +144,34 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   assert.equal(state.requests,0,'seeded scores and missing credentials make no provider request');
   assert.deepEqual(providerRequests,[],'release QA makes no cloud request');
   assert.equal(state.usage.folded,5,'first folds count once, reveals/recovery do not add events');
+  // A real extension reload must retire the old isolated context without leaving hidden cards.
+  // Command-line loading permits the first launch even with Developer mode off;
+  // subsequent unpacked reloads require it, just like the documented installation.
+  const extensions=await context.newPage();await extensions.goto('chrome://extensions/');
+  const developerMode=extensions.getByRole('switch',{name:'Developer mode'});
+  if(await developerMode.getAttribute('aria-checked')!=='true')await developerMode.click();
+  await extensions.waitForFunction(e=>e.getAttribute('aria-checked')==='true',await developerMode.elementHandle());
+  await extensions.close();
+  const restarted=context.waitForEvent('serviceworker',{predicate:w=>w!==worker,timeout:15000});
+  await worker.evaluate(()=>chrome.runtime.reload()).catch(e=>{if(!/closed|destroyed/i.test(e.message))throw e;});
+  await feed.evaluate(()=>window.dispatchEvent(new Event('scroll')));
+  await feed.waitForFunction(()=>document.querySelectorAll('[data-lsf-ui],.lsf-feed-card,.lsf-folded,.lsf-group-suppressed,.lsf-reader-body').length===0);
+  assert.equal(await feed.locator('#slop-one .update-components-text').isVisible(),true,'reload restores original hidden bodies');
+  await feed.evaluate(()=>{document.querySelector('#slop-one .update-components-text').append(document.createTextNode(' Synthetic post-reload change.'));window.dispatchEvent(new Event('resize'));});
+  await feed.waitForTimeout(5500);
+  assert.equal(await feed.locator('[data-lsf-ui]').count(),0,'old polling and events do not recreate stale controls');
+  await feed.reload();await feed.waitForSelector('.lsf-feed-toolbar');
+  const nextWorker=await restarted;
+  assert.deepEqual(await nextWorker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:true,posts:7},'a page reload reconnects the new content context');
+  assert.ok((await feed.evaluate(()=>document.fonts.load('17px "Slop Filter Lexend"'))).length>0,'font still loads after extension and page reload');
   await feed.evaluate(()=>history.pushState(null,'','/feed/network/'));
-  assert.deepEqual(await worker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:true,posts:7},'the Network tab is a feed');
+  assert.deepEqual(await nextWorker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:true,posts:7},'the Network tab is a feed');
   await feed.evaluate(()=>history.pushState(null,'','/feed/update/synthetic/'));
-  assert.deepEqual(await worker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:false},'a nested route is not the feed');
+  assert.deepEqual(await nextWorker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:false},'a nested route is not the feed');
   await feed.waitForFunction(()=>document.querySelectorAll('.lsf-feed-card,.lsf-feed-toolbar').length===0);
   assert.deepEqual(errors,[]);
-  console.log('PASS: actual unpacked worker/feed/settings/popup; themes, visible deferral, reversible groups, temporary recovery, multi-label corrections, no text-bearing ordinary cache, missing-key fail-open, 320px and dark/reduced-motion layouts. Provider calls: 0.');
+  assert.deepEqual(consoleErrors,[],'no console errors throughout the unpacked runtime and reload check');
+  assert.deepEqual(failedResources,[],'no failed extension resources throughout the unpacked runtime and reload check');
+  console.log('PASS: actual unpacked worker/feed/settings/popup; themes, visible deferral, reversible groups, temporary recovery, multi-label corrections, no text-bearing ordinary cache, missing-key fail-open, 320px and dark/reduced-motion layouts; real extension reload restores originals, stops stale controls and reconnects after page reload. Console errors: 0. Failed extension resources: 0. Provider calls: 0.');
  }finally{try{if(context)await context.close();}finally{fs.rmSync(profile,{recursive:true,force:true});}}
 })().catch(error=>{console.error('Release QA failed: '+error.message);process.exitCode=1;});

@@ -16,7 +16,7 @@ const assert=require('node:assert/strict');
   window.mockCats=[{id:'slop',name:'Slop',action:'hide',threshold:.8},{id:'advert',name:'Advert',action:'label',threshold:.8},{id:'nourishment',name:'Nourishment',action:'highlight',threshold:.8}];
   const slop=t=>t.includes('SLOP')?.95:t.includes('HIGH')?.7:t.includes('MID')?.5:t.includes('SLOW')?.2:t.includes('LOW')?.1:.8;
   const view=()=>({enabled:window.mockEnabled,provider:'jev',configuration:window.mockConfig,categories:window.mockCats});
-  window.chrome={runtime:{sendMessage:async m=>{
+  window.chrome={runtime:{id:'test-extension',sendMessage:async m=>{
    if(m.type==='settings')return view();
    if(m.type==='experience')return {appearance:{theme:'native',groupHidden:false,labels:'matches'},showEverything:false};
    if(m.type!=='classify')return {ok:true};

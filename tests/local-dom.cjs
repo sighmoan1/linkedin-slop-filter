@@ -11,7 +11,7 @@ const assert=require('node:assert/strict');
  await page.evaluate(()=>{
   window.calls=[];window.mockEnabled=true;window.mockProvider='jev';window.mockConfig='jev-rubric';window.mockThreshold=.8;
   const interval=window.setInterval.bind(window);window.setInterval=(fn,ms)=>interval(fn,ms===5000?100:ms);
-  window.chrome={runtime:{sendMessage:async m=>{
+  window.chrome={runtime:{id:'test-extension',sendMessage:async m=>{
    const view={enabled:window.mockEnabled,provider:window.mockProvider,configuration:window.mockConfig,categories:[{id:'slop',name:'Slop',action:'hide',threshold:window.mockThreshold}]};
    if(m.type==='settings')return view;
    if(m.type==='experience')return {appearance:{theme:'native',groupHidden:false,labels:'matches'},showEverything:false};

@@ -16,3 +16,5 @@ The content script, worker and popup accept Home, For You and Network feed route
 - The signed-in Network route was observed, but its filtering behavior was tested with synthetic fixtures only. Other accounts, providers, billing details, extended signed-in scrolling, and representative real-post classification accuracy were not verified. These remain separate evidence work; a successful live request does not establish model accuracy.
 
 No real post bodies, credentials or signed-in screenshots are saved in this repository or posted to issues. Category definitions, keys and scoring contracts were not changed by this repair. Native, Punchy and Reader keep identical category rules, reversible reveals and deferred folding for visible, hovered or focused posts.
+
+That signed-in check established connection, scoring and folding only. It did not establish sustained console/resource health. The owner's subsequent console screenshot prompted [#60 and the resource/lifecycle diagnosis](resource-lifecycle.md); release QA now covers those additional signals and actual extension reloads.

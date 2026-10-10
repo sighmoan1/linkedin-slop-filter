@@ -7,13 +7,46 @@
   const defaults = {theme:"native",groupHidden:false,labels:"matches"};
   let settings = {enabled:false,categories:[]};
   let experience = {appearance:{...defaults},showEverything:false};
-  let toolbar, timer, frame, activeRequest, nextId = 0, scrollIntent = 0;
+  let toolbar, timer, frame, activeRequest, poll, mutations, stopped = false, nextId = 0, scrollIntent = 0;
+  const listeners = [];
   // Same allowlist as core/feed.mjs; route tests check content, popup and worker.
   const feedPaths = ["/feed", "/feed/", "/feed/foryou", "/feed/foryou/", "/feed/network", "/feed/network/"];
   const isFeed = () => location.origin === "https://www.linkedin.com" && feedPaths.includes(location.pathname);
-  chrome.runtime.onMessage?.addListener((message,sender,reply)=>{
+  const feedStatus = (message,sender,reply)=>{
+    if(!connected())return;
     if(chrome.runtime.id&&sender?.id===chrome.runtime.id&&message?.type==="feedStatus")reply(isFeed()?{isFeed:true,posts:records.size}:{isFeed:false});
-  });
+  };
+  chrome.runtime.onMessage?.addListener(feedStatus);
+  function stop() {
+    if(stopped)return;
+    stopped=true;
+    const anchor=anchorFor();
+    clearInterval(poll);clearTimeout(timer);cancelAnimationFrame(frame);
+    mutations?.disconnect();observer.disconnect();
+    for(const remove of listeners)remove();listeners.length=0;
+    try{chrome.runtime.onMessage?.removeListener(feedStatus);}catch{}
+    for(const [post,record]of records)forget(post,record);
+    toolbar?.element.remove();toolbar=null;openGroups.clear();activeRequest=null;
+    restoreAnchor(anchor);
+  }
+  function connected() {
+    if(stopped)return false;
+    try{if(chrome.runtime.id)return true;}catch{}
+    stop();return false;
+  }
+  async function send(message) {
+    if(!connected())throw new Error("Extension disconnected. Reload the feed.");
+    try{return await chrome.runtime.sendMessage(message);}
+    catch(error){
+      if(/Extension context invalidated/i.test(error?.message||""))stop();
+      else connected();
+      throw error;
+    }
+  }
+  function listen(target,type,callback,options) {
+    target.addEventListener(type,callback,options);
+    listeners.push(()=>target.removeEventListener(type,callback,options));
+  }
   const pct = p => (p * 100).toFixed(6).replace(/\.?0+$/,"") + "%";
   const scoreText = (p,threshold) => pct(p)+(p!==threshold&&pct(p)===pct(threshold)?p>threshold?" (just above)":" (just below)":"");
   const safeScores = scores => scores && typeof scores === "object" && !Array.isArray(scores) && Object.keys(scores).length && Object.values(scores).every(p => typeof p === "number" && Number.isFinite(p) && p >= 0 && p <= 1);
@@ -73,6 +106,7 @@
     });
   }
   function paint(preferred,focus) {
+    if(!connected())return;
     const anchor=anchorFor(preferred);
     for(const [post,record]of records)render(post,record);
     renderGroups();renderToolbar();
@@ -80,10 +114,11 @@
     restoreAnchor(anchor);
   }
   function schedulePaint() {
-    if(frame)return;
+    if(!connected()||frame)return;
     frame=requestAnimationFrame(()=>{frame=0;paint();pump();});
   }
   function act(post,record,change,focusKind) {
+    if(!connected())return;
     const anchor=anchorFor(post);
     const origin=document.activeElement;
     const originTop=post.contains(origin)?origin.getBoundingClientRect().top:null;
@@ -182,7 +217,8 @@
         save.disabled=true;textOf(message,"Saving locally…");
         const categoryIds=(record.correctionInputs||[]).filter(i=>i.checked).map(i=>i.value);
         try {
-          const reply=await chrome.runtime.sendMessage({type:"correction",text:record.text,categoryIds,scores:record.scores||{},configuration:record.configuration||settings.configuration,provider:record.provider||settings.provider});
+          const reply=await send({type:"correction",text:record.text,categoryIds,scores:record.scores||{},configuration:record.configuration||settings.configuration,provider:record.provider||settings.provider});
+          if(!connected())return;
           if(!reply?.ok)throw new Error("not saved");
           if(records.get(post)!==record)return;
           act(post,record,()=>{record.correctionIds=categoryIds;record.corrected=true;record.revealed=true;record.correcting=false;},"saved");
@@ -241,7 +277,7 @@
       attr(record.show,"aria-label","Show post hidden as "+record.bar.dataset.label);
       attr(record.foldDetails,"aria-expanded",!!record.detailsOpen);
       toggle(post,"lsf-folded",true);record.foldCommitted=true;
-      if(!record.foldCounted){record.foldCounted=true;chrome.runtime.sendMessage({type:"folded"}).catch(()=>{});}
+      if(!record.foldCounted){record.foldCounted=true;send({type:"folded"}).catch(()=>{});}
     } else if(record.revealed&&hiding.length&&!experience.showEverything) {
       clearFold(post,record,true);ensureBar(post,record);hidden(record.bar,false);
       if(record.bar.className!=="lsf-bar lsf-revealed-bar")record.bar.className="lsf-bar lsf-revealed-bar";
@@ -279,9 +315,9 @@
     }
     if(summaryPost){const record=records.get(summaryPost);(summaryTarget||[record.show,record.detailsButton,toolbar?.theme].find(e=>e?.isConnected&&e.getClientRects().length))?.focus({preventScroll:true});}
   }
-  async function openSettings(){try{await chrome.runtime.sendMessage({type:"openSettings",section:"categories"});}catch{}}
+  async function openSettings(){try{await send({type:"openSettings",section:"categories"});}catch{}}
   function setExperience(next) {
-    if(!next||!next.appearance)return;
+    if(stopped||!next||!next.appearance)return;
     const a=next.appearance;
     experience={appearance:{theme:["native","punchy","reader"].includes(a.theme)?a.theme:"native",groupHidden:a.groupHidden===true,labels:a.labels==="off"?"off":"matches"},showEverything:next.showEverything===true};
   }
@@ -294,8 +330,8 @@
       const themeLabel=node("label","lsf-theme-label","Theme "),theme=node("select");theme.setAttribute("aria-label","Feed theme");
       for(const [value,label]of [["native","Native"],["punchy","Punchy"],["reader","Reader"]]){const option=node("option","",label);option.value=value;theme.append(option);}
       themeLabel.append(theme);
-      theme.addEventListener("change",async()=>{try{setExperience(await chrome.runtime.sendMessage({type:"appearance",appearance:{...experience.appearance,theme:theme.value}}));schedulePaint();}catch{theme.value=experience.appearance.theme;}});
-      const all=button("Show everything",async()=>{try{setExperience(await chrome.runtime.sendMessage({type:"showEverything",value:!experience.showEverything}));schedulePaint();}catch{} });
+      theme.addEventListener("change",async()=>{try{setExperience(await send({type:"appearance",appearance:{...experience.appearance,theme:theme.value}}));schedulePaint();}catch{theme.value=experience.appearance.theme;}});
+      const all=button("Show everything",async()=>{try{setExperience(await send({type:"showEverything",value:!experience.showEverything}));schedulePaint();}catch{} });
       const manage=button("Settings",()=>openSettings(),"lsf-button lsf-flat");
       const status=node("p","lsf-toolbar-status");status.setAttribute("role","status");
       main.append(title,themeLabel,all,manage);element.append(main,status);first.before(element);
@@ -314,7 +350,7 @@
     const r=post.getBoundingClientRect();return r.height>0&&r.bottom>=-200&&r.top<=innerHeight+700&&bodyText(post)===record.text;
   }
   function pump() {
-    if(activeRequest||!settings.enabled||!settings.categories.length||!isFeed())return;
+    if(!connected()||activeRequest||!settings.enabled||!settings.categories.length||!isFeed())return;
     // Queue is recomputed from the current viewport: at most six nearby candidates,
     // one request in flight, with visible/upcoming cards ahead of old cards above.
     const queue=[...records].filter(([post,r])=>eligible(post,r)).map(([post,r])=>({post,record:r,rect:post.getBoundingClientRect()}))
@@ -322,7 +358,8 @@
     if(!queue.length)return;
     const {post,record}=queue[0],configuration=settings.configuration,text=record.text;
     const token={post,record,configuration};activeRequest=token;record.pending=true;record.error=false;schedulePaint();
-    chrome.runtime.sendMessage({type:"classify",text}).then(result=>{
+    send({type:"classify",text}).then(result=>{
+      if(!connected())return;
       if(records.get(post)!==record||bodyText(post)!==text||configuration!==settings.configuration)return;
       if(result?.configuration&&result.configuration!==configuration){record.retryAt=Date.now()+1000;refresh();return;}
       if(result?.disabled){record.retryAt=Date.now()+1000;record.error=false;refresh().then(()=>{if(records.get(post)===record&&configuration===settings.configuration&&settings.enabled){record.retryAt=0;schedulePaint();}});return;}
@@ -335,6 +372,7 @@
   }
   const observer=new IntersectionObserver(()=>schedulePaint(),{rootMargin:"200px 0px 700px 0px"});
   function scan() {
+    if(!connected())return;
     for(const [post,record]of records)if(!post.isConnected||!isFeed())forget(post,record);
     if(!isFeed()){toolbar?.element.remove();toolbar=null;return;}
     for(const candidate of document.querySelectorAll(POST)) {
@@ -354,25 +392,29 @@
     records.clear();for(const [post,record]of ordered)records.set(post,record);
     schedulePaint();
   }
-  const scheduleScan=()=>{clearTimeout(timer);timer=setTimeout(scan,120);};
-  new MutationObserver(mutations=>{
-    const changed=mutations.some(m=>!m.target.closest?.(UI)&&([...m.addedNodes,...m.removedNodes].some(n=>n.nodeType!==Node.ELEMENT_NODE||!n.matches?.(UI))||m.type==="characterData"));
+  const scheduleScan=()=>{if(!connected())return;clearTimeout(timer);timer=setTimeout(scan,120);};
+  mutations=new MutationObserver(changes=>{
+    if(!connected())return;
+    const changed=changes.some(m=>!m.target.closest?.(UI)&&([...m.addedNodes,...m.removedNodes].some(n=>n.nodeType!==Node.ELEMENT_NODE||!n.matches?.(UI))||m.type==="characterData"));
     if(changed)scheduleScan();
   }).observe(document.body,{childList:true,subtree:true,characterData:true});
-  window.addEventListener("scroll",schedulePaint,{passive:true});window.addEventListener("resize",schedulePaint,{passive:true});
-  document.addEventListener("focusin",schedulePaint);document.addEventListener("focusout",schedulePaint);
-  for(const type of ["wheel","touchmove"])window.addEventListener(type,()=>{scrollIntent++;},{passive:true});
-  window.addEventListener("keydown",e=>{if(["PageUp","PageDown","Home","End","ArrowUp","ArrowDown"," "].includes(e.key)&&!e.target.closest?.(UI))scrollIntent++;});
+  listen(window,"scroll",schedulePaint,{passive:true});listen(window,"resize",schedulePaint,{passive:true});
+  listen(document,"focusin",schedulePaint);listen(document,"focusout",schedulePaint);
+  for(const type of ["wheel","touchmove"])listen(window,type,()=>{scrollIntent++;},{passive:true});
+  listen(window,"keydown",e=>{if(["PageUp","PageDown","Home","End","ArrowUp","ArrowDown"," "].includes(e.key)&&!e.target.closest?.(UI))scrollIntent++;});
   async function refresh() {
+    if(!connected())return;
     try {
-      const next=await chrome.runtime.sendMessage({type:"settings"})||{enabled:false,categories:[]};
+      const next=await send({type:"settings"})||{enabled:false,categories:[]};
+      if(!connected())return;
       if(!Array.isArray(next.categories))next.categories=[];
       const changed=next.configuration!==settings.configuration,resumed=!settings.enabled&&next.enabled;
       if(changed||resumed)for(const record of records.values()){record.foldCommitted=false;record.error=false;record.retryAt=0;}
       settings=next;
     } catch {settings={...settings,enabled:false};}
-    try{setExperience(await chrome.runtime.sendMessage({type:"experience"}));}catch{}
+    if(!connected())return;
+    try{setExperience(await send({type:"experience"}));}catch{}
     scan();
   }
-  refresh();setInterval(refresh,5000);
+  poll=setInterval(refresh,5000);refresh();
 })();
