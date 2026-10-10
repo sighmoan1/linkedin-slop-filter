@@ -106,7 +106,7 @@ const ALLOWED_HOSTS=new Set(['openrouter.ai','platform.openai.com','developers.o
  for(const name of ['Test OpenRouter key','Test OpenAI key'])assert.ok(options.buttons.includes(name),'no button '+name);
  for(const name of ['OpenRouter API key','OpenAI API key'])assert.ok(options.labels.includes(name),'no field '+name);
  for(const name of ['Jev · OpenRouter','OpenAI Decisions · GPT-6 Luna'])assert.ok(options.providers.includes(name),'no provider '+name);
- for(const phrase of ['Test OpenRouter key','Test OpenAI key','OpenRouter API key','OpenAI API key','Jev · OpenRouter','OpenAI Decisions · GPT-6 Luna','Decision provider'])assert.ok(guide.text.includes(phrase),'guide does not mention "'+phrase+'"');
+ for(const phrase of ['Test OpenRouter key','Test OpenAI key','OpenRouter API key','OpenAI API key','Jev · OpenRouter','OpenAI Decisions · GPT-6 Luna','Text provider'])assert.ok(guide.text.includes(phrase),'guide does not mention "'+phrase+'"');
 
  // Nothing outside the extension was ever requested by either page.
  assert.deepEqual(requested.filter(u=>!u.startsWith('https://ext.test/')),[]);

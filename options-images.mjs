@@ -16,7 +16,7 @@ export function installImageComparison(send) {
         if(file.size>6*1024*1024||!["image/png","image/jpeg","image/webp"].includes(file.type))throw new Error("Use PNG, JPEG or WebP images up to 6 MB each.");
         const bitmap=await createImageBitmap(file);
         try {
-          if(bitmap.width*bitmap.height>40000000)throw new Error("Image dimensions exceed the trial limit.");
+          if(bitmap.width*bitmap.height>40000000)throw new Error("Use an image with no more than 40 million pixels.");
           const scale=Math.min(1,768/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement("canvas");
           canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
           const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
@@ -38,7 +38,7 @@ export function installImageComparison(send) {
         body.append(row);
       }
       table.append(body);$("imageComparisonResult").replaceChildren(table);
-      $("imageComparisonStatus").textContent="Comparison finished. Review each result against your own judgement; no images or captions were saved.";
+      $("imageComparisonStatus").textContent="Comparison finished. Images and captions were not saved.";
     } catch(error){if(token===generation)$("imageComparisonStatus").textContent=error.message;}
     finally {$("compareImages").disabled=false;}
   });

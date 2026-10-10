@@ -4,7 +4,7 @@ export function localEndpoint(value) {
   const url = new URL(value);
   if (url.protocol !== "http:" || !["localhost","127.0.0.1"].includes(url.hostname) ||
       url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
-    throw new Error("Ollama endpoint must be an HTTP loopback origin, e.g. http://127.0.0.1:11434.");
+    throw new Error("Enter a local HTTP address for Ollama, such as http://127.0.0.1:11434.");
   }
   return url.origin;
 }

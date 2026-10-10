@@ -33,7 +33,7 @@ const root=path.join(__dirname,'..');
   assert.equal(await page.locator('#cartoon').evaluate(e=>e.classList.contains('lsf-highlight')),false,'visual match removes Good post highlight');
   const urls=await page.evaluate(()=>window.calls.find(m=>m.text==='Generic lesson').imageUrls);assert.deepEqual(urls,['https://media.licdn.com/dms/image/cartoon']);
   assert.equal(await page.locator('#cartoon').evaluate(e=>e.classList.contains('lsf-folded')),false,'trial begins label-only');
-  await page.locator('#cartoon .lsf-tools button').filter({hasText:'Categories'}).click();
+  await page.locator('#cartoon .lsf-tools button').filter({hasText:'Review scores'}).click();
   await page.locator('#cartoon .lsf-score-help summary').click();assert.match(await page.locator('#cartoon .lsf-correction').innerText(),/1,?234|1234/);
   await page.locator('#cartoon .lsf-correction button').filter({hasText:'Cancel'}).click();
   // Display-only changes reuse the original image score and normal recovery controls.
@@ -51,6 +51,17 @@ const root=path.join(__dirname,'..');
   await page.locator('#failure').scrollIntoViewIfNeeded();await page.waitForFunction(()=>document.querySelector('#failure .lsf-badge')?.textContent.includes('Image unchecked'));
   assert.equal(await page.locator('#failure').evaluate(e=>e.classList.contains('lsf-folded')),false);
   await page.locator('#imageonly').scrollIntoViewIfNeeded();await page.waitForFunction(()=>window.calls.some(m=>m.text===''&&m.imageUrls.length===1));
+  // Current signed-in cards use generic classes with direct feed/update figures.
+  await page.evaluate(()=>{
+   const p=document.createElement('article');p.id='current';p.setAttribute('role','listitem');p.setAttribute('componentkey','update-card-modern');
+   p.innerHTML='<div data-testid="expandable-text-box">Modern attachment</div><div><div><div><a href="https://www.linkedin.com/feed/update/urn:li:activity:synthetic"><figure><img src="https://media.licdn.com/dms/image/v2/synthetic/feedshare-shrink_800/0/1"></figure></a></div></div></div>';
+   const extras=['<a href="https://example.com/preview"><figure><img src="https://media.licdn.com/dms/image/v2/synthetic/feedshare-shrink_800/0/preview"></figure></a>', '<a href="https://www.linkedin.com/feed/update/synthetic"><figure><img src="https://media.licdn.com/dms/image/v2/synthetic/profile-displayphoto-shrink_100/0/avatar"></figure></a>', '<a href="https://www.linkedin.com/feed/update/synthetic"><figure><img src="https://media.licdn.com/dms/image/v2/synthetic/feedshare-document-images_480/0/document"></figure></a>','<div data-vjs-player><a href="https://www.linkedin.com/feed/update/synthetic"><figure><img src="https://media.licdn.com/dms/image/v2/synthetic/feedshare-shrink_800/0/video"></figure></a></div>','<div componentkey="comment-synthetic"><a href="https://www.linkedin.com/feed/update/synthetic"><figure><img src="https://media.licdn.com/dms/image/v2/synthetic/feedshare-shrink_800/0/comment"></figure></a></div>','<div>'.repeat(8)+'<a href="https://www.linkedin.com/feed/update/synthetic"><figure><img src="https://media.licdn.com/dms/image/v2/synthetic/feedshare-shrink_800/0/deep"></figure></a>'+'</div>'.repeat(8)];
+   extras.push('<div><div><div><div><div><a href="https://www.linkedin.com/feed/foryou/"><figure><img src="https://media.licdn.com/dms/image/v2/synthetic/feedshare-shrink_1280/0/gallery"></figure></a></div></div></div></div></div>');
+   extras.push('<div role="listitem"><a href="https://www.linkedin.com/feed/foryou/"><figure><img src="https://media.licdn.com/dms/image/v2/synthetic/feedshare-shrink_800/0/comment-row"></figure></a></div>');
+   p.insertAdjacentHTML('beforeend',extras.join(''));document.querySelector('main').append(p);
+  });
+  await page.locator('#current').scrollIntoViewIfNeeded();await page.waitForFunction(()=>window.calls.some(m=>m.text==='Modern attachment'));
+  assert.deepEqual(await page.evaluate(()=>window.calls.find(m=>m.text==='Modern attachment').imageUrls),['https://media.licdn.com/dms/image/v2/synthetic/feedshare-shrink_800/0/1','https://media.licdn.com/dms/image/v2/synthetic/feedshare-shrink_1280/0/gallery'],'current direct figures exclude previews, avatars, documents, video and comments');
   await page.evaluate(()=>{window.trial=false;});await page.waitForFunction(()=>!document.querySelector('#imageonly .lsf-tools')&&!document.querySelector('#imageonly .lsf-bar'));
   await page.close();
 
