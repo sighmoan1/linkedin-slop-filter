@@ -17,7 +17,7 @@ From 2.0.2, an invalidated feed script stops its polling, observers and requests
 
 The popup reports **Feed connected** and the number of readable posts found. Home, **For you** and **Network** feed routes are supported; individual post pages are excluded. If you navigate to the feed from another LinkedIn page and controls are missing, reload the feed. A disconnected popup offers **Reload current tab** when it can safely identify a candidate tab.
 
-Existing category definitions are preserved. To adopt revised built-in prompts, use **Review revised definitions** in Categories, review, apply and save. This keeps custom categories, names, actions, thresholds and order. **Restore defaults** is a separate, deliberate reset of the whole category draft.
+Existing category definitions are preserved. To adopt revised built-in prompts, use **Review revised definitions** in Post rules, review, apply and save. This keeps custom categories, names, actions, thresholds and order. **Restore defaults** is a separate, deliberate reset of the whole category draft.
 
 Cloud API billing is separate from ChatGPT subscriptions. No key is included. Key tests make one tiny real request using the key as entered; they do not count against the feed/playground session limit. Their result verifies access, not filtering quality. **Test local Ollama** checks the endpoint and downloaded model entered in Provider with one fixed synthetic classification, before saving and while filtering is paused. It uses no key, saves nothing and does not count against the feed/playground cap. After a pass, save settings and use **Try a post** to check your category rules.
 
@@ -29,12 +29,12 @@ A category applies only when its score is **strictly greater** than its own thre
 | --- | --- |
 | Hide | A compact row replaces the post, with category names and a Show post control. |
 | Highlight | The original post stays open with a subtle accent and matching label. |
-| Label | The original post stays open with a quiet matching label. |
+| Label | The original post stays open with a matching category label. |
 | Off | The category is not requested or applied. |
 
-Slop, Brainrot, Advert, Opportunity, Good post and custom categories all have the same controls. Each can be edited, reordered, removed or switched off. Up to 12 categories are supported. A post can match several; **any applying Hide rule wins**, including when another category says Highlight. The Categories menu on visible posts combines available scores, thresholds, actions and correction checkboxes. Missing answers never apply, and Off categories are not requested.
+Slop, Brainrot, Advert, Opportunity, Good post and custom categories all have the same controls. Each can be edited, reordered, removed or switched off. Up to 12 categories are supported. A post can match several; **any applying Hide rule wins**, including when another category says Highlight. The Review scores panel on visible posts combines available scores, thresholds, actions and correction checkboxes. Missing answers never apply, and Off categories are not requested.
 
-Default actions hide Slop, label Brainrot and Advert, and highlight Opportunity and Good post. The explicit **Less noise** preset hides Slop, Brainrot and Advert and keeps positive categories on Highlight. Presets preview changes, preserve custom categories and can be undone before saving. They change actions only.
+Default actions hide Slop, label Brainrot and Advert, and highlight Opportunity and Good post. The explicit **Preview hiding more posts** preset hides Slop, Brainrot and Advert and keeps positive categories on Highlight. Presets preview changes, preserve custom categories and can be undone before saving. They change actions only.
 
 An empty category list or all categories Off can be saved while filtering is disabled. Enabling filtering requires an active category. Defaults are never silently restored after removing everything.
 
@@ -44,10 +44,10 @@ The feed uses LinkedIn’s native post typography and surfaces, with compact hid
 
 The interface uses system sans-serif fonts, neutral white/grey surfaces and blue controls to fit alongside LinkedIn. Settings use 16px body text, with compact 14px supporting text and popup/feed controls. Keyboard focus stays visible and action targets remain at least 44px tall. No fonts or styles are fetched at runtime.
 
-- **Show** reveals one original post in place for that card's lifetime. **Hide again** reverses it. Neither makes another request or saves a correction.
+- **Show post** reveals one original post in place for that card's lifetime. **Hide post again** reverses it. Neither makes another request or saves a correction.
 - **Show everything** temporarily reveals the current feed without modifying saved rules. **Restore filtering** ends that override.
 - **Disable filtering** restores posts and pauses classification. It is separate from Show everything.
-- **Correct** lets you choose every applicable active category, or none, and explicitly save a local correction. That post stays visible. Corrections do not automatically train the model or rewrite prompts.
+- **Review scores** lets you choose every applicable active category, or none, and explicitly save a local correction. That post stays visible. Corrections do not automatically train the model or rewrite prompts.
 
 A current result above a Hide category’s threshold collapses the post immediately, including posts on screen, hovered or keyboard focused. **Show post** keeps an explicitly revealed post open until you choose **Hide post again**; temporary **Show everything** also keeps posts visible. If a focused post folds, focus moves to Show post. Scoring and deliberate reveal/collapse use measured anchoring to preserve reading position. There are no animated post-height transitions. See [the feed design and release checks](docs/feed-experience.md).
 
@@ -57,9 +57,9 @@ By default, only extracted post body text is sent: at most 12,000 characters for
 
 Requests are sequential with a bounded feed prefetch queue; upcoming cards are prioritized. The default cap is 100 API attempts per browser session across tabs. **Try a post** shares that cap. Reloading a feed, changing settings, clearing scores or deleting corrections does not reset it. Restart Chrome or raise the cap to continue. The popup and Provider panel show session usage and a quiet error summary; the toolbar marks service failures.
 
-Network errors, refusals, timeouts, invalid answers, a missing key and the request cap leave unscored posts visible. Partial answers use only their valid scores and are marked partly scored. The Categories menu reports actual scores/rules, not invented explanations. If a provider refuses several questions (HTTP 400/422), the worker retries only Hide categories and reports the fallback; a scoring-configuration change retries all categories. Live multi-question billing and fallback behavior are unverified.
+Network errors, refusals, timeouts, invalid answers, a missing key and the request cap leave unscored posts visible. Partial answers use only their valid scores and are marked partly scored. The Review scores panel reports actual scores/rules, not invented explanations. If a provider refuses several questions (HTTP 400/422), the worker retries only Hide categories and reports the fallback; a scoring-configuration change retries all categories. Live multi-question billing and fallback behavior are unverified.
 
-Cloud score caches contain a hash, scores and time, never post text. They last up to 30 days, with a 2,000-entry cap. Local scores last for the browser session. **Clear score cache** removes both. Changing a definition, active questions, provider, local model or endpoint starts fresh scores. Names, actions, thresholds, order and appearance reuse scores. Obsolete results cannot hide a recycled or differently configured post.
+Cloud score caches contain a hash, scores and time, never post text. They last up to 30 days, with a 2,000-entry cap. Local scores last for the browser session. **Delete saved scores** removes both. Changing a definition, active questions, provider, local model or endpoint starts fresh scores. Names, actions, thresholds, order and appearance reuse scores. Obsolete results cannot hide a recycled or differently configured post.
 
 Only **explicitly saved corrections** retain post text, locally in trusted extension storage. At most 200 are kept. They also include chosen category ids, safe score metadata, provider/configuration and time; author/profile metadata is not collected. In Corrections you can inspect, remove, clear or export JSON, including the saved text. A reveal never stores text here.
 
@@ -77,7 +77,7 @@ Only attached post images are eligible: up to four PNG/JPEG/WebP images, downloa
 
 **Compare image models**, in Try a post, sends your selected files and caption to Flash and Luna only when clicked, even while filtering is paused. It reports scores and returned input tokens/cost; cached results cannot supply fresh billing measurements. No files or captions are saved. Representative accuracy and browsing cost remain unmeasured; the [implementation and assessment](docs/image-filtering.md) includes the limited live comparison.
 
-**Try a post** makes an explicit request with saved provider settings and definitions. It works while feed filtering is disabled, reports scores/missing answers and resulting actions, and does not save the input as a correction. Unsaved definition edits are not used. Nothing is sent while typing. Local definitions must fit the 6,000-character serialized context budget, shown in Categories.
+**Try a post** makes an explicit request with saved provider settings and definitions. It works while feed filtering is disabled, reports scores/missing answers and resulting actions, and does not save the input as a correction. Unsaved definition edits are not used. Nothing is sent while typing. Local definitions must fit the 6,000-character serialized context budget, shown in Post rules.
 
 The [rubric notes](docs/category-rubrics.md) explain the five categories, protected counterexamples and sources including tropes.fyi. Stylistic tropes are supporting clues when they replace substance; punctuation, non-native phrasing, slang or mentioning AI are not sufficient.
 
@@ -111,7 +111,9 @@ LinkedIn's DOM and virtualization change frequently. Current selectors support o
 
 Release checks use synthetic Chromium feeds and a real unpacked extension in a temporary profile. Version 2.0.1 also received a limited signed-in Brave/OpenAI For You check; see [#58 and its evidence](docs/readable-feed.md). Wider signed-in compatibility, other cloud accounts/providers and representative real-post accuracy remain open verification work in [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3). A prior real local Qwen3.5 4B synthetic smoke passed; see [local evidence](docs/local-ollama.md).
 
-Hidden rows show category names and Show post. Scores and corrections are available only while the post is visible, in one Categories menu. Cancel or Escape discards unsaved edits; re-hiding closes the menu. Saved corrections retain the original model scores.
+The interface copy review in [#104](https://github.com/sighmoan1/linkedin-slop-filter/issues/104) passed `npm test`, including responsive light/dark layout checks and simulated reveal, corrections and popup recovery. This copy revision has not been installed or checked in the signed-in Brave feed.
+
+Hidden rows show category names and Show post. Scores and corrections are available only while the post is visible, in one Review scores panel. Cancel or Escape discards unsaved edits; re-hiding closes the menu. Saved corrections retain the original model scores.
 
 ### Never hide selected people
 

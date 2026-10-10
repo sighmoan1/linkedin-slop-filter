@@ -112,7 +112,7 @@ async function classifyText(rawText, manual = false) {
               response = await fetch(req.url, {method:"POST",headers,body:JSON.stringify(req.body),signal:controller.signal,redirect:"error",credentials:"omit"});
             } catch (error) {
               if (error.name === "AbortError") throw error;
-              throw new Error(s.provider === "ollama" ? "Ollama unavailable. Start its loopback service and check extension origin access. Post left visible." : "Provider unavailable. Post left visible.");
+              throw new Error(s.provider === "ollama" ? "Ollama unavailable. Start Ollama on this computer and check extension access in Provider settings. Post left visible." : "Provider unavailable. Post left visible.");
             }
             if (!response.ok) throw failure(s.provider === "ollama" ? "Ollama HTTP "+response.status+(response.status === 403 ? ". Allow this extension origin in OLLAMA_ORIGINS. Post left visible." : ". Check the service and downloaded model. Post left visible.") : "API request failed (HTTP "+response.status+"). Check your key, credit and model access.",s.provider === "ollama" ? "Ollama error "+response.status : "API error "+response.status,response.status);
             let data;
@@ -156,7 +156,7 @@ async function classifyImages(s,text,urls,{manual=false,model,preparedImages}={}
   const same = async()=>{const now=await load();return (manual||now.enabled)&&feedKey(now)===key;};
   const job=chain.then(async()=>{
     if(!await same())return {disabled:true};
-    if(!s.jevKey)throw new Error("Add an OpenRouter key for image checks in Provider settings.");
+    if(!s.jevKey)throw new Error("Add an OpenRouter API key in Provider settings to check images.");
     if(!preparedImages&&!await chrome.permissions?.contains({origins:[IMAGE_PERMISSION]}))throw new Error("Allow post image access in Settings to check images.");
 
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);

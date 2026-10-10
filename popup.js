@@ -3,9 +3,9 @@ const $=id=>document.getElementById(id);
 let settings=await loadSettings(chrome.storage.local), appearance={theme:"native",groupHidden:false,labels:"matches"}, showEverything=false, tabId, activeTabId, knownOtherTab=false, feedPosts=null, experienceAvailable=false, revealPending=false;
 const status=message=>{$("popupStatus").textContent=message;};
 async function send(message){
-  if (!chrome.runtime?.sendMessage) throw new Error("Extension service unavailable.");
+  if (!chrome.runtime?.sendMessage) throw new Error("The extension is unavailable. Reopen the popup or reload the extension.");
   const result=await chrome.runtime.sendMessage(message);
-  if (!result || result.error) throw new Error(result?.error||"Extension service unavailable.");
+  if (!result || result.error) throw new Error(result?.error||"The extension is unavailable. Reopen the popup or reload the extension.");
   return result;
 }
 function renderFiltering(){
@@ -15,7 +15,7 @@ function renderFiltering(){
 function renderExperience(){
   $("feedConnection").textContent=Number.isInteger(tabId)?feedPosts===null?"Feed connected.":feedPosts?"Feed connected · "+feedPosts+" "+(feedPosts===1?"post found.":"posts found."):"Feed connected. Waiting for readable posts.":"Feed not connected. Open LinkedIn’s feed and reload it if controls are missing.";
   $("reloadFeed").hidden=Number.isInteger(tabId)||!Number.isInteger(activeTabId)||knownOtherTab;
-  $("filteringStatus").textContent=settings.enabled?(showEverything?"On · this tab shows everything":"On · category rules apply"):"Paused · all posts stay visible";
+  $("filteringStatus").textContent=settings.enabled?(showEverything?"On · this tab shows everything":"On · post rules apply"):"Paused · all posts stay visible";
   $("showEverything").textContent=showEverything?"Restore filtering":"Show everything";
   $("showEverything").setAttribute("aria-pressed",String(showEverything));
   $("showEverything").disabled=!experienceAvailable||!Number.isInteger(tabId)||!settings.enabled||revealPending;
@@ -32,7 +32,7 @@ async function refresh(){
     const usage=await send({type:"usage"});
     for (const key of ["requests","folded","cacheHits"]) $(key).textContent=Number.isFinite(usage[key])?usage[key].toLocaleString():"—";
     $("requestLimit").textContent=Number.isFinite(usage.limit)?"/ "+usage.limit.toLocaleString():"";
-    $("usageNote").textContent=usage.requests>=usage.limit?"Session limit reached. New posts stay visible.":"Cloud API billing is separate.";
+    $("usageNote").textContent=usage.requests>=usage.limit?"Session limit reached. New posts stay visible.":"Cloud providers charge your API account.";
     $("serviceIssue").hidden=!usage.lastError;
     $("lastError").textContent=typeof usage.lastError==="string"?usage.lastError:"";
   } catch {$("usageNote").textContent="Session usage is unavailable. Reopen the popup or reload the extension.";}
@@ -61,7 +61,7 @@ $("enabled").addEventListener("change",async()=>{
   const next=$("enabled").checked;
   try {
     if (next) {
-      if (!activeCategories(settings.categories).length) throw new Error("Switch a category on in full settings first.");
+      if (!activeCategories(settings.categories).length) throw new Error("Open Post rules in settings and choose an action other than Off for at least one category.");
       if (settings.provider!=="ollama" && !(settings.provider==="jev"?settings.jevKey:settings.openaiKey)) throw new Error("Add a provider key in full settings first.");
       requestFor(settings,"Settings validation");
     }
@@ -71,7 +71,7 @@ $("enabled").addEventListener("change",async()=>{
 $("showEverything").addEventListener("click",async()=>{
   if(!experienceAvailable||!Number.isInteger(tabId)||!settings.enabled||revealPending)return;
   revealPending=true;renderExperience();
-  try {const result=await send({type:"showEverything",value:!showEverything,tabId});appearance=result.appearance;showEverything=result.showEverything===true;renderExperience();status(showEverything?"Showing everything in this tab.":"Category rules restored in this tab.");}
+  try {const result=await send({type:"showEverything",value:!showEverything,tabId});appearance=result.appearance;showEverything=result.showEverything===true;renderExperience();status(showEverything?"Showing everything in this tab.":"Post rules restored in this tab.");}
   catch(error){status(error.message);}
   finally {revealPending=false;renderExperience();}
 });

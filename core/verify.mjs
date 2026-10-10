@@ -10,7 +10,7 @@ const STATUS_MESSAGES = {
   401: ["rejected", "The provider rejected this key. Check it was copied in full and has not been revoked."],
   402: ["no_credit", "The account has no credit. Add credit with the provider, then test again."],
   403: ["no_access", "The key is valid but is not allowed to use this model or endpoint. Check the account's access to the model."],
-  404: ["not_found", "The provider could not find the model or endpoint. Decisions is still in alpha or beta, so this account may not have access yet."],
+  404: ["not_found", "The provider could not find the model or endpoint. Check the provider's model documentation and your account access."],
   429: ["rate_limited", "The provider is rate limiting this key, or the account is out of credit. Check billing, then try again."]
 };
 // Builds the same kind of request real classification uses, so a pass means classification can work.
@@ -38,7 +38,7 @@ export async function verifyKey(provider, key, {fetchImpl = globalThis.fetch, ti
       return {ok: false, code, status, message};
     }
     try { validScores(provider, await response.json(), SAMPLE_QUESTION); }
-    catch { return {ok: false, code: "invalid_response", message: "The provider answered, but not in the expected format, so classification would fail. Check that the endpoint and model are still current."}; }
+    catch { return {ok: false, code: "invalid_response", message: "The provider returned an unusable answer. Check that the endpoint and model are still current."}; }
     return {ok: true, code: "ok", message: "Key works. The provider returned a valid answer."};
   } catch (error) {
     if (error?.name === "AbortError") return {ok: false, code: "timeout", message: "The provider did not answer in time. Try again."};
@@ -51,7 +51,7 @@ export async function verifyOllama(endpoint, model, {fetchImpl = globalThis.fetc
   try {
     req = requestFor({...DEFAULTS, provider: "ollama", ollamaEndpoint: String(endpoint ?? "").trim(), ollamaModel: String(model ?? "").trim()}, SAMPLE_POST, SAMPLE_QUESTION);
   } catch {
-    return {ok: false, code: "configuration", message: "Enter an HTTP loopback origin (e.g. http://127.0.0.1:11434) and a downloaded local model name. Paths, credentials and cloud models are not supported."};
+    return {ok: false, code: "configuration", message: "Enter a local HTTP address such as http://127.0.0.1:11434 and the name of a downloaded Ollama model. Paths, credentials and cloud models are not supported."};
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -71,7 +71,7 @@ export async function verifyOllama(endpoint, model, {fetchImpl = globalThis.fetc
     }
     try { validScores("ollama", await response.json(), SAMPLE_QUESTION); }
     catch { return {ok: false, code: "invalid_response", message: "Ollama answered, but did not return a finished, valid classification. Use a chat model that supports structured output and try again."}; }
-    return {ok: true, code: "ok", message: "Local Ollama works. The model returned a valid synthetic classification. Save settings, then use Try a post to test your category rules."};
+    return {ok: true, code: "ok", message: "Local Ollama works. The model returned valid scores for a sample post. Save settings, then use Try a post to test your post rules."};
   } catch (error) {
     if (error?.name === "AbortError") return {ok: false, code: "timeout", message: "Ollama did not answer within " + (timeoutMs / 1000) + " seconds. Warm the model with ollama run, then test again."};
     return {ok: false, code: "network", message: "Could not reach Ollama. Start Ollama, check the endpoint and allow this extension's origin in OLLAMA_ORIGINS. See the local setup guide."};
