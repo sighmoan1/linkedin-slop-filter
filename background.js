@@ -86,6 +86,10 @@ async function classify(rawText, manual = false) {
     if (!pending.has(jobId)) {
       const job = chain.then(async () => {
         if (!await stillCurrent(s, manual)) return undefined;
+        // A feed request and a deliberate playground request may have queued the same text.
+        // Reuse the result completed ahead of this job before spending another attempt.
+        const completed = (await cacheStorage.get(id))[id];
+        if (cacheFresh(completed)) {await bumpUsage("cacheHits"); return completed.s;}
         const current = await load();
         const ask = async questions => {
           const req = requestFor(s, text, questions);
