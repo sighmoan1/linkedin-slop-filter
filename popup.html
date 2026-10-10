@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LinkedIn Slop Filter</title><link rel="stylesheet" href="options.css"><link rel="stylesheet" href="popup.css"></head>
+<body class="popup-page">
+<main class="popup">
+<header class="popup-header"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><div><strong>LinkedIn Slop Filter</strong><span>Your feed, your rules</span></div><button id="openSettings" class="icon-button" type="button" aria-label="Open full settings" title="Open full settings">↗</button></header>
+<section class="popup-control"><label class="switch-line" for="enabled"><span><strong>Filtering</strong><span id="filteringStatus">Loading settings…</span></span><input id="enabled" type="checkbox" role="switch"><span class="switch-track" aria-hidden="true"></span></label></section>
+<section class="popup-reveal"><button type="button" id="showEverything" class="secondary wide" aria-pressed="false" disabled>Show everything</button><p id="revealNote" class="note">Temporarily reveal hidden posts in this tab. Saved rules stay the same.</p></section>
+<fieldset class="popup-themes"><legend>Feed appearance</legend><div class="theme-pills"><label><input type="radio" name="theme" value="native"><span>Native</span></label><label><input type="radio" name="theme" value="punchy"><span>Punchy</span></label><label><input type="radio" name="theme" value="reader"><span>Reader</span></label></div><p class="note">Same posts and decisions. A different feel.</p></fieldset>
+<section class="popup-usage" aria-label="This browser session"><div class="usage-title"><strong>This browser session</strong><span id="usageProvider"></span></div><div class="popup-stats"><div><strong id="requests">—</strong><span>requests <span id="requestLimit"></span></span></div><div><strong id="scored">—</strong><span>posts scored</span></div><div><strong id="cacheHits">—</strong><span>cache hits</span></div></div><p id="usageNote" class="note">Loading session usage…</p><details id="serviceIssue" hidden><summary>Some posts could not be scored</summary><p id="lastError" class="note"></p><p class="note">Those posts stay visible.</p></details></section>
+<p id="popupStatus" role="status" aria-live="polite"></p>
+<footer class="popup-footer"><a href="options.html#categories" target="_blank" rel="noopener noreferrer">Edit category rules <span aria-hidden="true">→</span></a><a href="options.html#feed" target="_blank" rel="noopener noreferrer">Full settings</a></footer>
+</main><script type="module" src="popup.js"></script>
+</body></html>
