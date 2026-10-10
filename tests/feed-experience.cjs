@@ -53,9 +53,11 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
  // Compact hidden rows and one visible-post menu, including draft cancellation and keyboard recovery.
  for(const width of [1000,320]){
   const {page,errors}=await fixture([{id:'compact',scores:allScores({slop:.95,advert:.94})}],{top:900,width});
-  await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='advert'?{...c,action:'hide'}:c));await page.waitForFunction(()=>document.querySelector('#compact .lsf-fold-name')?.textContent==='Slop · Advert');
+  await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='advert'?{...c,action:'hide'}:c));await page.waitForFunction(()=>document.querySelector('#compact .lsf-fold-name')?.textContent==='Slop 95% sure · Advert 94% sure');
   const screenshotDir=process.env.FEED_SCREENSHOTS;if(screenshotDir){fs.mkdirSync(screenshotDir,{recursive:true});await atTop(page,'compact',100);await page.locator('#compact').screenshot({path:path.join(screenshotDir,'compact-row-'+width+'.png')});}
-  const row=page.locator('#compact .lsf-bar');assert.equal(await row.locator('button').count(),1);assert.equal(await row.locator('.lsf-fold-name').innerText(),'Slop · Advert');
+  const row=page.locator('#compact .lsf-bar');assert.equal(await row.locator('button').count(),1);assert.equal(await row.locator('.lsf-fold-name').innerText(),'Slop 95% sure · Advert 94% sure');
+  assert.equal(await row.getAttribute('aria-label'),'Hidden post: Slop 95% sure · Advert 94% sure');
+  assert.match(await row.locator('.lsf-fold-name').getAttribute('title'),/not a calibrated probability/);
   assert.ok(await row.evaluate(e=>e.getBoundingClientRect().height)<=48,'hidden row stays compact');
   assert.equal(await page.locator('#compact .lsf-panel, #compact .lsf-tools').count(),0);
   await row.locator('button').click();const menu=page.locator('#compact .lsf-tools button').filter({hasText:/^Categories$/});
@@ -79,7 +81,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   assert.equal(await page.locator('#late a').isVisible(),false);assert.equal(await page.locator('#late .native-controls button').first().isVisible(),false);
   assert.equal(await page.locator('#late .lsf-arrived').count(),0);
   await atTop(page,'late',100);await settle(page);
-  assert.equal(await page.locator('#late .lsf-fold-name').innerText(),'Slop','hidden rows show category names without scores');
+  assert.equal(await page.locator('#late .lsf-fold-name').innerText(),'Slop 95% sure','hidden rows show model confidence');
   const rowTop=await page.locator('#late').evaluate(e=>e.getBoundingClientRect().top);
   await page.locator('#late .lsf-bar button').filter({hasText:'Show post'}).click();await settle(page);
   assert.equal(await folded(page,'late'),false);assert.ok(Math.abs((await page.locator('#late').evaluate(e=>e.getBoundingClientRect().top))-rowTop)<=2);
@@ -196,7 +198,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   const {page,errors}=await fixture([{id:'mix',long:true,scores:allScores({slop:.95,advert:.94,nourishment:.97,custom:.92})}],{top:900});
   await page.evaluate(()=>window.categories=window.categories.map(c=>['advert','nourishment','custom'].includes(c.id)?{...c,action:'hide'}:c));await page.waitForSelector('#mix.lsf-folded');
   await page.waitForFunction(()=>document.querySelector('#mix .lsf-fold-name')?.textContent.includes('Custom'));
-  const names=await page.locator('#mix .lsf-fold-name').innerText();for(const label of ['Slop','Advert','Good post','Custom'])assert.ok(names.includes(label));
+  const names=await page.locator('#mix .lsf-fold-name').innerText();assert.equal(names,'Good post 97% sure · Slop 95% sure · Advert 94% sure · Custom 92% sure');for(const label of ['Slop','Advert','Good post','Custom'])assert.ok(names.includes(label));
   const originals=await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)}));
   assert.equal(await page.locator('.lsf-feed-toolbar select').count(),0);assert.equal(await page.locator('#mix').getAttribute('data-lsf-theme'),'native');assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),names);
   assert.deepEqual(await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)})),originals);
