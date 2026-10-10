@@ -65,6 +65,10 @@ assert.equal(report.actions.hidden, 3); assert.equal(report.actions.wronglyHidde
 assert.equal(report.actions.expectedHiddenLeftVisible, 2); assert.equal(report.actions.expectedHiddenLeftVisibleWithCompleteScores, 1);
 assert.equal(report.actions.usefulAnnotated, 2); assert.equal(report.actions.usefulHidden, 2);
 assert.equal(report.actions.usefulWronglyHidden, 1); assert.equal(report.actions.usefulHiddenByExpectedRule, 1);
+const expectedButVisible = categorySummary([row('expected-advert-left-visible', ['advert', 'nourishment'], {slop: .1, advert: .7, nourishment: .9}, {useful: true})], categories);
+assert.equal(expectedButVisible.actions.expectedHidden, 1);
+assert.equal(expectedButVisible.actions.usefulHidden, 0);
+assert.equal(expectedButVisible.actions.usefulHiddenByExpectedRule, 0, 'expected Hide labels do not count as actually hidden useful posts');
 assert.equal(categorySummary([], categories).actions.usefulWronglyHidden, null, 'unknown usefulness is not inferred');
 
 const development = fixture('development.json'), validation = fixture('validation.json');

@@ -67,7 +67,7 @@ export function categorySummary(rows, categories) {
       usefulAnnotated: useful.length,
       usefulHidden: useful.length ? useful.filter(row => row.hidden).length : null,
       usefulWronglyHidden: useful.length ? useful.filter(row => row.hidden && !row.expectedHidden).length : null,
-      usefulHiddenByExpectedRule: useful.length ? useful.filter(row => row.expectedHidden).length : null
+      usefulHiddenByExpectedRule: useful.length ? useful.filter(row => row.hidden && row.expectedHidden).length : null
     }
   };
 }
