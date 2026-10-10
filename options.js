@@ -2,7 +2,7 @@ import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, nor
 const FIELDS=["enabled","provider","jevKey","openaiKey","ollamaEndpoint","ollamaModel","limit"];
 const ACTION_LABELS={hide:"Hide",highlight:"Highlight",label:"Label",off:"Off"};
 const ACTION_HELP={hide:"Replace matching posts with a row you can show.",highlight:"Keep the full post with a subtle accent.",label:"Keep the full post with a quiet category name.",off:"Do not ask the model about this category."};
-const PANEL_IDS=["feed","categories","provider","corrections","playground"];
+const PANEL_IDS=["feed","categories","provider","corrections","playground","people"];
 const $=id=>document.getElementById(id);
 const el=(tag,props={},...children)=>{const node=Object.assign(document.createElement(tag),props);node.append(...children);return node;};
 const copyCats=list=>list.map(c=>({...c}));
@@ -28,6 +28,7 @@ function selectPanel(id,focus=false){
   }
   if (focus) $(id+"-heading").focus({preventScroll:true});
   if (id==="corrections"&&document.documentElement.dataset.settingsReady==="true") void refreshCorrections();
+  if (id==="people") void refreshPeople();
   history.replaceState(null,"","#"+id);
 }
 for (const button of document.querySelectorAll("[data-panel]")) button.addEventListener("click",()=>selectPanel(button.dataset.panel,true));
@@ -355,3 +356,24 @@ function keepFocusedFieldVisible(){
 document.addEventListener("focusin",()=>requestAnimationFrame(keepFocusedFieldVisible));
 new ResizeObserver(()=>{const height=document.querySelector(".save-bar").getBoundingClientRect().height;document.documentElement.style.scrollPaddingBottom=(height+28)+"px";document.querySelector(".settings-app").style.paddingBottom=Math.max(120,height+40)+"px";keepFocusedFieldVisible();}).observe(document.querySelector(".save-bar"));
 document.documentElement.dataset.settingsReady="true";
+
+async function refreshPeople() {
+  try {
+    const {people} = await send({type:"people",action:"list"});
+    if (!Array.isArray(people)) throw new Error("The never-hide list is unavailable.");
+    $("peopleList").replaceChildren(...people.map(person => {
+      const link=el("a",{href:person.url,target:"_blank",rel:"noopener noreferrer",textContent:person.name||person.url});
+      const remove=el("button",{type:"button",className:"secondary",textContent:"Remove"});
+      remove.setAttribute("aria-label","Remove "+(person.name||person.url)+" from never-hide list");
+      remove.addEventListener("click",async()=>{remove.disabled=true;try{await send({type:"people",action:"set",url:person.url,value:false});await refreshPeople();$("peopleStatus").textContent="Removed. Normal filtering applies again.";}catch(error){$("peopleStatus").textContent=error.message;remove.disabled=false;}});
+      return el("div",{className:"button-row"},link,remove);
+    }));
+    if (!people.length) $("peopleList").append(el("p",{className:"empty-state",textContent:"No one selected yet."}));
+  } catch(error) { $("peopleStatus").textContent=error.message; }
+}
+$("addPerson").addEventListener("click",async()=>{
+  $("addPerson").disabled=true;
+  try{await send({type:"people",action:"set",url:$("personUrl").value,value:true});$("personUrl").value="";await refreshPeople();$("peopleStatus").textContent="Saved. This person’s posts stay visible.";}
+  catch(error){$("peopleStatus").textContent=error.message;}
+  finally{$("addPerson").disabled=false;}
+});
