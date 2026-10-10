@@ -1,6 +1,5 @@
 import {loadSettings, activeCategories, requestFor, isFeedUrl} from "./core.mjs";
 const $=id=>document.getElementById(id);
-const THEME_IDS=["native","punchy","reader"];
 let settings=await loadSettings(chrome.storage.local), appearance={theme:"native",groupHidden:false,labels:"matches"}, showEverything=false, tabId, activeTabId, knownOtherTab=false, feedPosts=null, experienceAvailable=false, revealPending=false;
 const status=message=>{$("popupStatus").textContent=message;};
 async function send(message){
@@ -17,7 +16,6 @@ function renderExperience(){
   $("feedConnection").textContent=Number.isInteger(tabId)?feedPosts===null?"Feed connected.":feedPosts?"Feed connected · "+feedPosts+" "+(feedPosts===1?"post found.":"posts found."):"Feed connected. Waiting for readable posts.":"Feed not connected. Open LinkedIn’s feed and reload it if controls are missing.";
   $("reloadFeed").hidden=Number.isInteger(tabId)||!Number.isInteger(activeTabId)||knownOtherTab;
   $("filteringStatus").textContent=settings.enabled?(showEverything?"On · this tab shows everything":"On · category rules apply"):"Paused · all posts stay visible";
-  for (const input of document.querySelectorAll('input[name="theme"]')) input.checked=input.value===appearance.theme;
   $("showEverything").textContent=showEverything?"Restore filtering":"Show everything";
   $("showEverything").setAttribute("aria-pressed",String(showEverything));
   $("showEverything").disabled=!experienceAvailable||!Number.isInteger(tabId)||!settings.enabled||revealPending;
@@ -29,7 +27,6 @@ async function refresh(){
     appearance=experience.appearance;showEverything=experience.showEverything===true;experienceAvailable=true;renderExperience();
   } catch {
     experienceAvailable=false;renderExperience();
-    for (const input of document.querySelectorAll('input[name="theme"]')) input.disabled=true;
   }
   try {
     const usage=await send({type:"usage"});
@@ -77,11 +74,5 @@ $("showEverything").addEventListener("click",async()=>{
   try {const result=await send({type:"showEverything",value:!showEverything,tabId});appearance=result.appearance;showEverything=result.showEverything===true;renderExperience();status(showEverything?"Showing everything in this tab.":"Category rules restored in this tab.");}
   catch(error){status(error.message);}
   finally {revealPending=false;renderExperience();}
-});
-for (const input of document.querySelectorAll('input[name="theme"]')) input.addEventListener("change",async()=>{
-  if (!THEME_IDS.includes(input.value)) return;
-  const previous=appearance;
-  try {const result=await send({type:"appearance",appearance:{...appearance,theme:input.value}});appearance=result.appearance;renderExperience();status("Feed appearance saved. Category rules stay the same.");}
-  catch(error){appearance=previous;renderExperience();status(error.message);}
 });
 $("openSettings").addEventListener("click",()=>chrome.runtime.openOptionsPage());
