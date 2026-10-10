@@ -294,9 +294,13 @@
       ensureBar(post,record);hidden(record.bar,false);
       if(record.bar.className!=="lsf-bar")record.bar.className="lsf-bar";
       textOf(record.show,"Show post");
-      textOf(record.foldLabel,hiding.map(c=>c.name).join(" · "));
-      attr(record.bar,"data-label",hiding.map(c=>c.name).join(" · "));
-      attr(record.foldLabel,"title",record.bar.dataset.label);
+      const label=hiding.map(c=>{
+        const score=record.scores?.[c.id];
+        return c.name+(!c.corrected&&Number.isFinite(score)?" "+Math.round(score*100)+"% sure":"");
+      }).join(" · ");
+      textOf(record.foldLabel,label);
+      attr(record.bar,"data-label",label);
+      attr(record.foldLabel,"title",label+". "+status(record,hits).title);
       attr(record.bar,"aria-label","Hidden post: "+record.bar.dataset.label);
       attr(record.show,"aria-label","Show post hidden as "+record.bar.dataset.label);
       toggle(post,"lsf-folded",true);
