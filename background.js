@@ -160,7 +160,10 @@ async function handle(message, sender, kind) {
     return experience(tabId);
   }
   if (message.type === "openSettings") {
-    await chrome.runtime.openOptionsPage();
+    const section = ["feed","categories","provider","corrections","playground"].includes(message.section) ? message.section : "feed";
+    if (section !== "feed" && chrome.tabs?.create && chrome.runtime.getURL) {
+      await chrome.tabs.create({url:chrome.runtime.getURL("options.html#" + section)});
+    } else await chrome.runtime.openOptionsPage();
     return {ok:true};
   }
   if (message.type === "folded") {

@@ -45,7 +45,7 @@ try {
   if(Number.isInteger(tab?.id)) {
     if(tab.url) {
       const url=new URL(tab.url);
-      if(url.origin==="https://www.linkedin.com"&&(url.pathname==="/feed"||url.pathname.startsWith("/feed/")))tabId=tab.id;
+      if(url.origin==="https://www.linkedin.com"&&(url.pathname==="/feed"||url.pathname==="/feed/"))tabId=tab.id;
     } else if((await chrome.tabs?.sendMessage?.(tab.id,{type:"feedStatus"}))?.isFeed===true)tabId=tab.id;
   }
 } catch {}

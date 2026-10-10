@@ -1,6 +1,6 @@
 {
   "name": "linkedin-slop-filter",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -18,6 +18,7 @@
     "test:cacheui": "node tests/cache-ui.cjs",
     "smoke:ollama": "node scripts/smoke-ollama.mjs",
     "smoke:extension": "node scripts/smoke-extension.cjs",
+    "verify:release": "node scripts/verify-release.cjs",
     "evaluate": "node scripts/evaluate.mjs",
     "test:local": "node tests/local.mjs && node tests/evaluation.mjs && node tests/rubrics.mjs",
     "test:localui": "node tests/local-dom.cjs && node tests/local-options.cjs",
