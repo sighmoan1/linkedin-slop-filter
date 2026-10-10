@@ -49,7 +49,7 @@ npx playwright install chromium
 npm test
 ```
 
-`npm test` must pass before a PR leaves draft. CI runs the same command.
+`npm test` must pass before a PR leaves draft. Run checks locally; GitHub Actions is disabled at the owner’s request. Do not add or enable an Actions workflow without explicit owner authorization.
 
 ## Rules that must keep holding
 

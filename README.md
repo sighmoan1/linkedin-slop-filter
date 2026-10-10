@@ -91,7 +91,7 @@ npx playwright install chromium
 npm test
 ```
 
-The suite checks provider schemas, response validation, strict thresholds, migration, credential isolation, sequential queue/cache/limits, fail-open behavior, experience-message permissions, corrections, rubric fixtures and metrics, syntax, simulated-feed scrolling/recovery and settings/popup browser behavior. CI runs the same command. Browser fixtures use synthetic text and mocked responses; Playwright is a development dependency only.
+The suite checks provider schemas, response validation, strict thresholds, migration, credential isolation, sequential queue/cache/limits, fail-open behavior, experience-message permissions, corrections, rubric fixtures and metrics, syntax, simulated-feed scrolling/recovery and settings/popup browser behavior. Run these checks locally before merging. GitHub Actions is disabled; this repository has no automated Actions workflow. Browser fixtures use synthetic text and mocked responses; Playwright is a development dependency only.
 
 `npm run verify:release` loads the actual unpacked extension in a temporary Chromium profile with synthetic posts and pre-seeded scores. It checks feed/settings/popup behavior together without provider calls or a LinkedIn login. Set `QA_OUTPUT_DIR` to retain local screenshots; the temporary profile is removed afterwards.
 
