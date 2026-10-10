@@ -1,0 +1,84 @@
+{
+  "status": "Fresh synthetic validation cases authored after prompt revision, before scoring. No further prompt tuning on these cases.",
+  "cases": [
+    {
+      "id": "short-team-update",
+      "text": "Back from a week off. Good to see the team again. Hope everyone has a good Monday.",
+      "yes": []
+    },
+    {
+      "id": "humor-with-lesson",
+      "text": "The bug was hiding in the one-line fix. We changed an equality check from == to ===, then realised half our IDs came from form fields as strings. We now parse IDs at the boundary and test both inputs. Type checks won't fix inconsistent input shapes.",
+      "yes": [
+        "nourishment"
+      ]
+    },
+    {
+      "id": "personal-achievement",
+      "text": "I finished my first marathon yesterday. I cried at the finish line. This means a lot after a difficult year.",
+      "yes": []
+    },
+    {
+      "id": "actual-opening",
+      "text": "Call for accessibility testers: our open-source documentation site needs feedback from screen-reader users. Test the search flow and send findings to access@example.org by 18 November. We can pay £80 per hour for two hours.",
+      "yes": [
+        "opportunity"
+      ]
+    },
+    {
+      "id": "registration-is-sale",
+      "text": "Save your spot at our paid Product Growth Bootcamp. Tickets start at £350. Register at example.org/bootcamp this week.",
+      "yes": [
+        "advert"
+      ]
+    },
+    {
+      "id": "meme-explanation",
+      "text": "Our teenagers use 'skibidi' as a joke whose meaning comes from repetition. In my classroom, asking students to explain the joke to a parent led to a useful discussion about context: a shared reference conveys belonging even when the literal words mean little.",
+      "yes": [
+        "nourishment"
+      ]
+    },
+    {
+      "id": "tribe-bait",
+      "text": "Real founders work 100 hours. Everyone else is a tourist. Prove you're not lazy: share this and tag three grinders. If you're offended, you're the problem.",
+      "yes": [
+        "brainrot"
+      ]
+    },
+    {
+      "id": "circular-advice",
+      "text": "To grow you must embrace growth. Growth begins with a growth mindset. Keep growing your mindset to grow your success. That's the secret of growth. Growth matters because growth changes everything.",
+      "yes": [
+        "slop"
+      ]
+    },
+    {
+      "id": "neutral-recommendation",
+      "text": "I use Acme's free image editor to crop family photos. The export menu is under File, not Share. I don't work with Acme and this isn't a referral link; just answering the question people asked yesterday.",
+      "yes": [
+        "nourishment"
+      ]
+    },
+    {
+      "id": "useful-paid-pitch",
+      "text": "When you export a chart, embed the font or convert labels to outlines. Otherwise recipients without the same font will see changed line breaks. Outlines preserve appearance but make the text harder to edit. Our paid chart template includes both versions; buy it at example.org/templates.",
+      "yes": [
+        "advert",
+        "nourishment"
+      ]
+    },
+    {
+      "id": "expired-opening",
+      "text": "The application window for our speaker programme has ended. All speaking slots are now filled. We'll announce next year's call later.",
+      "yes": []
+    },
+    {
+      "id": "substantive-question",
+      "text": "In our experiment, reducing the signup form from eight fields to four raised completion from 52% to 68%, but qualified leads dropped. We now collect the other fields after the first useful action. Has anyone found a better way to measure that trade-off?",
+      "yes": [
+        "nourishment"
+      ]
+    }
+  ]
+}
