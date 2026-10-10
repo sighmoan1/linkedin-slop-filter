@@ -118,6 +118,7 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   await navigate('corrections');assert.equal(await page.locator('.correction').count(),2);assert.equal(await page.locator('#correctionList img').count(),0);
   assert.deepEqual(await page.locator('.correction').first().locator('.correction-labels span').allTextContents(),['Low substance','Advert']);
   assert.equal(await page.locator('.correction').nth(1).locator('.correction-labels').innerText(),'None · keep visible');
+  assert.equal(await page.locator('.feedback-table').isVisible(),false,'old configurations do not show a comparison of empty scores');
   // Analysis uses saved configuration, covers exclusions, and only copies suggestions to a draft.
   const originalCorrections=await page.evaluate(()=>JSON.parse(localStorage.getItem('corrections')));
   await page.evaluate(async()=>{
@@ -130,21 +131,29 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   });
   const beforeSuggestion=await state();
   const providerCallsBefore=await page.evaluate(()=>window.runtimeCalls.filter(call=>call.type==='playground').length);
-  await page.click('#refreshCorrections');await page.waitForFunction(()=>document.getElementById('feedbackCoverage').textContent.includes('10 comparable posts'));
+  await page.click('#refreshCorrections');await page.waitForFunction(()=>document.getElementById('feedbackCoverage').textContent.includes('10 posts included'));
   assert.match(await page.locator('#feedbackCoverage').innerText(),/1 excluded/);
   const slopFeedback=page.locator('.feedback-row[data-category="slop"]');
-  assert.match(await slopFeedback.innerText(),/5 false matches.*0 missed matches/);
-  assert.match(await slopFeedback.innerText(),/Try above 90%: 0 false matches and 0 misses/);
-  assert.match(await page.locator('#feedbackHiding').innerText(),/10 posts lack a Hide score/);
+  assert.match(await slopFeedback.innerText(),/Low substance[\s\S]*5[\s\S]*0[\s\S]*Review 90%/);
+  assert.match(await slopFeedback.innerText(),/Review 90%/);
+  assert.match(await page.locator('#feedbackDetails').textContent(),/10 posts lack a Hide score/);
+  assert.deepEqual(await page.locator('.feedback-table thead th').allTextContents(),['Category / rule','Wrong matches','Missed matches','Threshold']);
+  assert.equal(await page.locator('.feedback-help').first().evaluate(e=>e.open),false,'detailed methodology starts collapsed');
+  assert.equal(await page.locator('.feedback-row[data-category="writing"] td').first().innerText(),'—','missing scores are not presented as zero mistakes');
+  if(process.env.QA_OUTPUT_DIR){fs.mkdirSync(process.env.QA_OUTPUT_DIR,{recursive:true});await page.setViewportSize({width:1280,height:1400});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(process.env.QA_OUTPUT_DIR,'corrections-desktop.png')});await page.emulateMedia({colorScheme:'dark'});await page.screenshot({path:path.join(process.env.QA_OUTPUT_DIR,'corrections-dark.png')});await page.emulateMedia({colorScheme:'light'});}
+
   await page.setViewportSize({width:320,height:720});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'populated feedback fits narrow screens');
-  await slopFeedback.getByRole('button',{name:'Copy Low substance threshold suggestion to category draft'}).click();
+  if(process.env.QA_OUTPUT_DIR){await slopFeedback.evaluate(e=>e.scrollIntoView({block:'start'}));await page.screenshot({path:path.join(process.env.QA_OUTPUT_DIR,'corrections-narrow.png')});}
+
+  await slopFeedback.getByRole('button',{name:'Review Low substance threshold suggestion: 90%'}).focus();await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'categories-heading','keyboard review moves focus to the category draft');
   assert.equal(await page.locator('#panel-categories').isVisible(),true);
   assert.equal((await rows()).find(row=>row.id==='slop').threshold,.9);
   assert.deepEqual(await state(),beforeSuggestion,'copying a suggestion does not persist settings');
-  await navigate('corrections');await page.waitForFunction(()=>document.getElementById('feedbackCoverage').textContent.includes('10 comparable posts'));
+  await navigate('corrections');await page.waitForFunction(()=>document.getElementById('feedbackCoverage').textContent.includes('10 posts included'));
   assert.equal(await slopFeedback.locator('button').isDisabled(),true,'existing unsaved edits block another suggestion');
-  await save();await page.waitForFunction(()=>document.querySelector('.feedback-row[data-category="slop"]').textContent.includes('0 false matches'));
+  await save();await page.waitForFunction(()=>document.querySelector('.feedback-row[data-category="slop"] button')===null);
   assert.equal((await state()).categories.find(c=>c.id==='slop').threshold,.9);
   assert.equal(await slopFeedback.locator('button').count(),0,'the saved threshold no longer needs this suggestion');
   assert.equal(await page.evaluate(()=>window.runtimeCalls.filter(call=>call.type==='playground').length),providerCallsBefore,'local analysis and copying a suggestion do not classify');
@@ -168,6 +177,9 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   assert.equal(await page.locator('.correction').count(),1,'a pending refresh cannot resurrect a removed correction');
   await page.click('#clearCorrections');await page.click('#cancelClearCorrections');assert.equal(await page.locator('.correction').count(),1);
   await page.click('#clearCorrections');await page.click('#confirmClearCorrections');assert.equal(await page.locator('.correction').count(),0);assert.match(await page.locator('#correctionList').innerText(),/No corrections yet/);
+  assert.equal(await page.locator('#feedbackAnalysis').isVisible(),false,'empty corrections do not display a zero-filled comparison');
+  if(process.env.QA_OUTPUT_DIR)await page.screenshot({path:path.join(process.env.QA_OUTPUT_DIR,'corrections-empty.png')});
+
   // Compact popup keeps temporary reveal, global pause and appearance independent.
   const popup=await context.newPage();await popup.goto('https://ext.test/popup.html');await popup.waitForFunction(()=>document.getElementById('requests').textContent==='3');
   assert.equal(await popup.locator('#requestLimit').innerText(),'/ 20');assert.equal(await popup.locator('#folded').innerText(),'2');

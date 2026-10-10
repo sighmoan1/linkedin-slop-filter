@@ -105,8 +105,8 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   const options=await context.newPage();await options.goto(origin+'options.html#corrections');
   await options.waitForSelector('#panel-corrections:not([hidden])');
   await options.waitForFunction(()=>document.getElementById('correctionCount').textContent.includes('1 saved'));
-  assert.match(await options.locator('#feedbackCoverage').innerText(),/1 comparable posts/,'actual worker corrections match the saved scoring configuration');
-  assert.match(await options.locator('.feedback-row[data-category="brainrot"]').innerText(),/1 false matches/);
+  assert.match(await options.locator('#feedbackCoverage').innerText(),/1 post included/,'actual worker corrections match the saved scoring configuration');
+  assert.equal(await options.locator('.feedback-row[data-category="brainrot"] td').first().innerText(),'1');
   if(screenshots)await options.screenshot({path:path.join(screenshots,'settings-corrections.png'),fullPage:true});
   await options.locator('[data-panel="playground"]').click();
   await options.locator('#playgroundText').fill('An uncached synthetic example without provider credentials.');
