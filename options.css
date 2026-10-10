@@ -8,6 +8,9 @@ body{margin:0;background:#f6f5f1;color:#202521;font:14px/1.5 system-ui,sans-seri
 
 #categories{border:1px solid #b8c2bb;border-radius:8px;margin:16px 0;padding:4px 14px 14px}#categories legend{font-weight:600;padding:0 6px}
 .cat{border-top:1px solid #dde3de;padding:10px 0}.cat:first-child{border-top:0}
-.cat-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}.cat-name{font-weight:600;flex:1 1 auto;min-width:120px}
-.cat-fold{display:flex;align-items:center;gap:6px;margin:0;font-weight:400}.cat textarea{margin-top:8px}
+.cat-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.cat textarea{margin-top:8px}
 .cat-remove{padding:6px 10px;font-size:13px}.cat-add{border-top:1px solid #dde3de;margin-top:6px}.cat-add label{margin:12px 0}
+.cat-head input.cat-name{flex:1 1 140px;width:auto;min-width:0;margin-top:0;font-weight:600}.cat-order{display:flex;gap:4px}.cat-order button{padding:6px 9px;font-size:13px}
+.cat-rule{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px}label.inline{display:flex;align-items:center;gap:6px;margin:0;font-weight:400}
+label.inline select,label.inline input{display:inline-block;width:auto;margin-top:0;padding:5px 7px}.cat-threshold{max-width:5.5em}

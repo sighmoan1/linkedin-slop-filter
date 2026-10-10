@@ -12,10 +12,10 @@ const assert=require('node:assert/strict');
   window.calls=[];window.mockEnabled=true;window.mockProvider='jev';window.mockConfig='jev-rubric';window.mockThreshold=.8;
   const interval=window.setInterval.bind(window);window.setInterval=(fn,ms)=>interval(fn,ms===5000?100:ms);
   window.chrome={runtime:{sendMessage:async m=>{
-   const view={enabled:window.mockEnabled,threshold:window.mockThreshold,provider:window.mockProvider,configuration:window.mockConfig};
+   const view={enabled:window.mockEnabled,provider:window.mockProvider,configuration:window.mockConfig,categories:[{id:'slop',name:'Slop',action:'hide',threshold:window.mockThreshold}]};
    if(m.type==='settings')return view;
    window.calls.push(m.text);
-   return m.text.includes('FAIL')?{error:'API unavailable'}:{...view,probability:m.text.includes('INVALID')?'0.99':m.text.includes('SLOP')?.95:.8};
+   return m.text.includes('FAIL')?{error:'API unavailable'}:{...view,scores:{slop:m.text.includes('INVALID')?'0.99':m.text.includes('SLOP')?.95:.8}};
   }}};
  });
  await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../content.js'),'utf8')});

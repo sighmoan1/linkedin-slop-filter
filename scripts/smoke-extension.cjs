@@ -27,7 +27,7 @@ const {pathToFileURL}=require('node:url');
   while(Date.now()-start<45000) {
    outcome=await worker.evaluate(async()=>{
     const data=await chrome.storage.session.get(null);
-    const scores=Object.entries(data).filter(([key])=>key.startsWith('cache:')).map(([,entry])=>entry.p);
+    const scores=Object.entries(data).filter(([key])=>key.startsWith('cache:')).map(([,entry])=>entry.s);
     const {lastError}=await chrome.storage.local.get('lastError');
     return {scores,lastError,requests:data.requests};
    });

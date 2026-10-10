@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import {DEFAULTS,requestFor,probability,shouldFold} from '../core.mjs';
+import {DEFAULTS,DEFAULT_CATEGORIES,requestFor,validScores,applies} from '../core.mjs';
 import {summary} from './evaluation-core.mjs';
 const [provider,file,cutoff='80']=process.argv.slice(2);
 if(!['jev','ollama'].includes(provider) || !file || !Number.isFinite(Number(cutoff)) || Number(cutoff)<0 || Number(cutoff)>100) {
@@ -8,8 +8,10 @@ if(!['jev','ollama'].includes(provider) || !file || !Number.isFinite(Number(cuto
 const key=process.env.OPENROUTER_API_KEY;
 if(provider==='jev' && !key) {console.error('Missing OPENROUTER_API_KEY; set it locally, never commit it.');process.exit(2);}
 const s={...DEFAULTS,provider,jevKey:key,ollamaModel:process.env.OLLAMA_MODEL || DEFAULTS.ollamaModel,ollamaEndpoint:process.env.OLLAMA_ENDPOINT || DEFAULTS.ollamaEndpoint};
+// Only the Slop question is asked, so useful/slop labels compare like with like.
+const slop={...DEFAULT_CATEGORIES[0]};
 if(process.env.SLOP_RUBRIC_FILE) {
- try {s.rule=fs.readFileSync(process.env.SLOP_RUBRIC_FILE,'utf8').trim();if(!s.rule) throw new Error();}
+ try {slop.instructions=fs.readFileSync(process.env.SLOP_RUBRIC_FILE,'utf8').trim();if(!slop.instructions) throw new Error();}
  catch {console.error('Cannot read a nonempty SLOP_RUBRIC_FILE.');process.exit(2);}
 }
 let posts;
@@ -28,11 +30,11 @@ for(const post of posts) {
  const row={id:post.id,label:post.label,provider,model:provider==='ollama'?s.ollamaModel:'typesafe/jev-1.13',threshold:Number(cutoff)/100,hidden:false};
  try {
   // Equal evidence for both providers; compare the first 2,000 characters.
-  const req=requestFor(s,post.text.trim().slice(0,2000));
+  const req=requestFor(s,post.text.trim().slice(0,2000),[slop]);
   const headers={'Content-Type':'application/json'};if(req.key) headers.Authorization='Bearer '+req.key;
   const response=await fetch(req.url,{method:'POST',headers,body:JSON.stringify(req.body),redirect:'error',signal:AbortSignal.timeout(req.timeout || 20000)});
   if(!response.ok) throw new Error();
-  row.score=probability(provider,await response.json());row.hidden=shouldFold(row.score,row.threshold);
+  row.score=validScores(provider,await response.json(),[slop]).slop;row.hidden=applies(row.score,row.threshold);
  } catch {row.error='unavailable, HTTP error or invalid response; left visible';}
  row.durationMs=Math.round(performance.now()-start);rows.push(row);console.log(JSON.stringify(row));
 }
