@@ -158,6 +158,7 @@ const assert=require('node:assert/strict');
   box.innerHTML='SLOP first line<br><br>second   line<p>third paragraph</p>';li.append(box);document.getElementById('feed').append(li);
  });
  await page.waitForSelector('#flick.lsf-folded');
+ assert.equal(await page.evaluate(()=>window.calls.find(text=>text?.startsWith('SLOP first line'))),'SLOP first line\n\nsecond line\nthird paragraph','line and paragraph boundaries reach classification intact');
  const flick=await page.evaluate(async()=>{
   const el=document.getElementById('flick');const calls=window.calls.length;let flips=0,last=el.classList.contains('lsf-folded');
   const mo=new MutationObserver(()=>{const now=el.classList.contains('lsf-folded');if(now!==last){flips++;last=now;}});
@@ -166,6 +167,21 @@ const assert=require('node:assert/strict');
   return {flips,newCalls:window.calls.length-calls,folded:el.classList.contains('lsf-folded')};
  });
  assert.deepEqual(flick,{flips:0,newCalls:0,folded:true},'folded post must not flicker or be re-scored');
+
+ // Only the selected post body is extracted, with nested inline formatting left contiguous.
+ await page.evaluate(()=>{
+  const card=document.createElement('article');card.id='boundaries';card.className='feed-shared-update-v2';
+  card.innerHTML='<header>AUTHOR METADATA</header><div class="update-components-text">SLOP first <strong>formatted</strong> line<br>second <em>inline</em> line<p>third <a href="https://example.com">paragraph</a></p><div>fourth <span>nested</span> block</div><button>SEE MORE CONTROL</button><span data-lsf-ui>EXTENSION UI</span></div><section>COMMENT TEXT</section>';
+  document.getElementById('feed').append(card);
+ });
+ await page.waitForSelector('#boundaries.lsf-folded');
+ const boundaryText='SLOP first formatted line\nsecond inline line\nthird paragraph\n\nfourth nested block';
+ assert.equal(await page.evaluate(()=>window.calls.find(text=>text?.startsWith('SLOP first formatted'))),boundaryText);
+ const beforeBoundaryReveal=await page.evaluate(()=>window.calls.length);
+ await page.locator('#boundaries .lsf-bar button').click();
+ await page.waitForTimeout(350);
+ assert.equal(await page.evaluate(()=>window.calls.length),beforeBoundaryReveal,'revealing the same body does not change its extracted identity');
+ assert.equal(await page.locator('#boundaries .update-components-text').isVisible(),true);
 
  // Categories: one shown on the chip only names itself there; one set to highlight also marks the post.
  await card('advert','MULTI ADVERT buy my course now');
@@ -198,7 +214,7 @@ const assert=require('node:assert/strict');
  await page.waitForFunction(n=>window.calls.length>n,callsBefore);
 
  // Turning filtering off removes folds and every badge.
- await card('pause','SLOP pause me');await page.waitForSelector('#pause.lsf-folded');
+ await card('pause','SLOP pause me');await page.locator('#pause').scrollIntoViewIfNeeded();await page.waitForSelector('#pause.lsf-folded');
  await page.evaluate(()=>window.mockEnabled=false);
  await page.waitForFunction(()=>!document.querySelector('#pause').classList.contains('lsf-folded')&&document.querySelectorAll('.lsf-badge').length===0&&document.querySelectorAll('.lsf-highlight').length===0,{},{timeout:8000});
  console.log('PASS: dynamic feed, hide/highlight/label by category, reveal, threshold, API failure, recycled card, display-only changes, rescoring, disable, chips (scored, scoring, waiting, not scored, revealed, stable, removed)');
