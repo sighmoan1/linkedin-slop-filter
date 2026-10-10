@@ -68,7 +68,7 @@ const ALLOWED_HOSTS=new Set(['openrouter.ai','platform.openai.com','developers.o
   overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth
  }));
  assert.equal(options.guideVisible,true);assert.equal(options.overflow,false);
- assert.deepEqual(options.links.map(l=>l.href).sort(),['setup.html','setup.html#openai','setup.html#openrouter']);
+ assert.deepEqual(options.links.map(l=>l.href).sort(),['https://www.linkedin.com/mynetwork/invite-connect/connections/','https://www.linkedin.com/mynetwork/network-manager/people-follow/following/','setup.html','setup.html#openai','setup.html#openrouter']);
  for(const l of options.links){assert.equal(l.target,'_blank');assert.match(l.rel,/noopener/);assert.match(l.rel,/noreferrer/);}
  for(const l of options.links.filter(l=>l.href.includes('#')))assert.ok(guide.ids.includes(l.href.split('#')[1]),'settings links to missing guide section '+l.href);
  for(const name of ['Test OpenRouter key','Test OpenAI key'])assert.ok(options.buttons.includes(name),'no button '+name);

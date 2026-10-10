@@ -106,3 +106,9 @@ LinkedIn's DOM and virtualization change frequently. Current selectors support o
 Release checks use synthetic Chromium feeds and a real unpacked extension in a temporary profile. Version 2.0.1 also received a limited signed-in Brave/OpenAI For You check; see [#58 and its evidence](docs/readable-feed.md). Wider signed-in compatibility, other cloud accounts/providers and representative real-post accuracy remain open verification work in [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3). A prior real local Qwen3.5 4B synthetic smoke passed; see [local evidence](docs/local-ollama.md).
 
 Individual hidden rows show the model confidence for each matching Hide category. Manually corrected categories are labelled “corrected” instead; original model scores remain in Details.
+
+### Never hide selected people
+
+In Settings → Never hide, open Connections or Following and use Never hide beside a person. Selections save immediately in this browser profile. You can also add a profile URL directly and remove selections in settings. Only selected names and profile links are stored locally; neither is sent to the classification provider. A recognized selected post author bypasses classification and stays visible, including when a cached score or correction would otherwise hide it. Changes reach open feed tabs on the next settings refresh.
+
+Author matching uses the outer post’s actor profile link, not mentions or embedded repost authors. LinkedIn markup can change; an unrecognized actor is classified normally. This feature has not yet been verified on a signed-in Brave connections/following list or live feed.

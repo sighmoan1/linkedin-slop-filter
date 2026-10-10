@@ -3,15 +3,49 @@
   "name": "LinkedIn Slop Filter",
   "version": "2.0.2",
   "description": "Reversibly filter low-value LinkedIn posts with category confidence and local corrections.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://openrouter.ai/*", "https://api.openai.com/*", "http://127.0.0.1/*", "http://localhost/*"],
-  "background": {"service_worker": "background.js", "type": "module"},
-  "action": {"default_popup": "popup.html", "default_title": "LinkedIn Slop Filter"},
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://openrouter.ai/*",
+    "https://api.openai.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LinkedIn Slop Filter"
+  },
   "options_page": "options.html",
-  "content_scripts": [{
-    "matches": ["https://www.linkedin.com/feed", "https://www.linkedin.com/feed/*"],
-    "js": ["content.js"],
-    "css": ["content.css"],
-    "run_at": "document_idle"
-  }]
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.linkedin.com/feed",
+        "https://www.linkedin.com/feed/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.linkedin.com/*"
+      ],
+      "js": [
+        "people.js"
+      ],
+      "css": [
+        "people.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
 }

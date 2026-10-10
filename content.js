@@ -5,6 +5,7 @@
   const records = new Map();
   const openGroups = new Set();
   const defaults = {theme:"native",groupHidden:false,labels:"matches"};
+  let neverHide = new Set();
   let settings = {enabled:false,categories:[]};
   let experience = {appearance:{...defaults},showEverything:false};
   let toolbar, timer, frame, activeRequest, poll, mutations, stopped = false, nextId = 0, scrollIntent = 0;
@@ -89,6 +90,15 @@
     };
     visit(element);
     return parts.join("").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+  }
+  // Match only the outer post actor, never a mention, comment or embedded repost.
+  function exempt(post) {
+    const actor = post.querySelector('.update-components-actor__meta-link, .feed-shared-actor__meta-link, [data-testid="actor-name"] a, a[data-testid="actor-name"]');
+    if (!actor || actor.closest(POST) !== post || actor.closest(TEXT)) return false;
+    try {
+      const u = new URL(actor.href);
+      return u.origin === "https://www.linkedin.com" && /^\/in\/[^/]+\/?$/.test(u.pathname) && neverHide.has(u.origin+u.pathname.replace(/\/$/,"").toLowerCase());
+    } catch { return false; }
   }
   const hasCorrection = record => record.corrected && record.correctionConfiguration===settings.configuration;
   function applying(record) {
@@ -259,7 +269,7 @@
     toggle(post,"lsf-feed-card",true);
     attr(post,"data-lsf-scheme",hostScheme(post));
     if(post.dataset.lsfTheme!==experience.appearance.theme)post.dataset.lsfTheme=experience.appearance.theme;
-    if(!settings.enabled){clearFold(post,record);clearTools(record);toggle(post,"lsf-highlight",false);if(record.panel)hidden(record.panel,true);if(record.correction)hidden(record.correction,true);return;}
+    if(!settings.enabled||exempt(post)){clearFold(post,record);clearTools(record);toggle(post,"lsf-highlight",false);if(record.panel)hidden(record.panel,true);if(record.correction)hidden(record.correction,true);return;}
     const hits=applying(record),hiding=hits.filter(c=>c.action==="hide");
     if(!hiding.length)record.foldCommitted=false;
     const folded=hiding.length&&!record.revealed&&!experience.showEverything&&(record.foldCommitted||!engaged(post,record));
@@ -359,7 +369,7 @@
     textOf(toolbar.status,message);
   }
   function eligible(post,record) {
-    if(!post.isConnected||record.pending||Date.now()<(record.retryAt||0)||(record.scores&&record.configuration===settings.configuration))return false;
+    if(exempt(post)||!post.isConnected||record.pending||Date.now()<(record.retryAt||0)||(record.scores&&record.configuration===settings.configuration))return false;
     const r=post.getBoundingClientRect();return r.height>0&&r.bottom>=-200&&r.top<=innerHeight+700&&bodyText(post)===record.text;
   }
   function pump() {
@@ -432,6 +442,10 @@
       settings=next;
     } catch {settings={...settings,enabled:false};}
     if(!connected())return;
+    try {
+      const result = await send({type:"people",action:"list"});
+      if (Array.isArray(result?.people)) neverHide = new Set(result.people);
+    } catch { /* Keep existing exemptions if the service is temporarily unavailable. */ }
     try{setExperience(await send({type:"experience"}));}catch{}
     scan();
   }
