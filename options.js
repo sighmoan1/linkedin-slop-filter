@@ -12,7 +12,7 @@ let appearance={theme:"native",groupHidden:false,labels:"matches"};
 const bridgeAvailable=Boolean(chrome.runtime?.sendMessage);
 const percent=value=>(value*100).toLocaleString(undefined,{maximumFractionDigits:6})+"%";
 const providerName=id=>({jev:"Jev · OpenRouter",openai:"OpenAI Decisions",ollama:"Local Ollama"}[id]||"Unknown provider");
-function safeAppearance(value){return {theme:["native","punchy","reader"].includes(value?.theme)?value.theme:"native",groupHidden:value?.groupHidden===true,labels:value?.labels==="off"?"off":"matches"};}
+function safeAppearance(value){return {theme:"native",groupHidden:value?.groupHidden===true,labels:value?.labels==="off"?"off":"matches"};}
 async function send(message){
   if (!bridgeAvailable) throw new Error("The extension service is unavailable. Reopen settings or reload the extension.");
   const result=await chrome.runtime.sendMessage(message);
@@ -43,13 +43,11 @@ for (const id of FIELDS) {
   $(id).addEventListener(id==="enabled"||id==="provider"?"change":"input",markDirty);
 }
 function renderAppearance(){
-  for (const input of document.querySelectorAll('input[name="theme"]')) input.checked=input.value===appearance.theme;
   $("groupHidden").checked=appearance.groupHidden;$("labels").value=appearance.labels;
 }
 try {appearance=safeAppearance((await send({type:"experience"})).appearance);}
 catch {appearance=safeAppearance((await chrome.storage.local.get("appearance")).appearance);}
 renderAppearance();updateSavedProvider();
-for (const input of document.querySelectorAll('input[name="theme"]')) input.addEventListener("change",()=>{appearance.theme=input.value;markDirty();});
 $("groupHidden").addEventListener("change",()=>{appearance.groupHidden=$("groupHidden").checked;markDirty();});
 $("labels").addEventListener("change",()=>{appearance.labels=$("labels").value;markDirty();});
 const updateProvider=()=>{

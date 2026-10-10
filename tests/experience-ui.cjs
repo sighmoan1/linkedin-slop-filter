@@ -67,9 +67,9 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   assert.equal(await page.locator('#jevKey').isVisible(),false);
   assert.equal((await page.locator('body').innerText()).includes('FAKE-KEY-NEVER-SHOW'),false);
   const before=await state();
-  await page.locator('input[name=theme][value=reader]').check();await page.check('#groupHidden');await page.selectOption('#labels','off');
+  assert.equal(await page.locator('input[name=theme]').count(),0);await page.check('#groupHidden');await page.selectOption('#labels','off');
   assert.deepEqual((await state()).categories,before.categories,'appearance draft does not change rules');
-  await save();let stored=await state();assert.deepEqual(stored.appearance,{theme:'reader',groupHidden:true,labels:'off'});assert.deepEqual(stored.categories,before.categories);
+  await save();let stored=await state();assert.deepEqual(stored.appearance,{theme:'native',groupHidden:true,labels:'off'});assert.deepEqual(stored.categories,before.categories);
   assert.equal(await page.evaluate(()=>window.runtimeCalls.filter(call=>call.type==='playground').length),0,'appearance does not classify');
   await navigate('categories');assert.equal(await page.locator('.cat').count(),6);
   assert.deepEqual(await page.locator('.cat').first().locator('.cat-action option').allTextContents(),['Hide','Highlight','Label','Off']);
@@ -79,10 +79,10 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   await page.click('#applyPreset');let draft=await rows();assert.deepEqual(draft.map(c=>c.action),['hide','hide','hide','highlight','highlight','hide']);
   assert.equal(draft[5].instructions,base[5].instructions,'custom definitions preserved');
   await page.click('#undoPreset');assert.deepEqual(await rows(),base);
-  await page.click('#previewLessNoise');await page.click('#applyPreset');await save();stored=await state();assert.equal(stored.categories.at(-1).action,'hide');assert.equal(stored.appearance.theme,'reader');
+  await page.click('#previewLessNoise');await page.click('#applyPreset');await save();stored=await state();assert.equal(stored.categories.at(-1).action,'hide');assert.equal(stored.appearance.theme,'native');
   const savedBeforeFailure=await state();await page.locator('.cat[data-id=brainrot] .cat-action').selectOption('label');await navigate('provider');await page.selectOption('#provider','openai');await page.evaluate(()=>window.rejectSave=true);await page.getByRole('button',{name:'Save settings'}).click();await page.waitForFunction(()=>document.getElementById('status').textContent.includes('saved settings have not changed'));assert.deepEqual(await state(),savedBeforeFailure,'initial storage failure never claims to have saved');assert.equal(await page.locator('#savedProvider').innerText(),'Jev · OpenRouter');
-  await page.evaluate(()=>{window.rejectSave=false;window.rejectAppearance=true;});await navigate('feed');await page.locator('input[name=theme][value=punchy]').check();await page.getByRole('button',{name:'Save settings'}).click();await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Appearance was not saved'));assert.equal((await state()).provider,'openai');assert.equal(await page.locator('#savedProvider').innerText(),'OpenAI Decisions');assert.equal((await state()).appearance.theme,'reader');
-  await page.evaluate(()=>window.rejectAppearance=false);await page.locator('input[name=theme][value=reader]').check();await navigate('provider');await page.selectOption('#provider','jev');await navigate('categories');await page.locator('.cat[data-id=brainrot] .cat-action').selectOption('hide');await save();
+  await page.evaluate(()=>{window.rejectSave=false;window.rejectAppearance=true;});await navigate('feed');await page.uncheck('#groupHidden');await page.getByRole('button',{name:'Save settings'}).click();await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Appearance was not saved'));assert.equal((await state()).provider,'openai');assert.equal(await page.locator('#savedProvider').innerText(),'OpenAI Decisions');assert.equal((await state()).appearance.theme,'native');
+  await page.evaluate(()=>window.rejectAppearance=false);assert.equal(await page.locator('input[name=theme]').count(),0);await navigate('provider');await page.selectOption('#provider','jev');await navigate('categories');await page.locator('.cat[data-id=brainrot] .cat-action').selectOption('hide');await save();
   await page.evaluate(()=>{window.holdSave=true;delete window.releaseSave;});await page.getByRole('button',{name:'Save settings'}).click();await page.waitForFunction(()=>typeof window.releaseSave==='function');assert.equal(await page.locator('.cat[data-id=nourishment] .cat-action').isDisabled(),true,'the submitted draft cannot be edited during Save');await page.evaluate(()=>{window.holdSave=false;window.releaseSave();});await page.waitForFunction(()=>document.getElementById('saveState').textContent==='Saved settings');
   // Adopt revised definitions without losing user choices, custom categories, order or removed built-ins.
   await page.locator('.cat[data-id=opportunity] .cat-remove').click();
@@ -186,8 +186,8 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   const popupRules=await state();assert.equal(await popup.locator('#showEverything').isDisabled(),true,'paused filtering already shows everything');assert.match(await popup.locator('#revealNote').innerText(),/already visible/);await popup.locator('#enabled').check();assert.equal((await state()).enabled,true);assert.equal(await popup.locator('#showEverything').isDisabled(),false);await popup.click('#showEverything');await popup.waitForFunction(()=>document.getElementById('showEverything').textContent==='Restore filtering');assert.match(await popup.locator('#filteringStatus').innerText(),/this tab shows everything/);
   assert.deepEqual((await state()).categories,popupRules.categories);assert.equal((await state()).enabled,true);
   await popup.locator('#enabled').uncheck();assert.equal((await state()).enabled,false);assert.equal(await popup.locator('#showEverything').isDisabled(),true);assert.equal(await popup.locator('#showEverything').getAttribute('aria-pressed'),'true','pausing preserves the temporary tab override');await popup.locator('#enabled').check();assert.equal((await state()).enabled,true);assert.equal(await popup.locator('#showEverything').isDisabled(),false);assert.equal(await popup.locator('#showEverything').getAttribute('aria-pressed'),'true');
-  await popup.locator('input[name=theme][value=native]').check();await popup.waitForFunction(()=>document.getElementById('popupStatus').textContent.includes('appearance saved'));
-  assert.deepEqual((await state()).appearance,{theme:'native',groupHidden:true,labels:'off'});assert.deepEqual((await state()).categories,popupRules.categories);
+  assert.equal(await popup.locator('input[name=theme]').count(),0);
+  assert.deepEqual((await state()).appearance,popupRules.appearance);assert.deepEqual((await state()).categories,popupRules.categories);
   await popup.click('#showEverything');await popup.waitForFunction(()=>document.getElementById('showEverything').textContent==='Show everything');
   assert.equal(await popup.evaluate(()=>window.runtimeCalls.filter(call=>call.type==='playground').length),0);
   assert.equal((await popup.locator('body').innerText()).includes('FAKE-KEY-NEVER-SHOW'),false);
@@ -230,6 +230,6 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   await page.setViewportSize({width:320,height:600});await navigate('categories');await page.locator('#addCategoryDetails summary').click();await page.locator('#newCatName').focus();await page.waitForFunction(()=>document.getElementById('newCatName').getBoundingClientRect().bottom<=document.querySelector('.save-bar').getBoundingClientRect().top-10);assert.equal(await page.evaluate(()=>document.activeElement.id),'newCatName','focused fields stay above the persistent footer');
   const permissions=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'))).permissions;assert.deepEqual(permissions,['storage']);
   assert.deepEqual(remote,[],'no remote assets');assert.deepEqual(errors,[],'no runtime errors');
-  console.log('PASS: focused settings/popup, theme/rule independence, preset preview/Undo, safe definition adoption, strict and partial playground, explicit correction export/remove/clear, fail-open messages, light/dark responsive views and no secrets/assets');
+  console.log('PASS: focused settings/popup, native appearance/rule independence, preset preview/Undo, safe definition adoption, strict and partial playground, explicit correction export/remove/clear, fail-open messages, light/dark responsive views and no secrets/assets');
  } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1)});

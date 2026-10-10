@@ -60,17 +60,14 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   const untouched=await feed.locator('#outside-feed').evaluate(e=>({font:getComputedStyle(e).font,color:getComputedStyle(e).color}));
   const commentFont=await feed.locator('.comments').evaluate(e=>getComputedStyle(e).font);
   await feed.evaluate(()=>window.scrollTo(0,0));
-  for(const theme of ['native','punchy','reader']){
-   await feed.locator('.lsf-theme-label select').selectOption(theme);
-   await feed.waitForFunction(theme=>document.querySelector('#useful').dataset.lsfTheme===theme,theme);
-   await feed.waitForTimeout(100);
-   assert.deepEqual(await feed.locator('#outside-feed').evaluate(e=>({font:getComputedStyle(e).font,color:getComputedStyle(e).color})),untouched);
-   assert.equal(await feed.locator('.comments').evaluate(e=>getComputedStyle(e).font),commentFont,'reader styling leaves comment typography alone');
-   if(screenshots)await feed.screenshot({path:path.join(screenshots,'feed-'+theme+'.png'),fullPage:true});
-  }
+  assert.equal(await feed.locator('.lsf-theme-label select').count(),0);
+  assert.equal(await feed.locator('#useful').getAttribute('data-lsf-theme'),'native');
+  assert.deepEqual(await feed.locator('#outside-feed').evaluate(e=>({font:getComputedStyle(e).font,color:getComputedStyle(e).color})),untouched);
+  assert.equal(await feed.locator('.comments').evaluate(e=>getComputedStyle(e).font),commentFont);
+  if(screenshots)await feed.screenshot({path:path.join(screenshots,'feed-native.png'),fullPage:true});
   // Grouping changes the omissions, not DOM order or the original useful post.
   const order=await feed.locator('#feed > article').evaluateAll(posts=>posts.map(p=>p.id));
-  await feed.locator('.lsf-theme-label select').focus();
+  await feed.locator('.lsf-toolbar-main button').first().focus();
   await worker.evaluate(()=>chrome.storage.local.set({appearance:{theme:'punchy',groupHidden:true,labels:'matches'}}));
   await feed.waitForSelector('.lsf-group-bar:not([hidden])');
   assert.equal(await feed.locator('.lsf-group-name').first().textContent(),'4 hidden posts · Brainrot ×1, Slop ×2, Advert ×1');
@@ -82,7 +79,7 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   await feed.locator('#slop-one .lsf-bar button').filter({hasText:'Hide again'}).click();
   assert.deepEqual(await feed.locator('#feed > article').evaluateAll(posts=>posts.map(p=>p.id)),order);
   await worker.evaluate(()=>chrome.storage.local.set({appearance:{theme:'reader',groupHidden:false,labels:'matches'}}));
-  await feed.waitForFunction(()=>document.querySelectorAll('.lsf-group-suppressed').length===0&&document.getElementById('useful').dataset.lsfTheme==='reader');
+  await feed.waitForFunction(()=>document.querySelectorAll('.lsf-group-suppressed').length===0&&document.getElementById('useful').dataset.lsfTheme==='native');
   // Show everything changes only temporary recovery, not the category actions.
   const before=await worker.evaluate(()=>chrome.storage.local.get('categories'));
   await feed.locator('.lsf-toolbar-main button').filter({hasText:'Show everything'}).click();
@@ -175,6 +172,6 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   assert.deepEqual(errors,[]);
   assert.deepEqual(consoleErrors,[],'no console errors throughout the unpacked runtime and reload check');
   assert.deepEqual(failedResources,[],'no failed extension resources throughout the unpacked runtime and reload check');
-  console.log('PASS: actual unpacked worker/feed/settings/popup; themes, visible deferral, reversible groups, temporary recovery, multi-label corrections, no text-bearing ordinary cache, missing-key fail-open, 320px and dark/reduced-motion layouts; real extension reload restores originals, stops stale controls and reconnects after page reload. Console errors: 0. Failed extension resources: 0. Provider calls: 0.');
+  console.log('PASS: actual unpacked worker/feed/settings/popup; native appearance, visible deferral, reversible groups, temporary recovery, multi-label corrections, no text-bearing ordinary cache, missing-key fail-open, 320px and dark/reduced-motion layouts; real extension reload restores originals, stops stale controls and reconnects after page reload. Console errors: 0. Failed extension resources: 0. Provider calls: 0.');
  }finally{try{if(context)await context.close();}finally{fs.rmSync(profile,{recursive:true,force:true});}}
 })().catch(error=>{console.error('Release QA failed: '+error.message);process.exitCode=1;});

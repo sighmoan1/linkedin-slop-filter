@@ -150,7 +150,6 @@
     for(const e of [record.bar,record.tools,record.panel,record.correction,record.groupBar])e?.remove();
     for(const cls of ["lsf-folded","lsf-highlight","lsf-group-suppressed","lsf-group-lead","lsf-group-open","lsf-feed-card"])toggle(post,cls,false);
     delete post.dataset.lsfTheme;delete post.dataset.lsfTone;delete post.dataset.lsfScheme;
-    record.body?.classList.remove("lsf-reader-body");
     post.removeEventListener("mouseenter",record.enter);post.removeEventListener("mouseleave",record.leave);
     observer.unobserve(post);records.delete(post);
   }
@@ -255,7 +254,6 @@
     toggle(post,"lsf-feed-card",true);
     attr(post,"data-lsf-scheme",hostScheme(post));
     if(post.dataset.lsfTheme!==experience.appearance.theme)post.dataset.lsfTheme=experience.appearance.theme;
-    if(record.body&&!record.body.classList.contains("lsf-reader-body"))record.body.classList.add("lsf-reader-body");
     if(!settings.enabled){clearFold(post,record);clearTools(record);toggle(post,"lsf-highlight",false);if(record.panel)hidden(record.panel,true);if(record.correction)hidden(record.correction,true);return;}
     const hits=applying(record),hiding=hits.filter(c=>c.action==="hide");
     if(!hiding.length)record.foldCommitted=false;
@@ -325,13 +323,13 @@
       toggle(first,"lsf-group-lead",true);toggle(first,"lsf-group-open",expanded);toggle(first,"lsf-group-suppressed",false);
       for(const p of items.slice(1)){toggle(p,"lsf-group-suppressed",!expanded);toggle(p,"lsf-group-lead",false);toggle(p,"lsf-group-open",false);}
     }
-    if(summaryPost){const record=records.get(summaryPost);(summaryTarget||[record.show,record.detailsButton,toolbar?.theme].find(e=>e?.isConnected&&e.getClientRects().length))?.focus({preventScroll:true});}
+    if(summaryPost){const record=records.get(summaryPost);(summaryTarget||[record.show,record.detailsButton,toolbar?.all].find(e=>e?.isConnected&&e.getClientRects().length))?.focus({preventScroll:true});}
   }
   async function openSettings(){try{await send({type:"openSettings",section:"categories"});}catch{}}
   function setExperience(next) {
     if(stopped||!next||!next.appearance)return;
     const a=next.appearance;
-    experience={appearance:{theme:["native","punchy","reader"].includes(a.theme)?a.theme:"native",groupHidden:a.groupHidden===true,labels:a.labels==="off"?"off":"matches"},showEverything:next.showEverything===true};
+    experience={appearance:{theme:"native",groupHidden:a.groupHidden===true,labels:a.labels==="off"?"off":"matches"},showEverything:next.showEverything===true};
   }
   function renderToolbar() {
     const first=[...records.keys()].find(p=>p.isConnected);
@@ -339,19 +337,14 @@
     if(!toolbar||!toolbar.element.isConnected) {
       const element=shell("lsf-feed-toolbar");element.setAttribute("role","region");element.setAttribute("aria-label","Feed filter controls");
       const main=node("div","lsf-toolbar-main"),title=node("span","lsf-toolbar-title","Feed filter");
-      const themeLabel=node("label","lsf-theme-label","Theme "),theme=node("select");theme.setAttribute("aria-label","Feed theme");
-      for(const [value,label]of [["native","Native"],["punchy","Punchy"],["reader","Reader"]]){const option=node("option","",label);option.value=value;theme.append(option);}
-      themeLabel.append(theme);
-      theme.addEventListener("change",async()=>{try{setExperience(await send({type:"appearance",appearance:{...experience.appearance,theme:theme.value}}));schedulePaint();}catch{theme.value=experience.appearance.theme;}});
       const all=button("Show everything",async()=>{try{setExperience(await send({type:"showEverything",value:!experience.showEverything}));schedulePaint();}catch{} });
       const manage=button("Settings",()=>openSettings(),"lsf-button lsf-flat");
       const status=node("p","lsf-toolbar-status");status.setAttribute("role","status");
-      main.append(title,themeLabel,all,manage);element.append(main,status);first.before(element);
-      toolbar={element,theme,all,status};
+      main.append(title,all,manage);element.append(main,status);first.before(element);
+      toolbar={element,all,status};
     }
     attr(toolbar.element,"data-lsf-theme",experience.appearance.theme);
     attr(toolbar.element,"data-lsf-scheme",hostScheme(first));
-    if(toolbar.theme.value!==experience.appearance.theme)toolbar.theme.value=experience.appearance.theme;
     textOf(toolbar.all,experience.showEverything?"Restore filtering":"Show everything");if(toolbar.all.disabled===settings.enabled)toolbar.all.disabled=!settings.enabled;attr(toolbar.all,"aria-pressed",experience.showEverything);
     const hideNames=settings.categories.filter(c=>c.action==="hide").map(c=>c.name).join(", ");
     const failures=[...records.values()].filter(r=>r.error&&!r.scores).length;
