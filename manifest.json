@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LinkedIn Slop Filter",
   "version": "2.0.2",
-  "description": "Make low-value feed posts reversible with independent categories and three feed themes.",
+  "description": "Reversibly filter low-value LinkedIn posts with category confidence and local corrections.",
   "permissions": ["storage"],
   "host_permissions": ["https://openrouter.ai/*", "https://api.openai.com/*", "http://127.0.0.1/*", "http://localhost/*"],
   "background": {"service_worker": "background.js", "type": "module"},
