@@ -4,6 +4,26 @@
   // The older class-based selectors are kept for accounts still served the previous markup.
   const POST = '[role="listitem"][componentkey^="update-card"], .feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
   const TEXT = '[data-testid="expandable-text-box"], .update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
+  // Read the selected body without relying on layout: a folded post keeps the same identity.
+  // Block boundaries and <br> separate words, while inline formatting remains contiguous.
+  function bodyText(post) {
+    const element = post.querySelector(TEXT);
+    if (!element) return "";
+    const blocks = new Set(["P","DIV","LI","UL","OL","BLOCKQUOTE","PRE","H1","H2","H3","H4","H5","H6","TR"]);
+    const excluded = new Set(["BUTTON","INPUT","TEXTAREA","SCRIPT","STYLE"]);
+    const parts = [];
+    const visit = node => {
+      if (node.nodeType === Node.TEXT_NODE) { parts.push(node.nodeValue || ""); return; }
+      if (node.nodeType !== Node.ELEMENT_NODE || excluded.has(node.tagName) || node.hasAttribute("data-lsf-ui")) return;
+      if (node.tagName === "BR") { parts.push("\n"); return; }
+      const block = blocks.has(node.tagName);
+      if (block) parts.push("\n");
+      for (const child of node.childNodes) visit(child);
+      if (block) parts.push("\n");
+    };
+    visit(element);
+    return parts.join("").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+  }
   const records = new Map();
   let settings = {enabled:false,categories:[]};
   let timer;
@@ -90,7 +110,7 @@
       if (!record || record.pending || record.scores || Date.now() < (record.retryAt || 0)) continue;
       record.pending=true; apply(post,record);
       chrome.runtime.sendMessage({type:"classify",text:record.text}).then(result => {
-        if (records.get(post) !== record) return;
+        if (records.get(post) !== record || bodyText(post) !== record.text) return;
         record.pending=false;
         if (result?.error || result?.disabled) {
           record.retryAt=Date.now()+60000;
@@ -108,7 +128,7 @@
         record.error=null; record.short=""; record.scores=sc;
         apply(post,record);
       }).catch(()=>{
-        if (records.get(post) !== record) return;
+        if (records.get(post) !== record || bodyText(post) !== record.text) return;
         record.pending=false; record.retryAt=Date.now()+60000;
         record.error="Could not reach the extension. Reload the page."; record.short="extension unavailable";
         apply(post,record);
@@ -128,11 +148,17 @@
       // Prefer the outer update card, avoiding nested reposts and duplicate processing.
       const post=candidate.closest(".feed-shared-update-v2") || candidate;
       if (post.parentElement?.closest(POST)) continue;
-      const element=post.querySelector(TEXT);
-      // textContent, not innerText: innerText changes when the post is folded (display:none), which looked like a new post and re-triggered the fold.
-      const text=(element?.textContent || "").replace(/\s+/g," ").trim();
-      if (!text) continue;
+      // textContent, not innerText: folded bodies must retain their identity.
+      const text=bodyText(post);
       const old=records.get(post);
+      if (!text) {
+        if (old) {
+          forget(post,old);
+          observer.unobserve(post);
+          records.delete(post);
+        }
+        continue;
+      }
       if (old?.text === text) {apply(post,old); continue;}
       if (old) {forget(post,old); observer.unobserve(post);}
       const record={text,revealed:false};
