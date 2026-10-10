@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Slop Filter",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "Reversibly filter low-value LinkedIn posts with category confidence and local corrections.",
   "permissions": [
     "storage"
