@@ -12,7 +12,7 @@ const storage = data => ({
   remove: async keys => {for (const k of [].concat(keys)) delete data[k];},
   setAccessLevel: async () => {}
 });
-let handler, opened = 0, calls = 0, active = 0, maxActive = 0, mode = "success";
+let handler, opened = 0, calls = 0, active = 0, maxActive = 0, mode = "success", release;
 const badges = [], titles = [];
 const ownId = "test-extension";
 const feed = {id:ownId,url:"https://www.linkedin.com/feed/",tab:{id:7}};
@@ -28,6 +28,7 @@ const context = vm.createContext({...core,crypto:webcrypto,TextEncoder,AbortCont
     try {
       assert.equal(req.headers.Authorization,"Bearer PRIVATE-TEST-KEY");
       assert.equal(req.credentials,"omit"); assert.equal(req.redirect,"error");
+      if (mode === "hold") await new Promise(resolve => {release = resolve;});
       await new Promise(r=>setTimeout(r,5));
       if (mode === "network") throw new Error("PRIVATE-TEST-KEY raw network secret");
       const ids = Object.keys(JSON.parse(req.body).questions);
@@ -124,4 +125,25 @@ assert.deepEqual(partial.scores,{advert:.1}); assert.equal(partial.error,undefin
 assert.equal(local.lastError,undefined); assert.equal(badges.at(-1),"");
 assert.equal(JSON.stringify(partial).includes("instructions"),false);
 assert.equal(JSON.stringify(partial).includes("PRIVATE-TEST-KEY"),false);
+// Same-text feed and playground work share the newly completed cache entry, even
+// when no second API attempt is allowed. Pausing the feed does not cancel the explicit test.
+session.requests = 0; local.limit = 1; local.enabled = true; mode = "hold";
+const first = send({type:"classify",text:"Shared feed and playground text"});
+while (!release) await new Promise(resolve=>setTimeout(resolve,1));
+const second = send({type:"playground",text:"Shared feed and playground text"},trusted);
+await new Promise(resolve=>setTimeout(resolve,10));
+const priorCalls = calls; release();
+const [feedResult,manualResult] = await Promise.all([first,second]);
+assert.equal(feedResult.scores.slop,.95); assert.equal(manualResult.scores.slop,.95);
+assert.equal(calls,priorCalls,"queued cross-context duplicate is cached without another API attempt");
+assert.equal(session.requests,1);
+session.requests = 0; mode = "hold"; release = null;
+const pausedFeed = send({type:"classify",text:"Shared result while pausing the feed"});
+while (!release) await new Promise(resolve=>setTimeout(resolve,1));
+const explicitWhilePaused = send({type:"playground",text:"Shared result while pausing the feed"},trusted);
+await new Promise(resolve=>setTimeout(resolve,10));
+local.enabled = false; const callsBeforePause = calls; release();
+assert.equal((await pausedFeed).disabled,true);
+assert.equal((await explicitWhilePaused).scores.slop,.95);
+assert.equal(calls,callsBeforePause); assert.equal(session.requests,1);
 console.log("PASS: experience bridge sender isolation, per-tab recovery, explicit correction privacy, serial capped playground and usage/badge recovery");
