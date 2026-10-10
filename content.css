@@ -1,17 +1,78 @@
-.lsf-folded > :not(.lsf-bar) { display: none !important; }
-.lsf-bar { padding: 14px 16px; display:flex; align-items:center; gap:12px; font:14px/1.5 system-ui,sans-serif; color:#444; background:#f3f6f8; border-radius:8px; }
-.lsf-bar button { margin-left:auto; border:1px solid #0a66c2; color:#0a66c2; border-radius:18px; background:white; padding:5px 12px; cursor:pointer; font:inherit; white-space:nowrap; }
-.lsf-highlight { box-shadow: inset 4px 0 0 #1f6b3a; }
-.lsf-badge { display:flex; width:fit-content; max-width:calc(100% - 24px); margin:6px 12px 4px; padding:1px 10px; border:1px solid #d6dde2; border-radius:12px; font:12px/1.6 system-ui,sans-serif; color:#555; background:#f3f6f8; cursor:default; }
-.lsf-badge.lsf-c-highlight { color:#1f6b3a; background:#eaf5ee; border-color:#bfdcc9; }
-.lsf-badge.lsf-c-label { color:#7a5200; background:#fdf3dc; border-color:#ecd49a; }
-.lsf-badge.lsf-c-hide { color:#9a332d; background:#fbeceb; border-color:#e8b9b5; }
-/* Feed-local appearance tokens: themes change presentation, never category rules. */
+/* All shipped styling is scoped to feed cards or extension-owned controls. */
 .lsf-feed-card, .lsf-feed-toolbar {
-  --lsf-paper:#fff; --lsf-surface:#f6f8fa; --lsf-ink:#263238; --lsf-muted:#64727a;
+  --lsf-paper:#fff; --lsf-surface:#f6f8fa; --lsf-ink:#263238; --lsf-muted:#65737b;
   --lsf-line:#dbe2e7; --lsf-brand:#0a66c2; --lsf-tone:var(--lsf-brand);
 }
-.lsf-feed-card[data-lsf-theme="reader"] { --lsf-paper:#fffdf7; --lsf-surface:#f5f0e6; --lsf-ink:#333b32; --lsf-muted:#6f766b; --lsf-line:#dddccb; --lsf-brand:#386848; }
+.lsf-feed-card[data-lsf-theme="reader"], .lsf-feed-toolbar[data-lsf-theme="reader"] {
+  --lsf-paper:#fffdf7; --lsf-surface:#f5f0e6; --lsf-ink:#333b32; --lsf-muted:#6f766b;
+  --lsf-line:#dddccb; --lsf-brand:#386848;
+}
 .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="slop"] { --lsf-tone:#a5573d; }
 .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="brainrot"] { --lsf-tone:#74559b; }
 .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="advert"] { --lsf-tone:#946513; }
+.lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="opportunity"] { --lsf-tone:#0a66c2; }
+.lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="nourishment"] { --lsf-tone:#34724e; }
+.lsf-feed-card.lsf-folded { min-height:0!important; height:auto!important; }
+.lsf-feed-card.lsf-folded > :not([data-lsf-ui]) { display:none!important; }
+[data-lsf-ui][hidden], [data-lsf-ui] [hidden] { display:none!important; }
+.lsf-feed-card.lsf-group-suppressed { display:none!important; }
+.lsf-group-lead:not(.lsf-group-open) > [data-lsf-ui]:not(.lsf-group-bar) { display:none!important; }
+.lsf-feed-card.lsf-highlight { box-shadow:inset 3px 0 0 #34724e; }
+.lsf-feed-card[data-lsf-theme="reader"] { background:var(--lsf-paper)!important; }
+.lsf-feed-card[data-lsf-theme="reader"] .lsf-reader-body { color:var(--lsf-ink); font:17px/1.7 Georgia,"Times New Roman",serif; }
+[data-lsf-ui], [data-lsf-ui] * { box-sizing:border-box; }
+[data-lsf-ui] { color:var(--lsf-ink); font:13px/1.5 system-ui,-apple-system,sans-serif; }
+.lsf-bar, .lsf-group-bar { display:flex; gap:12px; align-items:center; justify-content:space-between; min-height:52px; padding:10px 14px; background:var(--lsf-surface); border-radius:8px; }
+.lsf-revealed-bar { position:sticky; top:60px; z-index:1; border-bottom:1px solid var(--lsf-line); background:var(--lsf-paper); }
+.lsf-feed-card[data-lsf-theme="reader"] .lsf-revealed-bar { background:var(--lsf-paper); }
+.lsf-fold-name, .lsf-group-name { min-width:0; overflow-wrap:anywhere; font-weight:600; color:var(--lsf-ink); }
+.lsf-fold-name::before { content:""; display:inline-block; vertical-align:middle; width:5px; height:5px; border-radius:50%; background:var(--lsf-tone); margin-right:9px; }
+.lsf-feed-card[data-lsf-theme="punchy"] .lsf-bar { min-height:68px; border-left:3px solid var(--lsf-tone); }
+.lsf-feed-card[data-lsf-theme="punchy"] .lsf-fold-name { color:var(--lsf-tone); font-size:18px; font-weight:650; letter-spacing:-.25px; }
+.lsf-feed-card[data-lsf-theme="reader"] .lsf-bar { background:transparent; border-top:1px solid var(--lsf-line); border-bottom:1px solid var(--lsf-line); border-radius:0; }
+.lsf-actions { display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin-left:auto; }
+.lsf-button { appearance:none; min-height:32px; border:1px solid var(--lsf-line); border-radius:7px; padding:4px 10px; background:var(--lsf-paper); color:var(--lsf-brand); font:inherit; line-height:1.5; cursor:pointer; white-space:nowrap; }
+.lsf-button:hover { background:var(--lsf-surface); border-color:var(--lsf-brand); }
+.lsf-button:disabled { opacity:.65; cursor:default; }
+.lsf-flat { background:transparent; border-color:transparent; color:var(--lsf-muted); }
+[data-lsf-ui] button:focus-visible, [data-lsf-ui] select:focus-visible, [data-lsf-ui] input:focus-visible { outline:2px solid var(--lsf-brand); outline-offset:3px; }
+.lsf-tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 12px; margin-top:4px; border-top:1px solid var(--lsf-line); min-height:44px; background:var(--lsf-paper); }
+.lsf-badge { color:var(--lsf-muted); font-size:12px; overflow-wrap:anywhere; min-width:0; }
+.lsf-badge.lsf-c-highlight { color:#34724e; }
+.lsf-badge.lsf-c-label, .lsf-badge.lsf-c-hide { color:var(--lsf-tone); }
+.lsf-arrived { color:var(--lsf-brand); font-size:12px; overflow-wrap:anywhere; min-width:0; }
+.lsf-panel { padding:14px 16px; background:var(--lsf-surface); border-top:1px solid var(--lsf-line); }
+.lsf-panel-heading { font-weight:600; margin:0 0 10px; }
+.lsf-note { font-size:12px; color:var(--lsf-muted); margin:10px 0; }
+.lsf-score-table { width:100%; border-collapse:collapse; table-layout:fixed; font:12px/1.5 system-ui,sans-serif; }
+.lsf-score-table th, .lsf-score-table td { text-align:left; border-bottom:1px solid var(--lsf-line); padding:7px 5px; overflow-wrap:anywhere; }
+.lsf-score-table th:first-child, .lsf-score-table td:first-child { width:34%; }
+.lsf-score-table th:nth-child(2), .lsf-score-table td:nth-child(2) { width:24%; }
+.lsf-correction-fields { display:flex; flex-wrap:wrap; gap:8px 18px; margin:12px 0; }
+.lsf-correction-fields label { display:flex; gap:7px; align-items:center; cursor:pointer; }
+.lsf-correction-fields input { accent-color:var(--lsf-brand); width:16px; height:16px; margin:0; }
+.lsf-feed-toolbar { border:1px solid var(--lsf-line); border-radius:9px; background:var(--lsf-paper); padding:10px 12px; margin:0 0 12px; }
+.lsf-toolbar-main { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.lsf-toolbar-title { font-weight:650; color:var(--lsf-ink); margin-right:auto; }
+.lsf-theme-label { display:flex; gap:6px; align-items:center; font-size:12px; color:var(--lsf-muted); }
+.lsf-theme-label select { border:1px solid var(--lsf-line); border-radius:6px; background:var(--lsf-paper); color:var(--lsf-ink); min-height:32px; padding:4px 6px; font:inherit; }
+.lsf-toolbar-status { color:var(--lsf-muted); font-size:12px; margin:8px 0 0; overflow-wrap:anywhere; }
+@media (max-width:480px) {
+  .lsf-bar, .lsf-group-bar { padding:10px; gap:8px; flex-wrap:wrap; }
+  .lsf-bar > .lsf-actions { flex-wrap:nowrap; }
+  .lsf-fold-name { flex:1 1 80px; }
+  .lsf-tools { padding:6px 10px; gap:4px 8px; }
+  .lsf-tools > .lsf-actions { margin-left:0; }
+  .lsf-toolbar-main > .lsf-toolbar-title { flex:1 0 100%; }
+  .lsf-panel { padding:12px 10px; }
+}
+@media (prefers-color-scheme:dark) {
+  .lsf-feed-card, .lsf-feed-toolbar { --lsf-paper:#22282d; --lsf-surface:#293138; --lsf-ink:#e7edf0; --lsf-muted:#b3bdc5; --lsf-line:#46535e; --lsf-brand:#9ac8f1; }
+  .lsf-feed-card[data-lsf-theme="reader"], .lsf-feed-toolbar[data-lsf-theme="reader"] { --lsf-paper:#252821; --lsf-surface:#2d3028; --lsf-ink:#ecefe4; --lsf-muted:#bec6b2; --lsf-line:#505745; --lsf-brand:#b0d0a6; }
+  .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="slop"] { --lsf-tone:#e2ad92; }
+  .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="brainrot"] { --lsf-tone:#c6b0e6; }
+  .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="advert"] { --lsf-tone:#e5c27f; }
+  .lsf-feed-card[data-lsf-theme="punchy"][data-lsf-tone="nourishment"] { --lsf-tone:#aad0ad; }
+  .lsf-badge.lsf-c-highlight { color:#aad0ad; }
+}
+/* No height animation or global scroll behaviour is introduced, including reduced motion. */
