@@ -24,9 +24,11 @@ const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const validThreshold = t => typeof t === "number" && Number.isFinite(t) && t >= 0 && t <= 1;
 const copyDefaults = () => DEFAULT_CATEGORIES.map(c => ({...c}));
 
-// Keeps well-formed categories only and drops duplicate ids. An unusable list falls back to the defaults.
+// Keeps well-formed categories only and drops duplicate ids. An explicit empty list stays empty;
+// a missing or corrupt list falls back to the defaults.
 export function normalizeCategories(list) {
   if (!Array.isArray(list)) return copyDefaults();
+  if (!list.length) return [];
   const seen = new Set(), clean = [];
   for (const c of list) {
     if (!c || typeof c !== "object" || typeof c.id !== "string" || !ID_PATTERN.test(c.id) || seen.has(c.id)) continue;

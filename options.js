@@ -88,6 +88,7 @@ function renderCats(){
       text);
     listEl.append(row);
   });
+  if (!cats.length) listEl.append(el("p",{className:"note",textContent:"No categories yet. Add one below, or restore the defaults."}));
   $("addCat").disabled=cats.length>=MAX_CATEGORIES;
 }
 renderCats();
@@ -112,7 +113,7 @@ $("settings").addEventListener("submit",async event=>{
   const bad=cats.find(c=>!c.name.trim()||!c.instructions.trim()||!(c.threshold>=0.01&&c.threshold<=1));
   if (bad) {status.textContent="Each category needs a name, a definition and a threshold from 1 to 100%.";return;}
   next.categories=normalizeCategories(cats);
-  if (!activeCategories(next.categories).length) {status.textContent="Switch at least one category on.";return;}
+  if (next.enabled && !activeCategories(next.categories).length) {status.textContent="Switch at least one category on.";return;}
   if (next.enabled && next.provider!=="ollama" && !(next.provider==="jev" ? next.jevKey : next.openaiKey)) {
     status.textContent="Add a key for the selected provider first.";return;
   }
