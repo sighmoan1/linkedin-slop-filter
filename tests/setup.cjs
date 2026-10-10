@@ -56,6 +56,38 @@ const ALLOWED_HOSTS=new Set(['openrouter.ai','platform.openai.com','developers.o
  assert.ok(guide.text.includes(requestFor(DEFAULTS,'x').body.model),'Jev model name out of date');
  assert.ok(guide.text.includes(requestFor({...DEFAULTS,provider:'openai'},'x').body.model),'OpenAI model name out of date');
 
+ // The guide inherits dark-mode text: every painted surface must remain readable.
+ for(const colorScheme of ['light','dark']){
+  await page.emulateMedia({colorScheme});
+  for(const width of [320,380,1280]){
+   await page.setViewportSize({width,height:800});
+   const appearance=await page.evaluate(()=>{
+    const rgb=value=>(value.match(/[\d.]+/g)||[]).map(Number);
+    const luminance=color=>rgb(color).slice(0,3).map(v=>{
+     v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;
+    }).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+    const background=node=>{
+     for(let e=node;e;e=e.parentElement){
+      const color=getComputedStyle(e).backgroundColor,channels=rgb(color);
+      if(channels.length===3||channels[3]===1)return color;
+     }
+     return 'rgb(255,255,255)';
+    };
+    return {
+     overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,
+     contrast:[...document.querySelectorAll('th,td,a,code')].map(e=>{
+      const foreground=luminance(getComputedStyle(e).color),back=luminance(background(e));
+      return {tag:e.tagName,ratio:(Math.max(foreground,back)+.05)/(Math.min(foreground,back)+.05)};
+     })
+    };
+   });
+   assert.equal(appearance.overflow,false,`${colorScheme} guide overflows at ${width}px`);
+   for(const {tag,ratio} of appearance.contrast)assert.ok(ratio>=4.5,`${colorScheme} ${tag} contrast ${ratio.toFixed(2)} at ${width}px`);
+  }
+ }
+ await page.emulateMedia({colorScheme:'light'});
+ await page.setViewportSize({width:380,height:800});
+
  // --- Settings page links into the guide, and names match what the guide tells people to click ---
  await page.goto('https://ext.test/options.html');
  await page.waitForFunction(()=>document.querySelectorAll('.cat').length>0);
@@ -79,6 +111,6 @@ const ALLOWED_HOSTS=new Set(['openrouter.ai','platform.openai.com','developers.o
  // Nothing outside the extension was ever requested by either page.
  assert.deepEqual(requested.filter(u=>!u.startsWith('https://ext.test/')),[]);
  assert.deepEqual(pageErrors.map(e=>e.message),[]);
- console.log('PASS: setup guide (sections, safe links, no remote assets, names and models match the product, fits popup width)');
+ console.log('PASS: setup guide (sections, safe links, no remote assets, matching names/models, light/dark text contrast and no overflow at 320/380/1280px)');
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
