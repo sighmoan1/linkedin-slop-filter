@@ -90,7 +90,10 @@
     visit(element);
     return parts.join("").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim();
   }
+  const hasCorrection = record => record.corrected && record.correctionConfiguration===settings.configuration;
   function applying(record) {
+    // Manual labels apply only to this post and configuration, never the score cache.
+    if(hasCorrection(record))return settings.categories.filter(c=>record.correctionIds.includes(c.id)).map(c=>({...c,corrected:true}));
     if (!record.scores || record.configuration!==settings.configuration) return [];
     return settings.categories.filter(c=>typeof record.scores[c.id]==="number"&&record.scores[c.id]>c.threshold)
       .map(c=>({...c,p:record.scores[c.id]})).sort((a,b)=>b.p-a.p);
@@ -154,6 +157,7 @@
     observer.unobserve(post);records.delete(post);
   }
   function status(record,hits) {
+    if(hasCorrection(record))return {text:hits.length?hits.map(c=>c.name).join(" · "):"No category",level:hits.some(c=>c.action==="hide")?"lsf-c-hide":hits.some(c=>c.action==="highlight")?"lsf-c-highlight":hits.length?"lsf-c-label":"lsf-c-none",title:"Your saved correction applies to this post. Details retain the original model scores; no automatic training."};
     if(record.scores&&record.configuration!==settings.configuration)return {text:"Updating scores",level:"lsf-muted",title:"Previous scores are stale. The original post stays visible while the new questions are scored."};
     if(record.scores) {
       const partial=settings.categories.some(c=>typeof record.scores[c.id]!=="number");
@@ -192,7 +196,7 @@
   }
   function renderDetails(post,record) {
     if(!record.detailsOpen){if(record.panel)hidden(record.panel,true);return;}
-    const signature=JSON.stringify([settings.categories,record.scores,record.configuration,settings.configuration,record.pending,record.provider]);
+    const signature=JSON.stringify([settings.categories,record.scores,record.configuration,settings.configuration,record.pending,record.provider,hasCorrection(record),record.correctionIds]);
     if(!record.panel) {
       const panel=shell("lsf-panel");panel.id="lsf-details-"+record.id;panel.setAttribute("role","region");panel.setAttribute("aria-label","Category score details");
       const heading=node("p","lsf-panel-heading"),table=node("table","lsf-score-table"),thead=node("thead"),head=node("tr"),tbody=node("tbody"),note=node("p","lsf-note");
@@ -212,7 +216,7 @@
     const rows=[];
     for(const c of settings.categories){const tr=node("tr");const score=record.scores?.[c.id];tr.append(node("td","",c.name),node("td","",typeof score==="number"?scoreText(score,c.threshold):"Not returned"),node("td","",c.action[0].toUpperCase()+c.action.slice(1)+" above "+pct(c.threshold)));rows.push(tr);}
     record.detailsRows.replaceChildren(...rows);
-    textOf(record.detailsNote,"Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores are self-reported confidence, not calibrated probabilities.":"Model estimates do not establish AI authorship."));
+    textOf(record.detailsNote,(hasCorrection(record)?"Your correction determines this post’s categories; these are the original model scores. ":"")+"Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores are self-reported confidence, not calibrated probabilities.":"Model estimates do not establish AI authorship."));
   }
   function renderCorrection(post,record,hits) {
     if(!record.correcting){if(record.correction)hidden(record.correction,true);return;}
@@ -225,13 +229,14 @@
       const save=button("Keep visible & save correction",async()=>{
         if(bodyText(post)!==record.text){scan();return;}
         save.disabled=true;textOf(message,"Saving locally…");
+        const correctionConfiguration=settings.configuration;
         const categoryIds=(record.correctionInputs||[]).filter(i=>i.checked).map(i=>i.value);
         try {
           const reply=await send({type:"correction",text:record.text,categoryIds,scores:record.scores||{},configuration:record.configuration||settings.configuration,provider:record.provider||settings.provider});
           if(!connected())return;
           if(!reply?.ok)throw new Error("not saved");
-          if(records.get(post)!==record)return;
-          act(post,record,()=>{record.correctionIds=categoryIds;record.corrected=true;record.revealed=true;record.correcting=false;},"saved");
+          if(records.get(post)!==record||bodyText(post)!==record.text){scan();return;}
+          act(post,record,()=>{record.correctionIds=categoryIds;record.correctionConfiguration=correctionConfiguration;record.corrected=true;record.revealed=true;record.correcting=false;},"saved");
         }catch{textOf(message,"Could not save the correction. Try again or open settings.");}finally{save.disabled=false;}
       });
       const cancel=button("Cancel",()=>act(post,record,()=>{record.correcting=false;},"cancel"),"lsf-button lsf-flat");
