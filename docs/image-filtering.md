@@ -1,12 +1,12 @@
-# Image-led filtering proposal
+# Image-led filtering trial
 
-Tracked in [#87](https://github.com/sighmoan1/linkedin-slop-filter/issues/87). This is a design and feasibility assessment, not an implemented feature. The owner requested an assessment of OpenRouter image options; automatic image handling is not enabled.
+Tracked in [#87](https://github.com/sighmoan1/linkedin-slop-filter/issues/87). The owner approved an opt-in, label-only trial after the assessment below. The implementation keeps existing text classification and adds a separate OpenRouter image decision. It remains off by default.
 
 ## Problem
 
 Classification currently sees only extracted post body text. A useful-sounding caption can receive Good post even when its attached illustration is low-value visual filler. Text prompt changes cannot inspect missing pixels. Image presence or a cartoon style alone cannot establish AI authorship.
 
-## Recommended implementation
+## Initial design (superseded by the trial details below)
 
 Offer **Analyse attached post images**, off by default. For the existing OpenAI provider, bounded, resized attachments can accompany the caption in one classification request. For Jev, assess a separate image-capable decision alongside its text classifier, as discussed below. Do not send page screenshots, profile pictures, reactions, comments or messages. Keep keys and category definitions in the worker. Do not silently switch providers for unsupported image input.
 
@@ -92,4 +92,18 @@ Begin in label-only mode for review before automatic Hide. A successful decision
 - Full local test suite passes before the PR leaves draft.
 - When merging and installation are authorized, verify the installed Brave feed, hide/reveal/re-hide, popup recovery and settings. Do not substitute fixture screenshots for live evidence.
 
-The current [repository privacy rule](../AGENTS.md) permits only extracted post text in automatic provider requests. Image transmission requires the owner's explicit choice and an accompanying update to that rule and privacy documentation. No image requests or live provider checks have been made for this proposal.
+At assessment time the repository privacy rule permitted only post text. The approved opt-in exception is now documented in [AGENTS.md](../AGENTS.md). No live provider checks have been made.
+
+## Implemented trial
+
+Settings → Feed offers opt-in image access, Flash/Luna model selection, Label/Hide and a strict threshold (default 80%). The virtual Visual slop category preserves saved text categories. An applying visual label suppresses Good post highlighting. Existing text Hide matches skip images; missing or invalid image decisions cannot supply a Hide match. Image-only cards are supported when enabled.
+
+The worker validates LinkedIn attachment origins/paths, omits cookies, rejects redirects, bounds downloads to 6 MB and dimensions to 40 megapixels, and exports JPEG at a maximum 768-pixel longest side. Requests allow at most four attachments and 150,000 combined inline characters. Flash rejects captions above 2,000 UTF-8 bytes rather than silently truncating them. This conservative payload limit can leave detailed images unchecked. No claim of exhaustive gallery coverage is made.
+
+Image content hashes distinguish same-caption attachments. Cache entries contain only scores and time under hashed identities. Model changes invalidate image scores; action/threshold changes reuse them. Lazy loading and attachment replacement invalidate stale card results. The shared sequential queue and session cap count each additional image attempt.
+
+Try a post includes an explicit comparison using locally selected files, independent of automatic feed opt-in. It runs Flash and Luna and shows returned usage/cost alongside scores. Typing or choosing files does not send them. Compare images uses the saved OpenRouter key even if the text provider is local or OpenAI.
+
+Mocked regression checks cover privacy isolation, permissions, origin/payload bounds, failures, cache/content identity, stale results, comparison, strict thresholds and reveal/re-hide. A disposable actual unpacked MV3 Chromium check verifies worker decoding/resizing, feed IPC and trusted comparison with synthetic images and mocked provider responses. These are mechanical checks, not image-model accuracy evidence.
+
+No real image upload or model inference has been performed. No image trial has been installed or checked in the owner's signed-in Brave session. The private labelled benchmark above remains required before recommending automatic Hide. The owner explicitly authorized this opt-in privacy change; AGENTS.md and README now describe it.

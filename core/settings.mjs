@@ -4,7 +4,7 @@ export const SCHEMA = 2;
 export const DEFAULTS = {
   enabled: false, provider: "jev", jevKey: "", openaiKey: "", limit: 100,
   ollamaEndpoint: "http://127.0.0.1:11434", ollamaModel: "qwen3.5:4b-q4_K_M",
-  schema: SCHEMA, categories: null
+  schema: SCHEMA, categories: null, imageAnalysis: null
 };
 // Settings from before schema 2. Read only to migrate them, then removed.
 export const LEGACY_DEFAULTS = {rule: null, threshold: null, openaiThreshold: null, localThreshold: null};

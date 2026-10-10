@@ -53,10 +53,10 @@ npm test
 
 ## Rules that must keep holding
 
-- API keys never reach the LinkedIn content script. Settings replies include only `enabled`, `provider`, a hashed `configuration` identifier and, per switched-on category, its `id`, `name`, `action` and `threshold`. Category definitions and keys stay in the service worker.
+- API keys never reach the LinkedIn content script. Settings replies include only `enabled`, `provider`, a hashed `configuration` identifier and, per switched-on category, its `id`, `name`, `action` and `threshold`. When image checks are enabled, replies may also include their enabled flag and selected model. Category definitions and keys stay in the service worker.
 - A category applies only when its probability is **strictly greater** than that category's threshold. A post folds only when a category set to hide applies.
 - Any API error, refusal, timeout or invalid response leaves the post visible.
-- Automatic feed classification sends only extracted post text to the provider. Explicitly invoked Try a post sends the user's test input; key verification sends a small fixed synthetic request. Do not collect messages, comments, profile data or cookies.
+- Automatic feed classification sends only extracted post text by default. Owner-authorized image checks are opt-in: only attached post images from validated LinkedIn media URLs may be downloaded without cookies, bounded/resized in the worker and sent with the caption to the selected OpenRouter image model. Do not send avatars, comments, previews or page screenshots. Store image scores/hashes, never image bytes or attachment URLs. Explicitly invoked Try a post sends the user's test input; Compare image models sends only explicitly selected files and caption to both listed models; key verification sends a small fixed synthetic request. Do not collect messages, comments, profile data or cookies.
 - No remote scripts, fonts or assets. Everything the extension runs ships in this repository.
 - Keys and tokens must never be logged, written to the page, or committed.
 - Be honest in the README about what has and has not been verified. No live provider or signed-in LinkedIn check has been done unless an issue says so (see #1 and #2).

@@ -32,9 +32,10 @@ export function feedbackSummary(records, categories, {provider, configuration}) 
   let duplicates = 0;
   for (const record of normalizeCorrections(records)) {
     if (!record.text.trim() || record.categoryIds.some(id => typeof id !== "string")) continue;
-    const previous = latest.get(record.text.trim());
+    const identity=JSON.stringify([record.text.trim(),record.imageFingerprint||null]);
+    const previous = latest.get(identity);
     if (previous) duplicates++;
-    if (!previous || record.at >= previous.at) latest.set(record.text.trim(), record);
+    if (!previous || record.at >= previous.at) latest.set(identity, record);
   }
   const comparable = [...latest.values()].filter(r => r.provider === provider &&
     /^[a-f0-9]{64}$/.test(configuration) && r.configuration === configuration);

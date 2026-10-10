@@ -1,4 +1,5 @@
-import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary} from "./core.mjs";
+import {installImageComparison} from "./options-images.mjs";
+import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary, normalizeImages, visualCategory, IMAGE_PERMISSION, VISUAL_ID} from "./core.mjs";
 const FIELDS=["enabled","provider","jevKey","openaiKey","ollamaEndpoint","ollamaModel","limit"];
 const ACTION_LABELS={hide:"Hide",highlight:"Highlight",label:"Label",off:"Off"};
 const ACTION_HELP={hide:"Replace matching posts with a row you can show.",highlight:"Keep the full post with a subtle accent.",label:"Keep the full post with a quiet category name.",off:"Do not ask the model about this category."};
@@ -19,6 +20,7 @@ async function send(message){
   if (!result || result.error) throw new Error(result?.error||"The extension service is unavailable. Reopen settings or reload the extension.");
   return result;
 }
+installImageComparison(send);
 function selectPanel(id,focus=false){
   if (!PANEL_IDS.includes(id)) id="feed";
   for (const panel of PANEL_IDS) $("panel-"+panel).hidden=panel!==id;
@@ -49,6 +51,18 @@ function renderAppearance(){
 try {appearance=safeAppearance((await send({type:"experience"})).appearance);}
 catch {appearance=safeAppearance((await chrome.storage.local.get("appearance")).appearance);}
 renderAppearance();updateSavedProvider();
+const imageDraft=normalizeImages(savedSettings.imageAnalysis);
+$("imageEnabled").checked=imageDraft.enabled;$("imageModel").value=imageDraft.model;$("imageAction").value=imageDraft.action;$("imageThreshold").value=imageDraft.threshold*100;
+for(const id of ["imageModel","imageAction","imageThreshold"])$(id).addEventListener("change",markDirty);
+$("imageEnabled").addEventListener("change",async()=>{
+  markDirty();
+  if(!$("imageEnabled").checked)return;
+  try {
+    const granted=await chrome.permissions?.request({origins:[IMAGE_PERMISSION]});
+    if(!granted){$("imageEnabled").checked=false;$("imagePermissionStatus").textContent="Image access was not granted. Image checks remain off.";}
+    else $("imagePermissionStatus").textContent="Image access granted. Save settings to start the trial.";
+  } catch {$("imageEnabled").checked=false;$("imagePermissionStatus").textContent="Image access is unavailable. Reload the updated extension and reopen settings.";}
+});
 $("groupHidden").addEventListener("change",()=>{appearance.groupHidden=$("groupHidden").checked;markDirty();});
 $("labels").addEventListener("change",()=>{appearance.labels=$("labels").value;markDirty();});
 const updateProvider=()=>{
@@ -64,6 +78,7 @@ async function updateUsage(){
     const usage=await send({type:"usage"});
     const count=key=>Number.isFinite(usage[key])?usage[key].toLocaleString():"unavailable";
     $("usageSummary").textContent=`This session: ${count("requests")} / ${count("limit")} requests · ${count("scored")} scored · ${count("folded")} folded · ${count("cacheHits")} cache hits · ${count("errors")} errors.`;
+    $("imageTrialUsage").textContent=`This session: ${usage.imageScored||0} image checks scored · ${usage.imageErrors||0} image checks unavailable.`;
     $("error").textContent=typeof usage.lastError==="string"?usage.lastError:"";
   } catch {$("usageSummary").textContent="Session usage is unavailable. Reopen settings or reload the extension.";}
 }
@@ -202,6 +217,14 @@ $("settings").addEventListener("submit",async event=>{
   if (bad) {selectPanel("categories");status.textContent="Each category needs a name, a definition and a threshold from 1 to 100%.";return;}
   if (!Number.isInteger(next.limit)||next.limit<1||next.limit>10000) {selectPanel("provider");status.textContent="Choose a session limit from 1 to 10,000 requests.";return;}
   next.categories=normalizeCategories(cats);
+  const imageThreshold=Number($("imageThreshold").value);
+  if(!Number.isFinite(imageThreshold)||imageThreshold<1||imageThreshold>100){selectPanel("feed");status.textContent="Choose an image threshold from 1 to 100%.";return;}
+  next.imageAnalysis=normalizeImages({enabled:$("imageEnabled").checked,model:$("imageModel").value,action:$("imageAction").value,threshold:imageThreshold/100});
+  if(next.imageAnalysis.enabled){
+    if(!next.jevKey){selectPanel("provider");status.textContent="Add your OpenRouter key for image checks. Your text provider stays selected.";return;}
+    if(next.categories.some(c=>c.id===VISUAL_ID)){selectPanel("categories");status.textContent="Rename the reserved lsf-visual-slop category before enabling the image trial.";return;}
+    if(!await chrome.permissions?.contains({origins:[IMAGE_PERMISSION]})){selectPanel("feed");status.textContent="Switch image checks off and on to grant image access.";return;}
+  }
   if (next.enabled&&!activeCategories(next.categories).length) {selectPanel("categories");status.textContent="Switch at least one category on before enabling filtering.";return;}
   if (next.enabled&&next.provider!=="ollama"&&!(next.provider==="jev"?next.jevKey:next.openaiKey)) {selectPanel("provider");status.textContent="Add a key for the selected provider first.";return;}
   try {if (next.enabled) requestFor(next,"Settings validation");}
@@ -235,7 +258,7 @@ $("clearCache").addEventListener("click",async()=>{
 });
 
 function renderFeedback(){
-  const summary=feedbackSummary(corrections,savedSettings.categories,{provider:savedSettings.provider,configuration:feedbackConfiguration});
+  const summary=feedbackSummary(corrections,[...savedSettings.categories,...(normalizeImages(savedSettings.imageAnalysis).enabled?[visualCategory(savedSettings.imageAnalysis)]:[])],{provider:savedSettings.provider,configuration:feedbackConfiguration});
   $("feedbackAnalysis").hidden=!corrections.length;
   $("feedbackCoverage").textContent=`${summary.comparable} ${summary.comparable===1?"post":"posts"} included · ${summary.excluded} excluded`;
   $("feedbackRows").closest("table").hidden=!summary.comparable;
@@ -274,7 +297,7 @@ function renderFeedback(){
 function renderCorrections(){
   renderFeedback();
   $("correctionCount").textContent=corrections.length+" saved correction"+(corrections.length===1?"":"s");
-  const names=new Map(savedSettings.categories.map(c=>[c.id,c.name]));
+  const names=new Map([...savedSettings.categories,...(normalizeImages(savedSettings.imageAnalysis).enabled?[visualCategory(savedSettings.imageAnalysis)]:[])].map(c=>[c.id,c.name]));
   $("correctionList").replaceChildren();
   for (const correction of corrections) {
     const remove=el("button",{type:"button",className:"text-button",textContent:"Remove"});remove.setAttribute("aria-label","Remove correction from "+new Date(correction.at).toLocaleString());

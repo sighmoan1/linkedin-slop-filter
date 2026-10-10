@@ -53,7 +53,7 @@ New scores do not automatically collapse a card that is visible, hovered or has 
 
 ## Requests, failures and storage
 
-Only extracted post body text is sent: at most 12,000 characters for cloud providers or 2,000 for local Ollama. Line and paragraph boundaries are preserved. Messages, comments, profile metadata, cookies and extension controls are excluded. The extension does not expand “see more”, analyse images, click, like or post for you. Cards without extractable body text stay visible and are not scored.
+By default, only extracted post body text is sent: at most 12,000 characters for cloud providers or 2,000 for local Ollama. Line and paragraph boundaries are preserved. Messages, comments, profile metadata, cookies and extension controls are excluded. The extension does not expand “see more”, click, like or post for you. With image checks off, cards without extractable body text stay visible and are not scored.
 
 Requests are sequential with a bounded feed prefetch queue; upcoming cards are prioritized. The default cap is 100 API attempts per browser session across tabs. **Try a post** shares that cap. Reloading a feed, changing settings, clearing scores or deleting corrections does not reset it. Restart Chrome or raise the cap to continue. The popup and Provider panel show session usage and a quiet error summary; the toolbar marks service failures.
 
@@ -70,6 +70,12 @@ With at least five chosen and five unchosen scored examples for a category, a wh
 Keys stay in local browser storage restricted to trusted extension contexts. They are not synced, logged or sent to the LinkedIn content script. Definitions also stay in trusted extension contexts; feed replies carry only safe display metadata and a hashed configuration. This unpacked extension uses local browser storage, not an encrypted credential vault. **Delete keys & disable** removes cloud keys and pauses filtering, while keeping categories and corrections.
 
 ## Try and tune a rubric
+
+**Image checks (trial)** is off by default in Settings → Feed. Enabling it requests optional LinkedIn media access; Save settings starts the trial. It keeps the selected text provider and uses a saved OpenRouter key for a separate Clef Flash or Luna Visual slop decision. Label is the default action; an applying Visual slop label removes Good post praise without hiding the card. Hide is an explicit choice and uses the same strict threshold and recovery controls. This assesses visual filler, not proven AI authorship.
+
+Only attached post images are eligible: up to four PNG/JPEG/WebP images, downloaded without cookies, resized to at most 768 pixels on the longest side and bounded to a combined 150,000-character inline payload. Avatars, comments and link previews are excluded. Flash captions over 2,000 UTF-8 bytes are left unchecked to avoid silent truncation. Failed or oversized checks do not create a Visual slop match; the feed marks them Image unchecked. Existing text Hide matches skip the image request. Each uncached image decision uses an additional session attempt. Scores are cached by caption, image content hash and model; no image bytes or attachment URLs are stored. Explicit corrections may retain an image hash alongside the saved caption.
+
+**Compare image models**, in Try a post, sends your selected files and caption to Flash and Luna only when clicked, even while filtering is paused. It reports scores and returned input tokens/cost; cached results cannot supply fresh billing measurements. No files or captions are saved. Quality and actual browsing cost remain unmeasured; see the [implementation and assessment](docs/image-filtering.md).
 
 **Try a post** makes an explicit request with saved provider settings and definitions. It works while feed filtering is disabled, reports scores/missing answers and resulting actions, and does not save the input as a correction. Unsaved definition edits are not used. Nothing is sent while typing. Local definitions must fit the 6,000-character serialized context budget, shown in Categories.
 
@@ -112,3 +118,5 @@ Hidden rows show category names and Show post. Scores and corrections are availa
 In Settings → Never hide, open Connections or Following and use Never hide beside a person. Selections save immediately in this browser profile. You can also add a profile URL directly and remove selections in settings. Only selected names and profile links are stored locally; neither is sent to the classification provider. A recognized selected post author bypasses classification and stays visible, including when a cached score or correction would otherwise hide it. Changes reach open feed tabs on the next settings refresh.
 
 Author matching uses the outer post’s actor profile link, not mentions or embedded repost authors. LinkedIn markup can change; an unrecognized actor is classified normally. This feature has not yet been verified on a signed-in Brave connections/following list or live feed.
+
+The opt-in image trial has passed mocked provider/extraction, settings/feed and actual unpacked MV3 Chromium checks. It has not yet been installed or verified on the signed-in Brave feed, and no real image-model calls or accuracy benchmark have been performed.

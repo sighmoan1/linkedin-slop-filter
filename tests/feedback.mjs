@@ -46,3 +46,7 @@ assert.equal(feedbackSummary([...examples,record("missing",{})],cats,context).ro
 assert.equal(feedbackSummary(examples,cats,context).rows[0].suggestion.threshold,.9,"analysis does not mutate settings or records");
 assert.equal(cats[0].threshold,.8);
 console.log("PASS: correction comparability, latest labels, strict boundaries, partial Hide coverage, safe small-sample threshold suggestions");
+
+const differentImages=[record("first",{slop:.9},[],{text:"same caption",imageFingerprint:"a".repeat(64)}),record("second",{slop:.1},[],{text:"same caption",imageFingerprint:"b".repeat(64)})];
+assert.equal(feedbackSummary(differentImages,cats,context).unique,2,"different attachments keep separate corrections");
+assert.equal(feedbackSummary([...differentImages, {...differentImages[0],id:"latest-image",at:2}],cats,context).duplicates,1);

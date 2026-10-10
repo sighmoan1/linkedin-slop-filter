@@ -47,5 +47,8 @@
       ],
       "run_at": "document_idle"
     }
+  ],
+  "optional_host_permissions": [
+    "https://*.licdn.com/*"
   ]
 }
