@@ -131,8 +131,15 @@
       const element=post.querySelector(TEXT);
       // textContent, not innerText: innerText changes when the post is folded (display:none), which looked like a new post and re-triggered the fold.
       const text=(element?.textContent || "").replace(/\s+/g," ").trim();
-      if (!text) continue;
       const old=records.get(post);
+      if (!text) {
+        if (old) {
+          forget(post,old);
+          observer.unobserve(post);
+          records.delete(post);
+        }
+        continue;
+      }
       if (old?.text === text) {apply(post,old); continue;}
       if (old) {forget(post,old); observer.unobserve(post);}
       const record={text,revealed:false};
