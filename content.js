@@ -4,7 +4,26 @@
   // The older class-based selectors are kept for accounts still served the previous markup.
   const POST = '[role="listitem"][componentkey^="update-card"], .feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
   const TEXT = '[data-testid="expandable-text-box"], .update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
-  const bodyText = post => (post.querySelector(TEXT)?.textContent || "").replace(/\s+/g," ").trim();
+  // Read the selected body without relying on layout: a folded post keeps the same identity.
+  // Block boundaries and <br> separate words, while inline formatting remains contiguous.
+  function bodyText(post) {
+    const element = post.querySelector(TEXT);
+    if (!element) return "";
+    const blocks = new Set(["P","DIV","LI","UL","OL","BLOCKQUOTE","PRE","H1","H2","H3","H4","H5","H6","TR"]);
+    const excluded = new Set(["BUTTON","INPUT","TEXTAREA","SCRIPT","STYLE"]);
+    const parts = [];
+    const visit = node => {
+      if (node.nodeType === Node.TEXT_NODE) { parts.push(node.nodeValue || ""); return; }
+      if (node.nodeType !== Node.ELEMENT_NODE || excluded.has(node.tagName) || node.hasAttribute("data-lsf-ui")) return;
+      if (node.tagName === "BR") { parts.push("\n"); return; }
+      const block = blocks.has(node.tagName);
+      if (block) parts.push("\n");
+      for (const child of node.childNodes) visit(child);
+      if (block) parts.push("\n");
+    };
+    visit(element);
+    return parts.join("").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+  }
   const records = new Map();
   let settings = {enabled:false,categories:[]};
   let timer;
