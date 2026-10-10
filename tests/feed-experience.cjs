@@ -60,6 +60,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   assert.equal(await folded(page,'late'),false);assert.ok(Math.abs((await paragraph.evaluate(e=>e.getBoundingClientRect().top))-before)<=2);
   assert.equal(await page.locator('#late a').isVisible(),true);assert.equal(await page.locator('#late .native-controls button').first().isVisible(),true);
   await atTop(page,'late',-2500);await page.waitForSelector('#late.lsf-folded');await atTop(page,'late',100);await settle(page);
+  assert.equal(await page.locator('#late .lsf-fold-name').innerText(),'Slop · 95% confidence','hidden rows show the actual category confidence');
   const rowTop=await page.locator('#late').evaluate(e=>e.getBoundingClientRect().top);
   await page.locator('#late .lsf-bar button').filter({hasText:'Show'}).click();await settle(page);
   assert.equal(await folded(page,'late'),false);assert.ok(Math.abs((await page.locator('#late').evaluate(e=>e.getBoundingClientRect().top))-rowTop)<=2);
@@ -178,7 +179,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   const {page,errors}=await fixture([{id:'mix',long:true,scores:allScores({slop:.95,advert:.94,nourishment:.97,custom:.92})}],{top:900});
   await page.evaluate(()=>window.categories=window.categories.map(c=>['advert','nourishment','custom'].includes(c.id)?{...c,action:'hide'}:c));await page.waitForSelector('#mix.lsf-folded');
   await page.waitForFunction(()=>document.querySelector('#mix .lsf-fold-name')?.textContent.includes('Custom'));
-  const names=await page.locator('#mix .lsf-fold-name').innerText();for(const name of ['Slop','Advert','Nourishment','Custom'])assert.ok(names.includes(name));assert.ok(!names.includes('%'));
+  const names=await page.locator('#mix .lsf-fold-name').innerText();for(const label of ['Slop · 95% confidence','Advert · 94% confidence','Nourishment · 97% confidence','Custom · 92% confidence'])assert.ok(names.includes(label));
   const originals=await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)}));
   for(const theme of ['punchy','reader','native']){await page.locator('.lsf-feed-toolbar select').selectOption(theme);await page.waitForFunction(theme=>document.getElementById('mix').dataset.lsfTheme===theme,theme);assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),names);}
   assert.deepEqual(await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)})),originals);

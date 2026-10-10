@@ -283,7 +283,7 @@
       ensureBar(post,record);hidden(record.bar,false);
       if(record.bar.className!=="lsf-bar")record.bar.className="lsf-bar";
       textOf(record.show,"Show");
-      textOf(record.foldLabel,hiding.map(c=>c.name).join(" · "));
+      textOf(record.foldLabel,hiding.map(c=>c.corrected?c.name+" · corrected":c.name+" · "+pct(c.p)+" confidence").join("; "));
       attr(record.bar,"data-label",hiding.map(c=>c.name).join(" · "));
       attr(record.bar,"aria-label","Hidden post: "+record.bar.dataset.label);
       attr(record.show,"aria-label","Show post hidden as "+record.bar.dataset.label);

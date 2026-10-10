@@ -39,7 +39,7 @@ const assert=require('node:assert/strict');
  await page.waitForSelector('#slop.lsf-folded');
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),false);
  assert.equal(await badge('slop').count(),0);
- assert.equal(await page.locator('#slop .lsf-bar span').innerText(),'Slop');
+ assert.equal(await page.locator('#slop .lsf-bar span').innerText(),'Slop · 95% confidence');
  // After "Show anyway" the revealed post shows what applies.
  await page.locator('#slop .lsf-bar button').filter({hasText:'Show'}).click();
  assert.equal(await page.locator('#slop .update-components-text').isVisible(),true);
