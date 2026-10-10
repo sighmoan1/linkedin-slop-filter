@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {DEFAULTS,DEFAULT_CATEGORIES,requestFor,validScores,applies} from '../core.mjs';
+import {DEFAULTS,DEFAULT_CATEGORIES,requestFor,validScores,applies,isFeedUrl,FEED_PATHS} from '../core.mjs';
 assert.equal(DEFAULTS.provider,'jev');
 assert.equal(DEFAULTS.jevKey,'');
 assert.equal(DEFAULTS.openaiKey,'');
@@ -19,3 +19,7 @@ assert.equal(requestFor(DEFAULTS,'test').body.questions.slop.type,'noul');
 assert.equal(requestFor({...DEFAULTS,provider:'openai'},'test').body.questions[0].type,'predicate');
 assert.throws(()=>requestFor(DEFAULTS,'test',[]),/No categories/);
 console.log('PASS: provider schemas, malformed/refused answers, strict 80% boundary');
+
+for(const path of FEED_PATHS)assert.equal(isFeedUrl('https://www.linkedin.com'+path+'?trk=feed'),true);
+for(const url of ['https://www.linkedin.com/feed/update/123/','https://www.linkedin.com/feed/network/post/','https://www.linkedin.com/messaging/','https://www.linkedin.com/in/example/','https://www.linkedin.com.evil.example/feed/','http://www.linkedin.com/feed/','https://user@www.linkedin.com/feed/',null,'invalid'])assert.equal(isFeedUrl(url),false);
+console.log('PASS: known feed routes and exclusion of detail/private/foreign pages');

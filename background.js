@@ -1,4 +1,4 @@
-import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection} from "./core.mjs";
+import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl} from "./core.mjs";
 // API keys remain in trusted extension contexts.
 chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
@@ -42,7 +42,7 @@ function senderKind(sender) {
   if (sender?.id && chrome.runtime.id && sender.id !== chrome.runtime.id) return null;
   try {
     const url = new URL(sender?.url);
-    if (url.origin === "https://www.linkedin.com" && (url.pathname === "/feed" || url.pathname.startsWith("/feed/"))) return "feed";
+    if (isFeedUrl(sender.url)) return "feed";
     const base = chrome.runtime.getURL?.("");
     if (base) {
       const own = new URL(base);

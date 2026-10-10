@@ -47,7 +47,7 @@ const send = (message, sender = feed) => new Promise(resolve => {
 const rejected = (message, sender = feed) => assert.equal(handler(message,sender,()=>assert.fail("rejected message responded")),false);
 
 for (const sender of [
-  {url:"https://www.linkedin.com/messaging/"},{url:"https://www.linkedin.com/in/person/"},
+  {url:"https://www.linkedin.com/feed/update/urn:li:activity:123/"},{url:"https://www.linkedin.com/feed/foryou/detail/"},{url:"https://www.linkedin.com/messaging/"},{url:"https://www.linkedin.com/in/person/"},
   {url:"chrome-extension://other-extension/options.html"},{url:"chrome-extension://test-extension/untrusted.html"},
   {url:"https://test-extension/options.html"},{...trusted,id:"other"},{}, {url:"bad-url"}
 ]) rejected({type:"experience"},sender);
@@ -56,6 +56,7 @@ rejected({type:"classify",text:"test"},trusted);
 rejected({type:"playground",text:"x".repeat(12001)},trusted);
 rejected(null);
 
+for(const path of core.FEED_PATHS){const safe=await send({type:"settings"},{...feed,url:"https://www.linkedin.com"+path+"?trk=feed"});assert.deepEqual(Object.keys(safe).sort(),["categories","configuration","enabled","provider"]);assert.equal(JSON.stringify(safe).includes("PRIVATE-TEST-KEY"),false);}
 const before = (await send({type:"settings"})).configuration;
 assert.deepEqual(Object.keys(await send({type:"settings"})).sort(),["categories","configuration","enabled","provider"]);
 const themed = await send({type:"appearance",appearance:{theme:"punchy",groupHidden:true,labels:"off",jevKey:"evil",categories:[]}});
