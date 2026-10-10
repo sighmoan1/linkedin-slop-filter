@@ -51,6 +51,8 @@ The interface uses system sans-serif fonts, neutral white/grey surfaces and blue
 
 A current result above a Hide category’s threshold collapses the post immediately, including posts on screen, hovered or keyboard focused. **Show post** keeps an explicitly revealed post open until you choose **Hide post again**; temporary **Show everything** also keeps posts visible. If a focused post folds, focus moves to Show post. Scoring and deliberate reveal/collapse use measured anchoring to preserve reading position. There are no animated post-height transitions. See [the feed design and release checks](docs/feed-experience.md).
 
+Hidden rows show the strongest matching Hide category, its confidence, and the optional author name. Review scores retains all categories. The extension targets WCAG 2.2 AA; see [accessibility checks and verification limits](docs/accessibility.md).
+
 ## Requests, failures and storage
 
 By default, only extracted post body text is sent: at most 12,000 characters for cloud providers or 2,000 for local Ollama. Line and paragraph boundaries are preserved. Messages, comments, profile metadata, cookies and extension controls are excluded. The extension does not expand “see more”, click, like or post for you. With image checks off, cards without extractable body text stay visible and are not scored.

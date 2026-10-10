@@ -2,6 +2,7 @@ const {chromium}=require('playwright');
 const fs=require('node:fs');
 const path=require('node:path');
 const assert=require('node:assert/strict');
+const {audit,controlStates,textSpacing}=require('./accessibility.cjs');
 const cats=[
  {id:'slop',name:'Slop',action:'hide',threshold:.8},
  {id:'brainrot',name:'Brainrot',action:'label',threshold:.8},
@@ -53,10 +54,10 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
  // Compact hidden rows and one visible-post menu, including draft cancellation and keyboard recovery.
  for(const width of [1000,320]){
   const {page,errors}=await fixture([{id:'compact',scores:allScores({slop:.95,advert:.94})}],{top:900,width});
-  await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='advert'?{...c,action:'hide'}:c));await page.waitForFunction(()=>document.querySelector('#compact .lsf-fold-name')?.textContent==='Slop • 95% confidence • Advert • 94% confidence');
+  await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='advert'?{...c,action:'hide'}:c));await page.waitForFunction(()=>document.querySelector('#compact .lsf-fold-name')?.textContent==='Slop • 95% confidence');
   const screenshotDir=process.env.FEED_SCREENSHOTS;if(screenshotDir){fs.mkdirSync(screenshotDir,{recursive:true});await atTop(page,'compact',100);await page.locator('#compact').screenshot({path:path.join(screenshotDir,'compact-row-'+width+'.png')});}
-  const row=page.locator('#compact .lsf-bar');assert.equal(await row.locator('button').count(),1);assert.equal(await row.locator('.lsf-fold-name').innerText(),'Slop • 95% confidence • Advert • 94% confidence');
-  assert.equal(await row.getAttribute('aria-label'),'Hidden post: Slop • 95% confidence • Advert • 94% confidence');
+  const row=page.locator('#compact .lsf-bar');assert.equal(await row.locator('button').count(),1);assert.equal(await row.locator('.lsf-fold-name').innerText(),'Slop • 95% confidence');
+  assert.equal(await row.getAttribute('aria-label'),'Hidden post: Slop • 95% confidence');
   assert.match(await row.locator('.lsf-fold-name').getAttribute('title'),/not been checked against measured probabilities/);
   assert.ok(await row.evaluate(e=>e.getBoundingClientRect().height)<=48,'hidden row stays compact');
   assert.equal(await page.locator('#compact .lsf-panel, #compact .lsf-tools').count(),0);
@@ -70,6 +71,16 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await menu.click();assert.equal(await page.locator('#compact input[value=slop]').isChecked(),true,'Escape discards unsaved edits');
   await page.locator('#compact .lsf-bar button').click();await page.waitForSelector('#compact.lsf-folded');assert.equal(await page.locator('#compact .lsf-panel, #compact .lsf-tools').count(),0,'re-hide removes the menu');assert.equal(await row.locator('button').evaluate(e=>e===document.activeElement),true);
   assert.equal(await page.evaluate(()=>window.corrections.length),0,'reading scores and cancelling never stores a post');assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
+ }
+ // Strongest Hide match wins; higher non-Hide scores are excluded and ties are stable.
+ {
+  const {page,errors}=await fixture([{id:'strongest',scores:allScores({slop:.91,advert:.98,nourishment:.99})},{id:'tie',scores:allScores({slop:.95,advert:.95})}]);
+  await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='advert'?{...c,action:'hide'}:c));
+  await page.waitForFunction(()=>document.querySelector('#strongest .lsf-fold-name')?.textContent==='Advert • 98% confidence');
+  assert.equal(await page.locator('#tie .lsf-fold-name').innerText(),'Slop • 95% confidence');
+  await page.locator('#strongest .lsf-bar button').click();await page.locator('#strongest .lsf-tools button').filter({hasText:'Review scores'}).click();
+  assert.match(await page.locator('#strongest .lsf-panel').innerText(),/Slop\s+91%/);assert.match(await page.locator('#strongest .lsf-panel').innerText(),/Advert\s+98%/);
+  await audit(page,'[data-lsf-ui]');assert.deepEqual(errors,[]);
  }
  // Author display is optional, local, and uses the outer author rather than social context.
  {
@@ -224,8 +235,8 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
  {
   const {page,errors}=await fixture([{id:'mix',long:true,scores:allScores({slop:.95,advert:.94,nourishment:.97,custom:.92})}],{top:900});
   await page.evaluate(()=>window.categories=window.categories.map(c=>['advert','nourishment','custom'].includes(c.id)?{...c,action:'hide'}:c));await page.waitForSelector('#mix.lsf-folded');
-  await page.waitForFunction(()=>document.querySelector('#mix .lsf-fold-name')?.textContent.includes('Custom'));
-  const names=await page.locator('#mix .lsf-fold-name').innerText();assert.equal(names,'Good post • 97% confidence • Slop • 95% confidence • Advert • 94% confidence • Custom • 92% confidence');for(const label of ['Slop','Advert','Good post','Custom'])assert.ok(names.includes(label));
+  await page.waitForFunction(()=>document.querySelector('#mix .lsf-fold-name')?.textContent==='Good post • 97% confidence');
+  const names=await page.locator('#mix .lsf-fold-name').innerText();assert.equal(names,'Good post • 97% confidence');
   const originals=await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)}));
   assert.equal(await page.locator('.lsf-feed-toolbar select').count(),0);assert.equal(await page.locator('#mix').getAttribute('data-lsf-theme'),'native');assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),names);
   assert.deepEqual(await page.evaluate(()=>({outside:getComputedStyle(document.getElementById('outside')).fontFamily,nav:getComputedStyle(document.getElementById('global-nav')).backgroundColor,comments:getComputedStyle(document.querySelector('.native-comments')).fontFamily,categories:JSON.stringify(window.categories)})),originals);
@@ -243,7 +254,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.locator('#mix .lsf-correction button').filter({hasText:'Cancel'}).click();assert.equal(await page.locator('#mix .lsf-tools button').filter({hasText:/^Review scores$/}).evaluate(e=>e===document.activeElement),true);await page.locator('#mix .lsf-tools button').filter({hasText:/^Review scores$/}).click();assert.equal(await page.locator('#mix .lsf-correction input').first().evaluate(e=>e===document.activeElement),true);await page.locator('#mix .lsf-correction input').evaluateAll(es=>es.forEach(e=>e.checked=false));
   await page.locator('#mix .lsf-correction input[value=nourishment]').check();await page.locator('#mix .lsf-correction input[value=custom]').check();await page.locator('#mix .lsf-correction button').filter({hasText:'Save correction'}).click();await page.waitForFunction(()=>window.corrections.length===1);
   assert.equal(await folded(page,'mix'),false);assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),'Shown · Good post · Custom');assert.equal(await page.locator('#mix').evaluate(e=>e.dataset.lsfTone),'nourishment');assert.deepEqual(await page.evaluate(()=>window.corrections[0].categoryIds),['nourishment','custom']);const stored=await page.evaluate(()=>window.corrections[0].text);assert.match(stored,/^\[mix\]/);assert.ok(!stored.includes('Avery')&&!stored.includes('COMMENT TEXT')&&!stored.includes('Like'));
-  await page.locator('#mix .lsf-bar button').filter({hasText:'Hide post again'}).click();await page.waitForSelector('#mix.lsf-folded');assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),'Good post • Custom');await page.locator('#mix .lsf-bar button').filter({hasText:/^Show post$/}).click();
+  await page.locator('#mix .lsf-bar button').filter({hasText:'Hide post again'}).click();await page.waitForSelector('#mix.lsf-folded');assert.equal(await page.locator('#mix .lsf-fold-name').innerText(),'Good post');await page.locator('#mix .lsf-bar button').filter({hasText:/^Show post$/}).click();
   await page.locator('#mix .lsf-tools button').filter({hasText:'Review scores'}).click();await page.locator('#mix .lsf-correction input').evaluateAll(es=>es.forEach(e=>e.checked=false));await page.locator('#mix .lsf-correction button').filter({hasText:'Save correction'}).click();await page.waitForFunction(()=>window.corrections.length===2);assert.deepEqual(await page.evaluate(()=>window.corrections[1].categoryIds),[]);await settle(page);assert.equal(await page.locator('#mix .lsf-badge').innerText(),'No category');assert.equal(await page.locator('#mix .lsf-bar').isVisible(),false);assert.equal(await page.locator('#mix .lsf-tools button').filter({hasText:'Hide post again'}).isVisible(),false);await page.locator('#mix .lsf-tools button').filter({hasText:/^Review scores$/}).click();assert.match(await page.locator('#mix .lsf-panel').textContent(),/original model scores/);assert.match(await page.locator('#mix .lsf-panel').innerText(),/Slop\s+95%/);
   assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
  }
@@ -304,7 +315,8 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   const {page,errors}=await fixture([{id:'look1',scores:allScores({slop:.95})},{id:'look2',scores:allScores({brainrot:.96})},{id:'look3',long:true,scores:allScores({nourishment:.96})}],{top:900});
   await page.evaluate(()=>window.categories=window.categories.map(c=>c.id==='brainrot'?{...c,action:'hide'}:c));await page.waitForFunction(()=>window.calls.length===3);await page.waitForSelector('#look2.lsf-folded');
   await atTop(page,'look1',150);
-  for(const width of [736,360,320]){await page.setViewportSize({width,height:900});await settle(page);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'no horizontal overflow at '+width);}
+  await audit(page,'[data-lsf-ui]');await controlStates(page,'[data-lsf-ui] button');
+  for(const width of [736,360,320]){await page.setViewportSize({width,height:900});await settle(page);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'no horizontal overflow at '+width);await textSpacing(page,'[data-lsf-ui]');}
   await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});
   assert.equal(await page.locator('#look1').getAttribute('data-lsf-scheme'),'light','light LinkedIn stays light when the OS prefers dark');
   assert.equal(await page.locator('.lsf-feed-toolbar').getAttribute('data-lsf-scheme'),'light','toolbar follows the native feed surface');
@@ -314,6 +326,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.evaluate(()=>document.documentElement.classList.add('host-dark'));
   await page.waitForFunction(()=>document.getElementById('look1').dataset.lsfScheme==='dark'&&document.querySelector('.lsf-feed-toolbar').dataset.lsfScheme==='dark');
   await page.emulateMedia({colorScheme:'light',reducedMotion:'reduce'});
+  await audit(page,'[data-lsf-ui]');await controlStates(page,'[data-lsf-ui] button');
   assert.equal(await page.locator('#look1').getAttribute('data-lsf-scheme'),'dark','dark LinkedIn stays dark when the OS prefers light');
   const styles=await page.locator('#look3').evaluate(e=>({card:getComputedStyle(e).backgroundColor,header:getComputedStyle(e.querySelector('.native-header strong')).color,body:getComputedStyle(e.querySelector('.update-components-text')).backgroundColor,link:getComputedStyle(e.querySelector('.update-components-text a')).color,controls:getComputedStyle(e.querySelector('.native-controls button')).color,comments:getComputedStyle(e.querySelector('.native-comments')).color}));
   assert.deepEqual(styles,{card:'rgb(27, 31, 35)',header:'rgb(38, 50, 56)',body:'rgba(0, 0, 0, 0)',link:'rgb(10, 102, 194)',controls:'rgb(100, 114, 122)',comments:'rgb(100, 114, 122)'},'Native leaves extracted text, links, metadata and controls untouched');
