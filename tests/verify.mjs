@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {verifyKey,verifyRequest,keyFingerprint,DEFAULTS} from '../core.mjs';
+import {verifyKey,verifyOllama,verifyRequest,keyFingerprint,DEFAULTS} from '../core.mjs';
 const KEY='sk-SECRET-KEY-VALUE';
 const good={jev:{answers:{slop:{type:'noul',noul:.4}}},openai:{answers:[{name:'slop',type:'predicate',probability:.4}]}};
 const reply=(status,body)=>async()=>({ok:status>=200&&status<300,status,json:async()=>{if(body instanceof Error)throw body;return body;}});
@@ -54,3 +54,37 @@ assert.equal(DEFAULTS.jevKey,'');
 const a=await keyFingerprint(KEY),b=await keyFingerprint(KEY),c=await keyFingerprint(KEY+'x');
 assert.equal(a,b);assert.notEqual(a,c);assert.match(a,/^[0-9a-f]{12}$/);
 console.log('PASS: key verification requests, every failure class, no key leakage, invalid answers, timeout, fingerprint');
+
+const localGood={done:true,done_reason:'stop',message:{role:'assistant',content:'{"slop":0.4}'}};
+let localSeen;
+const local=await verifyOllama(' http://localhost:11435 ',' llama3.1:8b ',{fetchImpl:async(url,request)=>{
+  localSeen={url,request};return reply(200,localGood)();
+}});
+assert.equal(local.ok,true);assert.equal(localSeen.url,'http://localhost:11435/api/chat');
+assert.deepEqual(localSeen.request.headers,{'Content-Type':'application/json'});
+assert.equal(localSeen.request.credentials,'omit');assert.equal(localSeen.request.redirect,'error');
+assert.equal(localSeen.request.method,'POST');
+const localBody=JSON.parse(localSeen.request.body);
+assert.equal(localBody.model,'llama3.1:8b');assert.equal(localBody.stream,false);
+assert.deepEqual(localBody.format.required,['slop']);
+assert.match(JSON.parse(localBody.messages[1].content).post_text,/Thrilled to share/);
+assert.equal(JSON.stringify(localSeen).includes(KEY),false);
+let invalidCalls=0;
+for(const [endpoint,model] of [['https://127.0.0.1:11434','llama3.1:8b'],['http://remote.example:11434','llama3.1:8b'],['http://localhost/api/chat','llama3.1:8b'],['http://user:pass@localhost','llama3.1:8b'],['http://localhost',''],['http://localhost','qwen3:cloud'],[undefined,undefined]]){
+  assert.equal((await verifyOllama(endpoint,model,{fetchImpl:async()=>{invalidCalls++;}})).code,'configuration');
+}
+assert.equal(invalidCalls,0);
+for(const [status,code,help] of [[403,'origin_denied',/OLLAMA_ORIGINS/],[404,'not_found',/ollama pull/],[500,'http_error',/HTTP 500/],[400,'http_error',/HTTP 400/]]){
+  const result=await verifyOllama(DEFAULTS.ollamaEndpoint,DEFAULTS.ollamaModel,{fetchImpl:reply(status,{error:KEY})});
+  assert.equal(result.ok,false);assert.equal(result.code,code);assert.equal(result.status,status);assert.match(result.message,help);
+  assert.equal(JSON.stringify(result).includes(KEY),false);
+}
+for(const body of [{},{...localGood,done:false},{...localGood,done_reason:'length'},{...localGood,message:{role:'assistant',content:'{"slop":7}'}},new Error(KEY)]){
+  const result=await verifyOllama(DEFAULTS.ollamaEndpoint,DEFAULTS.ollamaModel,{fetchImpl:reply(200,body)});
+  assert.equal(result.code,'invalid_response');assert.equal(result.ok,false);assert.equal(JSON.stringify(result).includes(KEY),false);
+}
+const localNet=await verifyOllama(DEFAULTS.ollamaEndpoint,DEFAULTS.ollamaModel,{fetchImpl:async()=>{throw new Error(KEY);}});
+assert.equal(localNet.code,'network');assert.match(localNet.message,/Start Ollama/);assert.equal(JSON.stringify(localNet).includes(KEY),false);
+const localSlow=await verifyOllama(DEFAULTS.ollamaEndpoint,DEFAULTS.ollamaModel,{timeoutMs:20,fetchImpl:(u,req)=>new Promise((_,reject)=>req.signal.addEventListener('abort',()=>reject(Object.assign(new Error('aborted'),{name:'AbortError'}))))});
+assert.equal(localSlow.code,'timeout');assert.match(localSlow.message,/ollama run/);
+console.log('PASS: local Ollama synthetic verification, keyless loopback requests, configuration, service failures, invalid output and timeout');

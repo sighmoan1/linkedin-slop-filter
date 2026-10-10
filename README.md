@@ -19,7 +19,7 @@ The popup reports **Feed connected** and the number of readable posts found. Hom
 
 Existing category definitions are preserved. To adopt revised built-in prompts, use **Review revised definitions** in Categories, review, apply and save. This keeps custom categories, names, actions, thresholds and order. **Restore defaults** is a separate, deliberate reset of the whole category draft.
 
-Cloud API billing is separate from ChatGPT subscriptions. No key is included. Key tests make one tiny real request using the key as entered; they do not count against the feed/playground session limit. Their result verifies access, not filtering quality.
+Cloud API billing is separate from ChatGPT subscriptions. No key is included. Key tests make one tiny real request using the key as entered; they do not count against the feed/playground session limit. Their result verifies access, not filtering quality. **Test local Ollama** checks the endpoint and downloaded model entered in Provider with one fixed synthetic classification, before saving and while filtering is paused. It uses no key, saves nothing and does not count against the feed/playground cap. After a pass, save settings and use **Try a post** to check your category rules.
 
 ## Choose what happens
 
