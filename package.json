@@ -10,7 +10,7 @@
     "test:background": "node tests/background.mjs && node tests/experience.mjs && node tests/experience-background.mjs",
     "test:syntax": "node tests/syntax.mjs",
     "test:feed": "node tests/dom.cjs",
-    "test": "npm run test:core && npm run test:categories && npm run test:verify && npm run test:cache && npm run test:background && npm run test:syntax && npm run test:feed && npm run test:options && npm run test:setup && npm run test:cacheui && npm run test:local && npm run test:localui && npm run test:catui",
+    "test": "npm run test:core && npm run test:categories && npm run test:verify && npm run test:cache && npm run test:background && npm run test:syntax && npm run test:feed && npm run test:options && npm run test:setup && npm run test:cacheui && npm run test:local && npm run test:localui && npm run test:catui && npm run test:experienceui",
     "test:verify": "node tests/verify.mjs",
     "test:options": "node tests/options.cjs",
     "test:setup": "node tests/setup.cjs",
@@ -22,6 +22,7 @@
     "test:local": "node tests/local.mjs && node tests/evaluation.mjs && node tests/rubrics.mjs",
     "test:localui": "node tests/local-dom.cjs && node tests/local-options.cjs",
     "test:catui": "node tests/categories-ui.cjs",
+    "test:experienceui": "node tests/experience-ui.cjs && node tests/experience-service-ui.cjs",
     "report:rubrics": "node scripts/report-rubrics.mjs",
     "evaluate:categories": "node scripts/evaluate-categories.mjs"
   },
