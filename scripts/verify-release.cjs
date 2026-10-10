@@ -46,7 +46,7 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   assert.equal(Number.isInteger(activeFeedTab.id),true);
   assert.equal(typeof activeFeedTab.url,'undefined','existing permissions expose the tab id, not its URL');
   await feed.waitForSelector('#brainrot .lsf-arrived:not([hidden])');
-  assert.ok((await feed.evaluate(()=>document.fonts.load('17px "Slop Filter Lexend"'))).length>0,'the locally shipped feed font loads');
+  assert.match(await feed.locator('[data-lsf-ui]').first().evaluate(e=>getComputedStyle(e).fontFamily),/Segoe UI/,'feed controls use system typography');
   assert.equal(await feed.locator('#brainrot.lsf-folded').count(),0,'a visible newly scored card stays readable');
   for(const id of ['brainrot','slop-one','slop-two','advert','slop-three']){
    await feed.locator('#'+id).scrollIntoViewIfNeeded();
@@ -126,7 +126,7 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   await popup.waitForSelector('#requests');
   await popup.waitForFunction(()=>document.getElementById('showEverything').disabled===false);
   assert.match(await popup.locator('#feedConnection').innerText(),/7 posts found/);
-  assert.ok((await options.evaluate(()=>document.fonts.load('19px "Lexend Deca"'))).length>0,'the locally shipped settings font loads');
+  assert.match(await options.locator('body').evaluate(e=>getComputedStyle(e).fontFamily),/Segoe UI/,'settings use system typography');
   await popup.locator('#showEverything').click();
   await feed.waitForFunction(()=>document.querySelectorAll('.lsf-folded').length===0);
   await popup.locator('#showEverything').click();
@@ -166,7 +166,7 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   await feed.reload();await feed.waitForSelector('.lsf-feed-toolbar');
   const nextWorker=await restarted;
   assert.deepEqual(await nextWorker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:true,posts:7},'a page reload reconnects the new content context');
-  assert.ok((await feed.evaluate(()=>document.fonts.load('17px "Slop Filter Lexend"'))).length>0,'font still loads after extension and page reload');
+  assert.match(await feed.locator('[data-lsf-ui]').first().evaluate(e=>getComputedStyle(e).fontFamily),/Segoe UI/,'system typography survives extension and page reload');
   await feed.evaluate(()=>history.pushState(null,'','/feed/network/'));
   assert.deepEqual(await nextWorker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:true,posts:7},'the Network tab is a feed');
   await feed.evaluate(()=>history.pushState(null,'','/feed/update/synthetic/'));

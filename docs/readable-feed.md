@@ -1,5 +1,7 @@
 # Readable interface and current feed routes
 
+Current styling follows [#65](https://github.com/sighmoan1/linkedin-slop-filter/issues/65): system sans-serif fonts, neutral surfaces, blue actions and compact spacing. The extension no longer loads or exposes the bundled font. The observations below record the earlier 2.0.1 design and route verification.
+
 Issue [#58](https://github.com/sighmoan1/linkedin-slop-filter/issues/58) addresses the owner's unreadable interface and missing feed controls.
 
 The installed Brave extension was observed on 10 October 2026 with filtering on and zero requests. Its popup rejected the signed-in `/feed/foryou/` page as a feed. LinkedIn's Network tab uses `/feed/network/`. Both are legitimate feeds and must be distinguished from `/feed/update/…` post detail pages.
