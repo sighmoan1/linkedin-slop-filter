@@ -48,7 +48,7 @@ An empty category list or all categories Off can be saved while filtering is dis
 
 Theme changes do not change actions, thresholds, definitions or requests. Styling is confined to the feed and leaves original links and controls in place. **Group consecutive hidden posts** is a separate option, off by default. Groups show a count and category composition, retain individual reveal controls and never span a visible post. Labels on visible posts can be switched off independently.
 
-The interface follows the owner's [whenisbins stylesheet reference](https://whenisbins.com/styles-new.css): warm paper, dark ink, teal buttons, substantial borders and a yellow/ink keyboard focus ring. Lexend Deca is bundled locally from [Google Fonts](https://github.com/google/fonts/tree/main/ofl/lexenddeca), with its [SIL Open Font License](assets/fonts/OFL.txt). Settings use 19px body text; feed controls and popup text use 17px, with at least 16px supporting text and large button targets. No fonts or styles are fetched at runtime.
+The interface uses system sans-serif fonts, neutral white/grey surfaces and blue controls to fit alongside LinkedIn. Settings use 16px body text, with compact 14px supporting text and popup/feed controls. Keyboard focus stays visible and action targets remain at least 44px tall. No fonts or styles are fetched at runtime.
 
 - **Show** reveals one original post in place for that card's lifetime. **Hide again** reverses it. Neither makes another request or saves a correction.
 - **Show everything** temporarily reveals the current feed without modifying saved rules. **Restore filtering** ends that override.

@@ -208,8 +208,8 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
    await noUrl.close();
   }
   await popup.click('#openSettings');assert.equal(await popup.evaluate(()=>window.optionsOpened),1);
-  await page.evaluate(()=>document.fonts.ready);assert.equal(await page.evaluate(()=>document.fonts.check('19px "Lexend Deca"')),true,'the shipped local font loads');
-  assert.equal(await page.locator('body').evaluate(e=>parseFloat(getComputedStyle(e).fontSize)),19);
+  assert.match(await page.locator('body').evaluate(e=>getComputedStyle(e).fontFamily),/Segoe UI/,'settings use system typography');
+  assert.equal(await page.locator('body').evaluate(e=>parseFloat(getComputedStyle(e).fontSize)),16);
   assert.ok(await popup.locator('#showEverything').evaluate(e=>e.getBoundingClientRect().height)>=48,'recovery has a readable touch target');
 
   for(const colorScheme of ['light','dark']) {

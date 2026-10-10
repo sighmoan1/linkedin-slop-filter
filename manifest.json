@@ -13,9 +13,5 @@
     "js": ["content.js"],
     "css": ["content.css"],
     "run_at": "document_idle"
-  }],
-  "web_accessible_resources": [{
-    "resources": ["assets/fonts/LexendDeca.ttf"],
-    "matches": ["https://www.linkedin.com/*"]
   }]
 }
