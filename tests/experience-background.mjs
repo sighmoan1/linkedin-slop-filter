@@ -13,13 +13,14 @@ const storage = data => ({
   setAccessLevel: async () => {}
 });
 let handler, opened = 0, calls = 0, active = 0, maxActive = 0, mode = "success", release;
-const badges = [], titles = [];
+const badges = [], titles = [], settingsTabs = [];
 const ownId = "test-extension";
 const feed = {id:ownId,url:"https://www.linkedin.com/feed/",tab:{id:7}};
 const trusted = {id:ownId,url:"chrome-extension://test-extension/options.html"};
 const popup = {...trusted,url:"chrome-extension://test-extension/popup.html"};
 const context = vm.createContext({...core,crypto:webcrypto,TextEncoder,AbortController,URL,setTimeout,clearTimeout,
   chrome:{storage:{local:storage(local),session:storage(session)},
+    tabs:{create:async args=>settingsTabs.push(args.url)},
     action:{setBadgeText:async v=>badges.push(v.text),setBadgeBackgroundColor:async()=>{},setTitle:async v=>titles.push(v.title)},
     runtime:{id:ownId,getURL:path=>"chrome-extension://test-extension/"+path,
       openOptionsPage:async()=>{opened++;},onMessage:{addListener:h=>handler=h}}},
@@ -71,7 +72,11 @@ await send({type:"showEverything",value:false,tabId:7},popup);
 assert.equal((await send({type:"experience"})).showEverything,false);
 assert.match((await send({type:"showEverything",value:true},popup)).error,/feed tab/);
 assert.deepEqual(await send({type:"openSettings",section:"categories"}),{ok:true});
-assert.equal(opened,1);
+assert.equal(opened,0);
+assert.deepEqual(settingsTabs,["chrome-extension://test-extension/options.html#categories"]);
+await send({type:"openSettings",section:"https://attacker.example/"});
+assert.equal(opened,1,"unknown sections only open this extension's default settings");
+assert.equal(settingsTabs.length,1,"arbitrary settings URLs are never opened");
 assert.equal((await send({type:"folded"})).ok,true);
 assert.equal((await send({type:"usage"},trusted)).folded,1);
 rejected({type:"folded"},trusted);
