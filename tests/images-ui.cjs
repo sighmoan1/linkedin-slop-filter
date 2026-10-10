@@ -33,7 +33,7 @@ const root=path.join(__dirname,'..');
   assert.equal(await page.locator('#cartoon').evaluate(e=>e.classList.contains('lsf-highlight')),false,'visual match removes Good post highlight');
   const urls=await page.evaluate(()=>window.calls.find(m=>m.text==='Generic lesson').imageUrls);assert.deepEqual(urls,['https://media.licdn.com/dms/image/cartoon']);
   assert.equal(await page.locator('#cartoon').evaluate(e=>e.classList.contains('lsf-folded')),false,'trial begins label-only');
-  await page.locator('#cartoon .lsf-tools button').filter({hasText:'Categories'}).click();
+  await page.locator('#cartoon .lsf-tools button').filter({hasText:'Review scores'}).click();
   await page.locator('#cartoon .lsf-score-help summary').click();assert.match(await page.locator('#cartoon .lsf-correction').innerText(),/1,?234|1234/);
   await page.locator('#cartoon .lsf-correction button').filter({hasText:'Cancel'}).click();
   // Display-only changes reuse the original image score and normal recovery controls.

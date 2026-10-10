@@ -47,10 +47,10 @@ const assert=require('node:assert/strict');
  assert.equal(await badge('slop').isVisible(),false,'revealed header names the categories without a duplicate footer label');
  assert.match(await badge('slop').getAttribute('class'),/lsf-c-hide/);
  assert.match(await badge('slop').getAttribute('title'),/not proof of AI authorship/);
- await page.locator('#slop .lsf-tools button').filter({hasText:/^Categories$/}).click();
+ await page.locator('#slop .lsf-tools button').filter({hasText:/^Review scores$/}).click();
  assert.match(await page.locator('#slop .lsf-panel').innerText(),/Slop\s+95%\s+Hide above 80%/);
  assert.match(await page.locator('#slop .lsf-panel').innerText(),/Advert\s+10%/);
- await page.locator('#slop .lsf-tools button').filter({hasText:/^Categories$/}).click();
+ await page.locator('#slop .lsf-tools button').filter({hasText:/^Review scores$/}).click();
 
  // Exactly at the threshold stays visible, and nothing applies.
  await card('edge','Useful real story at exact threshold');
@@ -72,9 +72,9 @@ const assert=require('node:assert/strict');
  // Scores below every threshold stay visible with a neutral chip.
  await card('low','LOW useful technical post');await card('mid','MID some filler');await card('high','HIGH nearly slop');
  for(const id of ['low','mid','high']){await waitBadge(id,/^No category$/);assert.equal(await page.locator('#'+id).evaluate(e=>e.classList.contains('lsf-folded')),false);}
- await page.locator('#high .lsf-tools button').filter({hasText:/^Categories$/}).click();
+ await page.locator('#high .lsf-tools button').filter({hasText:/^Review scores$/}).click();
  assert.match(await page.locator('#high .lsf-panel').innerText(),/Slop\s+70%/);
- await page.locator('#high .lsf-tools button').filter({hasText:/^Categories$/}).click();
+ await page.locator('#high .lsf-tools button').filter({hasText:/^Review scores$/}).click();
 
  // A post being scored says so, then shows its result.
  await card('slow','SLOW still thinking');

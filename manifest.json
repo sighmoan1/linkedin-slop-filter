@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LinkedIn Slop Filter",
   "version": "2.1.0",
-  "description": "Reversibly filter low-value LinkedIn posts with category confidence and local corrections.",
+  "description": "Hide LinkedIn posts that match your rules. Show hidden posts again and save corrections on this computer.",
   "permissions": [
     "storage"
   ],

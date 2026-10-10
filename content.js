@@ -185,11 +185,11 @@
   }
   function status(record,hits) {
     if(hasCorrection(record))return {text:hits.length?hits.map(c=>c.name).join(" · "):"No category",level:hits.some(c=>c.action==="hide")?"lsf-c-hide":hits.some(c=>c.action==="highlight")?"lsf-c-highlight":hits.length?"lsf-c-label":"lsf-c-none",title:"Your saved correction applies to this post. Category scores retain the original model scores; no automatic training."};
-    if(record.scores&&record.configuration!==settings.configuration)return {text:"Updating scores",level:"lsf-muted",title:"Previous scores are stale. The original post stays visible while the new questions are scored."};
+    if(record.scores&&record.configuration!==settings.configuration)return {text:"Updating scores",level:"lsf-muted",title:"Settings have changed. The post stays visible while new scores are checked."};
     if(record.scores) {
       const partial=settings.categories.some(c=>!(c.id==="lsf-visual-slop"&&["no-image","skipped-hidden"].includes(record.imageStatus))&&typeof record.scores[c.id]!=="number");
       const level=hits.some(c=>c.action==="hide")?"lsf-c-hide":hits.some(c=>c.action==="highlight")?"lsf-c-highlight":hits.length?"lsf-c-label":"lsf-c-none";
-      return {text:(hits.length?hits.map(c=>c.name).join(" · "):partial?"Partly scored":"No category")+(record.imageStatus==="unavailable"?" · Image unchecked":""),level,title:(record.provider==="ollama"?"Local self-reported confidence, not a calibrated probability. ":"Model estimates, not proof of AI authorship. ")+(record.imageModel?"Image model: "+record.imageModel+". ":record.imageStatus==="unavailable"?"Image check unavailable; only text assessed. ":"")+"A category applies only above its threshold. Open Categories for scores and corrections."};
+      return {text:(hits.length?hits.map(c=>c.name).join(" · "):partial?"Partly scored":"No category")+(record.imageStatus==="unavailable"?" · Image unchecked":""),level,title:(record.provider==="ollama"?"Local scores express model confidence; they have not been checked against measured probabilities. ":"Model estimates, not proof of AI authorship. ")+(record.imageModel?"Image model: "+record.imageModel+". ":record.imageStatus==="unavailable"?"Image check unavailable; only text assessed. ":"")+"A category applies only above its threshold. Choose Review scores to see scores or save a correction."};
     }
     if(record.pending)return {text:"Scoring…",level:"lsf-muted",title:"The original post stays visible while the model scores it."};
     if(record.error)return {text:"Not scored",level:"lsf-muted",title:"The post stays visible. Check provider status in extension settings."};
@@ -200,7 +200,7 @@
     const tools=shell("lsf-tools");
     const badge=node("span","lsf-badge");
     const controls=node("div","lsf-actions");
-    const correct=button("Categories",origin=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening)record.correctionOrigin=origin;},opening?"correction":"correct");},"lsf-button lsf-flat");
+    const correct=button("Review scores",origin=>{const opening=!record.correcting;act(post,record,()=>{record.correcting=opening;if(opening)record.correctionOrigin=origin;},opening?"correction":"correct");},"lsf-button lsf-flat");
     correct.setAttribute("aria-controls","lsf-categories-"+record.id);
     const hideAgain=button("Hide post again",()=>act(post,record,()=>{record.revealed=false;},"row"));
     controls.append(correct,hideAgain);tools.append(badge,controls);post.append(tools);
@@ -219,8 +219,8 @@
     if(!record.correcting){record.correction?.remove();record.correction=null;record.correctionInputs=null;record.correctionSignature=null;return;}
     if(!record.correction) {
       const form=shell("lsf-panel lsf-correction");form.setAttribute("role","region");form.id="lsf-categories-"+record.id;form.setAttribute("aria-label","Post categories and scores");
-      const heading=node("p","lsf-panel-heading","Post categories");heading.tabIndex=-1;record.correctionHeading=heading;
-      form.append(heading,node("p","lsf-note","Select every category that fits, or none. Saving stores this post locally."));
+      const heading=node("p","lsf-panel-heading","Review scores and correct categories");heading.tabIndex=-1;record.correctionHeading=heading;
+      form.append(heading,node("p","lsf-note","Select the categories that fit, or leave them all unselected. Save correction stores the post text and your choices in this browser profile."));
       const table=node("table","lsf-score-table"),thead=node("thead"),head=node("tr"),fields=node("tbody","lsf-correction-fields");
       for(const label of ["Category","Score","Your rule"])head.append(node("th","",label));
       thead.append(head);table.append(thead,fields);record.correctionFields=fields;
@@ -228,7 +228,7 @@
       const help=node("details","lsf-score-help");help.append(node("summary","","About scores"),note);
       Object.assign(record,{scoreStatus,scoreNote:note});
       const message=node("p","lsf-note");message.setAttribute("role","status");
-      const save=button("Save categories",async()=>{
+      const save=button("Save correction",async()=>{
         if(!samePost(post,record)){scan();return;}
         save.disabled=true;textOf(message,"Saving locally…");
         const correctionConfiguration=settings.configuration;
@@ -243,15 +243,15 @@
       });
       save.disabled=!record.text.trim();if(save.disabled)textOf(message,"Image-only posts can be revealed; saved corrections require a caption.");
       const cancel=button("Cancel",()=>act(post,record,()=>{record.correcting=false;},"cancel"),"lsf-button lsf-flat");
-      const manage=button("Manage category rules",()=>openSettings(),"lsf-button lsf-flat");
+      const manage=button("Edit post rules",()=>openSettings(),"lsf-button lsf-flat");
       const actions=node("div","lsf-panel-actions");actions.append(save,cancel,manage);
       form.addEventListener("keydown",e=>{if(e.key==="Escape"){e.preventDefault();e.stopPropagation();act(post,record,()=>{record.correcting=false;},"cancel");}});
       form.append(scoreStatus,table,help,message,actions);post.append(form);record.correction=form;
     }
     const stale=record.scores&&record.configuration!==settings.configuration;
     const missing=settings.categories.some(c=>!(c.id==="lsf-visual-slop"&&["no-image","skipped-hidden"].includes(record.imageStatus))&&typeof record.scores?.[c.id]!=="number");
-    textOf(record.scoreStatus,record.imageStatus==="unavailable"?"Image unchecked — only text assessed":stale?"Updating scores — previous scores are stale":record.scores?(missing?"Partly scored":"Model scores"):record.pending?"Scoring…":"Not scored");
-    textOf(record.scoreNote,(hasCorrection(record)?"Your correction determines this post’s categories; these are the original model scores. ":"")+"Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores are self-reported confidence, not calibrated probabilities.":"Model estimates do not establish AI authorship.")+(record.imageModel?" Images: "+record.imageModel+".":"")+(record.imageUsage?.inputTokens!==undefined?" Image input: "+record.imageUsage.inputTokens+" tokens.":"")+(record.imageUsage?.cost!==undefined?" Image request cost: $"+record.imageUsage.cost+".":""));
+    textOf(record.scoreStatus,record.imageStatus==="unavailable"?"Image check unavailable. Only text checked.":stale?"Updating scores. Settings have changed.":record.scores?(missing?"Partly scored":"Model scores"):record.pending?"Scoring…":"Not scored");
+    textOf(record.scoreNote,(hasCorrection(record)?"Your correction determines this post’s categories; these are the original model scores. ":"")+"Scores must be strictly above your thresholds. Off categories are not requested. "+(record.provider==="ollama"?"Local scores express model confidence; they have not been checked against measured probabilities.":"Model estimates do not establish AI authorship.")+(record.imageModel?" Images: "+record.imageModel+".":"")+(record.imageUsage?.inputTokens!==undefined?" Image input: "+record.imageUsage.inputTokens+" tokens.":"")+(record.imageUsage?.cost!==undefined?" Image request cost: $"+record.imageUsage.cost+".":""));
     const signature=JSON.stringify([settings.categories,record.scores]);
     if(record.correctionSignature!==signature) {
       const focused=document.activeElement;
@@ -260,7 +260,7 @@
       const rows=[],inputs=[];
       for(const c of settings.categories){const label=node("label"),input=node("input");input.type="checkbox";input.value=c.id;input.checked=previous.has(c.id)?previous.get(c.id):record.correctionIds?record.correctionIds.includes(c.id):hits.some(h=>h.id===c.id);label.append(input,node("span","",c.name));
         const row=node("tr"),category=node("td"),score=record.scores?.[c.id];category.append(label);
-        row.append(category,node("td","",typeof score==="number"?scoreText(score,c.threshold):c.id==="lsf-visual-slop"&&record.imageStatus==="no-image"?"No attachment":c.id==="lsf-visual-slop"&&record.imageStatus==="skipped-hidden"?"Skipped — text hides":"Not returned"),node("td","",c.action[0].toUpperCase()+c.action.slice(1)+" above "+pct(c.threshold)));rows.push(row);inputs.push(input);}
+        row.append(category,node("td","",typeof score==="number"?scoreText(score,c.threshold):c.id==="lsf-visual-slop"&&record.imageStatus==="no-image"?"No attachment":c.id==="lsf-visual-slop"&&record.imageStatus==="skipped-hidden"?"Skipped: text rule hides the post":"Not returned"),node("td","",c.action[0].toUpperCase()+c.action.slice(1)+" above "+pct(c.threshold)));rows.push(row);inputs.push(input);}
       record.correctionFields.replaceChildren(...rows);record.correctionInputs=inputs;record.correctionSignature=signature;
       if(focusId)(inputs.find(i=>i.value===focusId)||record.correctionHeading).focus({preventScroll:true});
     }
@@ -352,7 +352,7 @@
       const element=shell("lsf-feed-toolbar");element.setAttribute("role","region");element.setAttribute("aria-label","Feed filter controls");
       const main=node("div","lsf-toolbar-main"),title=node("span","lsf-toolbar-title","Feed filter");
       const all=button("Show everything",async()=>{try{setExperience(await send({type:"showEverything",value:!experience.showEverything}));schedulePaint();}catch{} });
-      const categories=button("Categories",()=>openSettings("categories"),"lsf-button lsf-flat");
+      const categories=button("Post rules",()=>openSettings("categories"),"lsf-button lsf-flat");
       const manage=button("Settings",()=>openSettings("feed"),"lsf-button lsf-flat");
       const status=node("p","lsf-toolbar-status");status.setAttribute("role","status");
       main.append(title,all,categories,manage);element.append(main,status);first.before(element);
@@ -363,7 +363,7 @@
     textOf(toolbar.all,experience.showEverything?"Restore filtering":"Show everything");if(toolbar.all.disabled===settings.enabled)toolbar.all.disabled=!settings.enabled;attr(toolbar.all,"aria-pressed",experience.showEverything);
     const hideNames=settings.categories.filter(c=>c.action==="hide").map(c=>c.name).join(", ");
     const failures=[...records.values()].filter(r=>r.error&&!r.scores).length;
-    const message=!settings.enabled?"Filtering is paused. Original posts stay visible.":experience.showEverything?"Showing every post temporarily. Your Hide rules are unchanged.":(hideNames?"Hide rules: "+hideNames+". Any matching Hide rule folds a post.":"No Hide rules. Original posts stay visible.")+(failures?" Some posts could not be scored; they stay visible.":"");
+    const message=!settings.enabled?"Filtering is paused. Original posts stay visible.":experience.showEverything?"Showing every post temporarily. Your Hide rules are unchanged.":(hideNames?"Hide rules: "+hideNames+". Any matching Hide rule hides the post.":"No Hide rules. Original posts stay visible.")+(failures?" Some posts could not be scored; they stay visible.":"");
     textOf(toolbar.status,message);
   }
   function eligible(post,record) {

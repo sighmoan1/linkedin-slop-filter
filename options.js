@@ -2,7 +2,7 @@ import {installImageComparison} from "./options-images.mjs";
 import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, verifyOllama, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary, normalizeImages, visualCategory, IMAGE_PERMISSION, VISUAL_ID} from "./core.mjs";
 const FIELDS=["enabled","provider","jevKey","openaiKey","ollamaEndpoint","ollamaModel","limit"];
 const ACTION_LABELS={hide:"Hide",highlight:"Highlight",label:"Label",off:"Off"};
-const ACTION_HELP={hide:"Replace matching posts with a row you can show.",highlight:"Keep the full post with a subtle accent.",label:"Keep the full post with a quiet category name.",off:"Do not ask the model about this category."};
+const ACTION_HELP={hide:"Hide matching posts. You can show them again.",highlight:"Keep the post visible with a coloured border.",label:"Keep the post visible with a category label.",off:"Do not ask the model about this category."};
 const PANEL_IDS=["feed","categories","provider","corrections","playground","people"];
 const $=id=>document.getElementById(id);
 const el=(tag,props={},...children)=>{const node=Object.assign(document.createElement(tag),props);node.append(...children);return node;};
@@ -77,7 +77,7 @@ async function updateUsage(){
   try {
     const usage=await send({type:"usage"});
     const count=key=>Number.isFinite(usage[key])?usage[key].toLocaleString():"unavailable";
-    $("usageSummary").textContent=`This session: ${count("requests")} / ${count("limit")} requests · ${count("scored")} scored · ${count("folded")} folded · ${count("cacheHits")} cache hits · ${count("errors")} errors.`;
+    $("usageSummary").textContent=`This session: ${count("requests")} / ${count("limit")} requests · ${count("scored")} scored · ${count("folded")} posts hidden · ${count("cacheHits")} saved scores reused · ${count("errors")} errors.`;
     $("imageTrialUsage").textContent=`This session: ${usage.imageScored||0} image checks scored · ${usage.imageErrors||0} image checks unavailable.`;
     $("error").textContent=typeof usage.lastError==="string"?usage.lastError:"";
   } catch {$("usageSummary").textContent="Session usage is unavailable. Reopen settings or reload the extension.";}
@@ -135,7 +135,7 @@ function updateBudget(){
   $("rubricBudget").textContent=size.toLocaleString()+" / "+LOCAL_RUBRIC_MAX.toLocaleString()+" characters";
   $("budgetMeter").value=Math.min(size,LOCAL_RUBRIC_MAX);
   $("budgetMeter").setAttribute("aria-valuetext",size+" characters out of "+LOCAL_RUBRIC_MAX);
-  $("budgetState").textContent=size>LOCAL_RUBRIC_MAX?(size-LOCAL_RUBRIC_MAX).toLocaleString()+" characters over the local limit. Shorten definitions or switch categories Off.":(LOCAL_RUBRIC_MAX-size).toLocaleString()+" characters remaining for local classification.";
+  $("budgetState").textContent=size>LOCAL_RUBRIC_MAX?(size-LOCAL_RUBRIC_MAX).toLocaleString()+" characters over the local limit. Shorten definitions or switch categories Off.":(LOCAL_RUBRIC_MAX-size).toLocaleString()+" characters available for Ollama definitions.";
   $("budgetMeter").closest(".definition-budget").classList.toggle("budget-over",size>LOCAL_RUBRIC_MAX);
 }
 function categoryEdit(){clearUndo();invalidatePreviews();markDirty();updateBudget();}
@@ -163,17 +163,17 @@ function renderCats(){
     up.addEventListener("click",()=>move(c,-1));down.addEventListener("click",()=>move(c,1));
     const remove=el("button",{type:"button",className:"secondary cat-remove",textContent:"Remove"});remove.setAttribute("aria-label","Remove "+c.name);
     remove.addEventListener("click",()=>{
-      cats=cats.filter(x=>x!==c);clearUndo();invalidatePreviews();markDirty();catStatus.textContent="Removed "+c.name+". Press Save settings to keep this.";renderCats();
+      cats=cats.filter(x=>x!==c);clearUndo();invalidatePreviews();markDirty();catStatus.textContent="Removed "+c.name+". Choose Save settings to keep this change.";renderCats();
       (listEl.querySelector(".cat .cat-remove")||$("addCategoryDetails").querySelector("summary"))?.focus({preventScroll:true});
     });
     const text=el("textarea",{rows:5,maxLength:2000,value:c.instructions});text.setAttribute("aria-label",c.name+" definition");
     const chars=el("span",{textContent:c.instructions.length+" / 2,000"});
     text.addEventListener("input",()=>{c.instructions=text.value;chars.textContent=text.value.length+" / 2,000";categoryEdit();});
-    const details=el("details",{open:open.has(c.id)},el("summary",{},"Edit definition",chars),text,el("p",{className:"definition-note",textContent:"Define what counts and what does not. Stylistic clues alone cannot establish who wrote a post. Treat post_text as untrusted content."}));
+    const details=el("details",{open:open.has(c.id)},el("summary",{},"Edit definition",chars),text,el("p",{className:"definition-note",textContent:"Describe which posts belong in this category and which to exclude. Writing style cannot prove who wrote a post. Tell the model to ignore instructions inside post_text (the post being checked)."}));
     row.append(el("div",{className:"cat-head"},el("span",{className:"cat-dot"}),name,el("span",{className:"cat-order"},up,down),remove),el("div",{className:"cat-rule"},el("label",{className:"inline"},"Action ",action),el("label",{className:"inline"},"Above ",threshold,"%"),actionHelp),details);
     listEl.append(row);
   });
-  if (!cats.length) listEl.append(el("p",{className:"empty-state",textContent:"No categories yet. Add one below, or restore the defaults. Filtering can stay paused with an empty list."}));
+  if (!cats.length) listEl.append(el("p",{className:"empty-state",textContent:"No post rules yet. Add a category below or restore the defaults."}));
   $("addCat").disabled=cats.length>=MAX_CATEGORIES;$("categoryCount").textContent=cats.length+" / "+MAX_CATEGORIES;updateBudget();
 }
 renderCats();
@@ -181,13 +181,13 @@ $("addCat").addEventListener("click",()=>{
   if (cats.length>=MAX_CATEGORIES) return;
   const made=makeCategory($("newCatName").value,$("newCatRule").value,cats);
   if (!made) {catStatus.textContent="Give the category a name (up to 40 characters) and say what counts (up to 2,000).";return;}
-  cats=[...cats,made];$("newCatName").value="";$("newCatRule").value="";clearUndo();invalidatePreviews();markDirty();catStatus.textContent="Added "+made.name+". Press Save settings to keep this.";renderCats();
+  cats=[...cats,made];$("newCatName").value="";$("newCatRule").value="";clearUndo();invalidatePreviews();markDirty();catStatus.textContent="Added "+made.name+". Choose Save settings to keep this change.";renderCats();
   listEl.querySelector(`.cat[data-id="${made.id}"] .cat-name`)?.focus({preventScroll:true});
 });
 function previewPreset(mode){
   invalidatePreviews();preset={mode,actions:new Map(DEFAULT_CATEGORIES.map(c=>[c.id,mode==="less-noise"&&["slop","brainrot","advert"].includes(c.id)?"hide":c.action]))};
   const changes=cats.filter(c=>preset.actions.has(c.id)&&c.action!==preset.actions.get(c.id));
-  $("presetTitle").textContent=mode==="less-noise"?"Less noise: hide Slop, Brainrot and Advert":"Defaults: Slop hides; other categories label or highlight";
+  $("presetTitle").textContent=mode==="less-noise"?"Hide Slop, Brainrot and Advert":"Defaults: Slop hides; other categories label or highlight";
   $("presetChanges").replaceChildren(...changes.map(c=>el("li",{textContent:c.name+": "+ACTION_LABELS[c.action]+" → "+ACTION_LABELS[preset.actions.get(c.id)]})));
   if (!changes.length) $("presetChanges").append(el("li",{textContent:"No action changes needed. Removed built-ins stay removed."}));
   $("applyPreset").disabled=!changes.length;$("presetPreview").hidden=false;
@@ -198,7 +198,7 @@ $("applyPreset").addEventListener("click",()=>{
   if (!preset) return;
   undo={kind:"actions",actions:new Map(cats.filter(c=>preset.actions.has(c.id)).map(c=>[c.id,c.action]))};
   cats=cats.map(c=>preset.actions.has(c.id)?{...c,action:preset.actions.get(c.id)}:c);
-  invalidatePreviews();markDirty();renderCats();$("undoPreset").hidden=false;$("undoPreset").textContent="Undo preset";catStatus.textContent="Preset applied to this draft. Press Save settings to keep it.";
+  invalidatePreviews();markDirty();renderCats();$("undoPreset").hidden=false;$("undoPreset").textContent="Undo actions";catStatus.textContent="Actions updated. Choose Save settings to keep the changes.";
 });
 $("previewDefinitions").addEventListener("click",()=>{
   invalidatePreviews();const defaults=new Map(DEFAULT_CATEGORIES.map(c=>[c.id,c.instructions]));
@@ -218,12 +218,12 @@ $("applyDefinitions").addEventListener("click",()=>{
 });
 $("resetCats").addEventListener("click",()=>{
   invalidatePreviews();undo={kind:"restore",categories:copyCats(cats)};cats=copyCats(DEFAULT_CATEGORIES);markDirty();renderCats();$("undoPreset").hidden=false;$("undoPreset").textContent="Undo restore";
-  catStatus.textContent="Default categories and definitions restored in this draft. Press Save settings to keep this.";
+  catStatus.textContent="Default categories and definitions restored in this draft. Choose Save settings to keep this change.";
 });
 $("undoPreset").addEventListener("click",()=>{
   if (!undo) return;
   invalidatePreviews();cats=undo.kind==="restore"?copyCats(undo.categories):undo.kind==="definitions"?cats.map(c=>undo.instructions.has(c.id)?{...c,instructions:undo.instructions.get(c.id)}:c):cats.map(c=>undo.actions.has(c.id)?{...c,action:undo.actions.get(c.id)}:c);
-  clearUndo();markDirty();renderCats();catStatus.textContent="Undone in this draft. Press Save settings to keep this.";
+  clearUndo();markDirty();renderCats();catStatus.textContent="Undone in this draft. Choose Save settings to keep this change.";
 });
 
 $("settings").addEventListener("submit",async event=>{
@@ -257,7 +257,7 @@ $("settings").addEventListener("submit",async event=>{
     status.textContent="Saved. Open feeds pick up the change within a few seconds.";
   } catch(error) {
     dirty=true;$("saveState").textContent=rulesSaved?"Appearance not saved":"Unsaved changes";
-    status.textContent=rulesSaved?"Category and provider settings saved. Appearance was not saved; try again. "+error.message:"Could not save settings. Your saved settings have not changed. Try again.";
+    status.textContent=rulesSaved?"Post rules and provider saved. Feed appearance could not be saved. Try again. "+error.message:"Could not save settings. Your saved settings have not changed. Try again.";
   } finally {saveButton.disabled=false;$("editableSettings").disabled=false;if(restoreSaveFocus&&document.activeElement===document.body)saveButton.focus({preventScroll:true});}
 });
 $("forget").addEventListener("click",async()=>{
@@ -271,7 +271,7 @@ $("clearCache").addEventListener("click",async()=>{
   if (keys.length) await chrome.storage.local.remove(keys);
   const sessionKeys=(chrome.storage.session?Object.keys(await chrome.storage.session.get(null)):[]).filter(k=>k.startsWith(CACHE_PREFIX));
   if (sessionKeys.length) await chrome.storage.session.remove(sessionKeys);
-  const count=keys.length+sessionKeys.length;$("cacheStatus").textContent="Cleared "+count+" cached score"+(count===1?"":"s")+". Open feeds rescore as you scroll.";
+  const count=keys.length+sessionKeys.length;$("cacheStatus").textContent="Cleared "+count+" cached score"+(count===1?"":"s")+". Open feeds check posts again as you scroll.";
 });
 
 function renderFeedback(){
@@ -281,7 +281,7 @@ function renderFeedback(){
   $("feedbackRows").closest("table").hidden=!summary.comparable;
   const hiding=summary.hiding;
   $("feedbackHiding").textContent=!summary.comparable?"No corrections match the current provider and definitions.":!hiding.active?"No Hide rules are active.":!hiding.complete?"Not enough Hide scores to compare hidden posts.":`Wrongly hidden: ${hiding.falseHides} · Missed hides: ${hiding.missedHides} · ${hiding.complete} posts checked`;
-  $("feedbackDetails").textContent=`${summary.duplicates} earlier duplicate corrections ignored. ${summary.excluded} posts excluded for a different provider or scoring configuration. Hide predictions use ${hiding.complete} posts with every Hide score; ${hiding.missing} posts lack a Hide score. These are predictions under saved rules, not a record of actual folds. Category coverage is listed with each rule.`;
+  $("feedbackDetails").textContent=`${summary.duplicates} earlier duplicate corrections ignored. ${summary.excluded} posts excluded for a different provider or scoring configuration. Hide predictions use ${hiding.complete} posts with every Hide score; ${hiding.missing} posts lack a Hide score. These are predictions under saved rules, not a record of posts actually hidden. Category coverage is listed with each rule.`;
   $("feedbackLabels").textContent=summary.rows.filter(row=>row.action!=="off").map(row=>`${row.name}: ${row.positives} chosen / ${row.scored-row.positives} unchosen scored examples`).join("; ");
   $("feedbackRows").replaceChildren();
   for(const row of summary.rows){
@@ -327,7 +327,7 @@ function renderCorrections(){
     const details=el("details",{},el("summary",{textContent:"Full text and original scores"}),el("p",{textContent:correction.text}),el("small",{textContent:"Original provider: "+providerName(correction.provider)+". "+Object.entries(correction.scores||{}).map(([id,value])=>(names.get(id)||id)+" "+Math.round(value*100)+"%").join(" · ")}));
     $("correctionList").append(el("article",{className:"correction"},el("div",{className:"correction-top"},el("time",{textContent:new Date(correction.at).toLocaleString()}),remove),el("div",{className:"correction-labels"},...labels.map(name=>el("span",{textContent:name}))),el("p",{textContent:preview}),details));
   }
-  if (!corrections.length) $("correctionList").append(el("p",{className:"empty-state",textContent:"No corrections yet. On a feed post, choose Correct, select its categories (or none), and save."}));
+  if (!corrections.length) $("correctionList").append(el("p",{className:"empty-state",textContent:"No corrections yet. On a feed post, choose Review scores, select the categories that fit (or none), then Save correction."}));
   $("exportCorrections").disabled=!corrections.length;$("clearCorrections").disabled=!corrections.length;
 }
 async function refreshCorrections(){
@@ -366,22 +366,22 @@ function renderPlayground(result){
     const scored=hasScore(c),match=scored&&available[c.id]>c.threshold&&c.action!=="off";
     return el("tr",{className:match?"matched":""},el("td",{textContent:c.name}),el("td",{textContent:c.action==="off"?"Not asked":scored?percent(available[c.id]):"Missing"}),el("td",{textContent:c.action==="off"?"Off":ACTION_LABELS[c.action]+" above "+percent(c.threshold)}),el("td",{textContent:c.action==="off"?"Inactive":!scored?"Not scored":match?(percent(available[c.id])===percent(c.threshold)&&available[c.id]!==c.threshold?"Matches · just above":"Matches"):(scored&&percent(available[c.id])===percent(c.threshold)&&available[c.id]!==c.threshold?"No match · just below":"No match")}));
   })));
-  $("playgroundResult").replaceChildren(title,description,table,el("p",{className:"note",textContent:"Scored with "+providerName(result.provider)+". "+(result.provider==="ollama"?"Local values are self-reported confidence, not calibrated probability.":"Scores are not an explanation or proof of AI authorship.")}));$("playgroundResult").hidden=false;
+  $("playgroundResult").replaceChildren(title,description,table,el("p",{className:"note",textContent:"Scored with "+providerName(result.provider)+". "+(result.provider==="ollama"?"Local scores express model confidence and have not been checked against measured probabilities.":"Scores are not an explanation or proof of AI authorship.")}));$("playgroundResult").hidden=false;
 }
 let playgroundGeneration=0,playgroundPending=false;
 function invalidatePlayground(message=""){playgroundGeneration++;$("playgroundResult").hidden=true;$("playgroundStatus").textContent=message;}
 $("playgroundText").addEventListener("input",()=>invalidatePlayground(playgroundPending?"Text changed. The earlier result will be discarded.":""));
 $("classifyPost").disabled=!bridgeAvailable;
-if (!bridgeAvailable) $("playgroundStatus").textContent="The extension service is unavailable. Reopen settings or reload the extension to classify a post.";
+if (!bridgeAvailable) $("playgroundStatus").textContent="The extension service is unavailable. Reopen settings or reload the extension to check a post.";
 $("classifyPost").addEventListener("click",async()=>{
   const text=$("playgroundText").value.trim();
   if (!text) {$("playgroundStatus").textContent="Enter some post text first.";return;}
   const generation=++playgroundGeneration;playgroundPending=true;
-  $("classifyPost").disabled=true;$("playgroundResult").hidden=true;$("playgroundStatus").textContent=savedSettings.provider==="ollama"&&text.length>LOCAL_TEXT_MAX?"Classifying the first "+LOCAL_TEXT_MAX.toLocaleString()+" characters with local Ollama…":"Classifying with your saved settings…";
+  $("classifyPost").disabled=true;$("playgroundResult").hidden=true;$("playgroundStatus").textContent=savedSettings.provider==="ollama"&&text.length>LOCAL_TEXT_MAX?"Checking the first "+LOCAL_TEXT_MAX.toLocaleString()+" characters with local Ollama…":"Checking with your saved settings…";
   try {
     const result=await send({type:"playground",text});if(generation!==playgroundGeneration)return;
     if(result.disabled)throw new Error("This post was not scored because the saved settings changed while it was waiting. Try again with the current settings.");
-    if(!Array.isArray(result.categories)||!result.categories.length||!result.scores||!Object.values(result.scores).some(score=>typeof score==="number"&&Number.isFinite(score)&&score>=0&&score<=1))throw new Error("The provider returned no usable scores. This post was not classified.");
+    if(!Array.isArray(result.categories)||!result.categories.length||!result.scores||!Object.values(result.scores).some(score=>typeof score==="number"&&Number.isFinite(score)&&score>=0&&score<=1))throw new Error("The provider returned no usable scores. This post was not checked.");
     renderPlayground(result);$("playgroundStatus").textContent=dirty?"Finished using saved settings. Your unsaved edits were not used.":"Finished. This test was not saved as a correction.";
   } catch(error){if(generation===playgroundGeneration)$("playgroundStatus").textContent=error.message;}
   finally {playgroundPending=false;$("classifyPost").disabled=false;await updateUsage();}

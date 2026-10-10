@@ -49,7 +49,7 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
  await page.fill('#newCatRule','Is this post a hot take?');await page.click('#addCat');
  r=await rows();assert.equal(r.length,6);assert.equal(r[5].name,'<img src=x onerror=alert(1)> Hot takes');assert.equal(r[5].action,'label');
  assert.equal(await page.locator('#categoryList img').count(),0,'names are shown as text');
- assert.equal(await page.inputValue('#newCatName'),'');assert.match(await status(),/Added .*Press Save/);
+ assert.equal(await page.inputValue('#newCatName'),'');assert.match(await status(),/Added .*Choose Save/);
 
  // Nothing is stored until Save. Then actions, thresholds, names, definitions and order persist.
  assert.deepEqual((await stored()).categories.map(c=>c.id),['slop','brainrot','advert','opportunity','nourishment'],'opening saves the migrated defaults, not the unsaved edits');
@@ -116,7 +116,7 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
  while(await page.locator('.cat-remove').count()) await page.locator('.cat-remove').first().click();
  await save();assert.deepEqual((await stored()).categories,[]);
  await open();assert.equal((await rows()).length,0,'saved empty rows never silently return');
- assert.match(await page.locator('#categoryList').innerText(),/No categories yet/);
+ assert.match(await page.locator('#categoryList').innerText(),/No post rules yet/);
  await enable(true);await save(/at least one category/);
  assert.deepEqual((await stored()).categories,[]);assert.equal((await stored()).enabled,false);
  await enable(false);await page.click('#resetCats');await save();await open();
