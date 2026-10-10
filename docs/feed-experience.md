@@ -2,7 +2,7 @@
 
 The feed keeps its original order and original posts. The filter adds reversible omissions and a separate appearance choice. Each category uses the same Hide, Highlight, Label and Off actions, with its own strict score-above-threshold rule. Any applying Hide rule takes precedence.
 
-Native keeps familiar feed cards. Punchy makes hidden-category names more prominent. Reader uses a quiet paper-like surface and larger sans-serif post text. A theme never changes categories, definitions, thresholds or scoring requests. Consecutive hidden posts can be grouped separately; a visible post always breaks a group.
+The feed uses one Native appearance that keeps familiar LinkedIn cards. Individual hidden rows include each matching category’s model confidence. Manual corrections are labelled as corrected rather than assigned a model confidence. Consecutive hidden posts can be grouped separately; a visible post always breaks a group.
 
 Show reveals one original post in place. Hide again reverses that action. Show everything temporarily reveals the current feed without changing saved rules. Disabling filtering pauses scoring and restores posts. Corrections are explicit local records, separate from ordinary reveals.
 
@@ -10,11 +10,11 @@ New results must leave a visible, hovered or keyboard-focused card open until it
 
 ## Release checks
 
-The release review checks the combined implementation, rather than relying on the design prototype. Required checks include the full npm test suite, a real unpacked extension in a temporary Chromium profile, feed and settings layouts at 320px and desktop widths, all three themes, keyboard access, correction privacy, temporary overrides, slow/error/partial results, and stable scrolling.
+The release review checks the combined implementation, rather than relying on the design prototype. Required checks include the full npm test suite, a real unpacked extension in a temporary Chromium profile, feed and settings layouts at 320px and desktop widths, Native appearance, keyboard access, correction privacy, temporary overrides, slow/error/partial results, and stable scrolling.
 
 Synthetic cards and mocked scores cannot establish signed-in LinkedIn compatibility, cloud access or representative classification accuracy. Version 2.0.1 received a limited signed-in Brave/OpenAI For You check, documented in [the readable-feed repair evidence](readable-feed.md); wider compatibility and representative accuracy remain separate verification work.
 
-After installing test dependencies, run `npm test` for the offline checks. `npm run verify:release` additionally loads the actual unpacked extension in a fresh temporary Chromium profile. It serves authored synthetic feed cards, seeds hash-only scores, and uses no provider credentials. It verifies the worker, feed, options and popup together; first folds and reveals, all three themes, reversible grouping and original order, multi-label corrections, temporary Show everything, missing-key failures, and 320px/dark layouts. The profile is deleted when the check exits.
+After installing test dependencies, run `npm test` for the offline checks. `npm run verify:release` additionally loads the actual unpacked extension in a fresh temporary Chromium profile. It serves authored synthetic feed cards, seeds hash-only scores, and uses no provider credentials. It verifies the worker, feed, options and popup together; first folds and reveals, Native appearance, reversible grouping and original order, multi-label corrections, temporary Show everything, missing-key failures, and 320px/dark layouts. The profile is deleted when the check exits.
 
 Set `QA_OUTPUT_DIR` to a local directory when running that command to retain screenshots. Those screenshots are synthetic previews, not captures from a signed-in account. The optional verification is separate from CI's offline suite so its unpacked-extension browser requirements are explicit.
 
