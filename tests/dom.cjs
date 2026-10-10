@@ -9,7 +9,7 @@ const assert=require('node:assert/strict');
  await page.goto('https://www.linkedin.com/feed/');
  await page.addStyleTag({content:fs.readFileSync(path.join(__dirname,'../content.css'),'utf8')});
  await page.evaluate(()=>{
-  window.calls=[];window.mockEnabled=true;window.mockConfig='c1';
+  window.calls=[];window.mockEnabled=true;window.mockConfig='c1';window.releaseSlow=null;
   const interval=window.setInterval.bind(window);window.setInterval=(fn,ms)=>interval(fn,ms===5000?100:ms);
   window.mockCats=[{id:'slop',name:'Slop',action:'hide',threshold:.8},{id:'advert',name:'Advert',action:'label',threshold:.8},{id:'nourishment',name:'Nourishment',action:'highlight',threshold:.8}];
   const slop=t=>t.includes('SLOP')?.95:t.includes('HIGH')?.7:t.includes('MID')?.5:t.includes('SLOW')?.2:t.includes('LOW')?.1:.8;
@@ -73,6 +73,7 @@ const assert=require('node:assert/strict');
  await page.waitForFunction(()=>typeof window.releaseSlow==='function');
  await page.evaluate(()=>window.releaseSlow());
  await waitBadge('slow',/^No category$/);
+ await page.evaluate(()=>window.releaseSlow=null);
 
  // Recycled cards: a folded post whose text changes loses its fold and gets the new post's result, once.
  await card('dynamic','SLOP another dynamically loaded post');
@@ -94,10 +95,16 @@ const assert=require('node:assert/strict');
  await card('pendinggone','SLOW SLOP obsolete pending body');
  await waitBadge('pendinggone',/Scoring…/);
  await page.waitForFunction(()=>typeof window.releaseSlow==='function');
- await page.evaluate(()=>{window.releaseObsolete=window.releaseSlow;document.querySelector('#pendinggone .update-components-text').remove();});
+ const earlyOldFold=await page.evaluate(async()=>{
+  const post=document.getElementById('pendinggone');
+  post.querySelector('.update-components-text').remove();
+  window.releaseSlow();
+  // Resolve the response before the scan's 250ms debounce. It must not briefly hide the replacement.
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  return post.classList.contains('lsf-folded') || !!post.querySelector('.lsf-bar');
+ });
+ assert.equal(earlyOldFold,false,'a response racing the scan cannot briefly fold a textless replacement');
  await page.waitForFunction(()=>!document.querySelector('#pendinggone .lsf-bar, #pendinggone .lsf-badge'));
- await page.evaluate(()=>window.releaseObsolete());
- await page.waitForTimeout(300);
  assert.equal(await page.locator('#pendinggone.lsf-folded, #pendinggone .lsf-bar, #pendinggone .lsf-badge').count(),0,'obsolete pending response cannot hide a textless replacement');
 
  // Adding a new body later starts a fresh classification exactly once.

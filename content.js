@@ -4,6 +4,7 @@
   // The older class-based selectors are kept for accounts still served the previous markup.
   const POST = '[role="listitem"][componentkey^="update-card"], .feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
   const TEXT = '[data-testid="expandable-text-box"], .update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
+  const bodyText = post => (post.querySelector(TEXT)?.textContent || "").replace(/\s+/g," ").trim();
   const records = new Map();
   let settings = {enabled:false,categories:[]};
   let timer;
@@ -90,7 +91,7 @@
       if (!record || record.pending || record.scores || Date.now() < (record.retryAt || 0)) continue;
       record.pending=true; apply(post,record);
       chrome.runtime.sendMessage({type:"classify",text:record.text}).then(result => {
-        if (records.get(post) !== record) return;
+        if (records.get(post) !== record || bodyText(post) !== record.text) return;
         record.pending=false;
         if (result?.error || result?.disabled) {
           record.retryAt=Date.now()+60000;
@@ -108,7 +109,7 @@
         record.error=null; record.short=""; record.scores=sc;
         apply(post,record);
       }).catch(()=>{
-        if (records.get(post) !== record) return;
+        if (records.get(post) !== record || bodyText(post) !== record.text) return;
         record.pending=false; record.retryAt=Date.now()+60000;
         record.error="Could not reach the extension. Reload the page."; record.short="extension unavailable";
         apply(post,record);
@@ -128,9 +129,8 @@
       // Prefer the outer update card, avoiding nested reposts and duplicate processing.
       const post=candidate.closest(".feed-shared-update-v2") || candidate;
       if (post.parentElement?.closest(POST)) continue;
-      const element=post.querySelector(TEXT);
-      // textContent, not innerText: innerText changes when the post is folded (display:none), which looked like a new post and re-triggered the fold.
-      const text=(element?.textContent || "").replace(/\s+/g," ").trim();
+      // textContent, not innerText: folded bodies must retain their identity.
+      const text=bodyText(post);
       const old=records.get(post);
       if (!text) {
         if (old) {
