@@ -6,7 +6,8 @@ export const CORRECTION_TEXT_MAX = 12000;
 
 export function normalizeAppearance(value) {
   return {
-    theme: ["native", "punchy", "reader"].includes(value?.theme) ? value.theme : "native",
+    // Keep the stored field compatible, but retire all alternative theme values.
+    theme: "native",
     groupHidden: value?.groupHidden === true,
     labels: value?.labels === "off" ? "off" : "matches"
   };

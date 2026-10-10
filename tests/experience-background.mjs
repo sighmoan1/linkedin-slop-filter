@@ -60,7 +60,7 @@ for(const path of core.FEED_PATHS){const safe=await send({type:"settings"},{...f
 const before = (await send({type:"settings"})).configuration;
 assert.deepEqual(Object.keys(await send({type:"settings"})).sort(),["categories","configuration","enabled","provider"]);
 const themed = await send({type:"appearance",appearance:{theme:"punchy",groupHidden:true,labels:"off",jevKey:"evil",categories:[]}});
-assert.deepEqual(themed.appearance,{theme:"punchy",groupHidden:true,labels:"off"});
+assert.deepEqual(themed.appearance,{theme:"native",groupHidden:true,labels:"off"});
 assert.equal(local.jevKey,"PRIVATE-TEST-KEY");
 assert.equal((await send({type:"settings"})).configuration,before,"appearance cannot change the scoring key");
 assert.equal(calls,0);

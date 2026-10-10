@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import {normalizeAppearance, makeCorrection, normalizeCorrections, MAX_CORRECTIONS} from "../core/experience.mjs";
 
 assert.deepEqual(normalizeAppearance({theme:"punchy",groupHidden:true,labels:"off",key:"secret"}),
-  {theme:"punchy",groupHidden:true,labels:"off"});
+  {theme:"native",groupHidden:true,labels:"off"});
 assert.deepEqual(normalizeAppearance({theme:"remote",groupHidden:"true",labels:"everything"}),
   {theme:"native",groupHidden:false,labels:"matches"});
+for (const theme of ["native", "punchy", "reader", undefined]) assert.deepEqual(normalizeAppearance({theme,groupHidden:true,labels:"off"}), {theme:"native",groupHidden:true,labels:"off"});
 const context = {id:"one",at:42,provider:"jev",configuration:"a".repeat(64)};
 const categories = [{id:"slop"},{id:"nourishment"}];
 const correction = makeCorrection({text:"  A useful method.  ",categoryIds:["nourishment"],
