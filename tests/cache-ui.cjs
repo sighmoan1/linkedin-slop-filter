@@ -16,6 +16,7 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
  });
  await page.goto('https://ext.test/options.html');
  await page.waitForFunction(()=>document.querySelectorAll('.cat').length>0);
+ await page.click('[data-panel=provider]');await page.locator('.cache-tools summary').click();
  await page.click('#clearCache');
  await page.waitForFunction(()=>/Cleared 2 cached scores/.test(document.getElementById('cacheStatus').textContent));
  const left=await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('s'))).sort());
