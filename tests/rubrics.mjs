@@ -8,7 +8,8 @@ const fixture = file => JSON.parse(fs.readFileSync(new URL('./fixtures/rubrics/'
 const previous = fixture('previous.json'), revised = fixture('revised.json'), initial = fixture('initial-draft.json');
 const ids = DEFAULT_CATEGORIES.map(c => c.id);
 assert.equal(DEFAULT_RUBRIC_VERSION, revised.version);
-assert.deepEqual(DEFAULT_CATEGORIES, revised.categories, 'evaluated frozen definitions match fresh-install definitions');
+const renamed = categories => categories.map(c => c.id === 'nourishment' && c.name === 'Nourishment' ? {...c, name: 'Good post'} : c);
+assert.deepEqual(DEFAULT_CATEGORIES, renamed(revised.categories), 'evaluated frozen definitions match fresh-install definitions');
 assert.deepEqual(DEFAULT_CATEGORIES.map(c => [c.id, c.action, c.threshold]), previous.categories.map(c => [c.id, c.action, c.threshold]), 'revision keeps actions and cutoffs');
 for (const c of DEFAULT_CATEGORIES) {
   assert.ok(c.instructions.length <= MAX_INSTRUCTIONS);
@@ -17,7 +18,7 @@ for (const c of DEFAULT_CATEGORIES) {
 assert.ok(JSON.stringify(DEFAULT_CATEGORIES.map(c => ({category: c.id, definition: c.instructions}))).length <= LOCAL_RUBRIC_MAX);
 // No implicit adoption: old defaults and edited/custom definitions survive both current and legacy storage.
 const saved = {...DEFAULTS, schema: 2, categories: previous.categories};
-assert.deepEqual(migrateSettings(saved), {settings: saved, changed: false});
+assert.deepEqual(migrateSettings(saved), {settings: {...saved, categories: renamed(saved.categories)}, changed: true});
 const edited = [{...previous.categories[0], instructions: 'My definition, deliberately kept.', threshold: .91},
   {id: 'my-category', name: 'My category', instructions: 'My independent question.', action: 'hide', threshold: .42}];
 assert.deepEqual(migrateSettings({...saved, categories: edited}).settings.categories, edited);
@@ -25,8 +26,8 @@ assert.deepEqual(migrateSettings({schema: 1, categories: edited, threshold: .73}
 assert.deepEqual(migrateSettings({schema: null}).settings.categories, DEFAULT_CATEGORIES);
 let writes = 0;
 const area = {get: async query => ({...query, ...saved}), set: async () => {writes++;}, remove: async () => {writes++;}};
-assert.deepEqual((await loadSettings(area)).categories, previous.categories);
-assert.equal(writes, 0, 'loading a saved profile never replaces previous instructions');
+assert.deepEqual((await loadSettings(area)).categories, renamed(previous.categories));
+assert.equal(writes, 2, 'the label migration persists without replacing previous instructions');
 assert.notEqual(scoringKey({...DEFAULTS, categories: previous.categories}), scoringKey({...DEFAULTS, categories: DEFAULT_CATEGORIES}), 'explicit adoption invalidates old scores');
 assert.ok(displayCategories(DEFAULT_CATEGORIES).every(c => !('instructions' in c)), 'feed metadata excludes new definitions');
 

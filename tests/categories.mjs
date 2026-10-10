@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {DEFAULTS,DEFAULT_CATEGORIES,MAX_CATEGORIES,ACTIONS,normalizeCategories,categoryList,activeCategories,displayCategories,makeCategory,scores,validScores,requestFor,verifyRequest,scoringKey,migrateSettings,loadSettings} from '../core.mjs';
 
 // The five starting categories, in order, each with a usable definition that treats the post as untrusted.
-assert.deepEqual(DEFAULT_CATEGORIES.map(c=>c.name),['Slop','Brainrot','Advert','Opportunity','Nourishment']);
+assert.deepEqual(DEFAULT_CATEGORIES.map(c=>c.name),['Slop','Brainrot','Advert','Opportunity','Good post']);
 assert.deepEqual(DEFAULT_CATEGORIES.map(c=>c.id),['slop','brainrot','advert','opportunity','nourishment']);
 for(const c of DEFAULT_CATEGORIES){assert.ok(c.instructions.length>80&&c.instructions.length<=2000,c.id);assert.match(c.instructions,/untrusted/,c.id+' must guard against instructions in posts');}
 assert.equal(new Set(DEFAULT_CATEGORIES.map(c=>c.instructions)).size,5);
@@ -103,6 +103,21 @@ assert.equal(v1.categories[0].instructions,'R');
 // Current settings are left as they are.
 const current={...DEFAULTS,schema:2,categories:[good]};
 assert.deepEqual(migrateSettings(current),{settings:{...current,categories:[good]},changed:false});
+// The old default name changes without changing IDs, definitions, rules or score cache keys.
+const legacyPositive={...DEFAULT_CATEGORIES.find(c=>c.id==='nourishment'),name:'Nourishment',instructions:'My saved definition',action:'hide',threshold:.67};
+const renameInput={...DEFAULTS,schema:2,jevKey:'test-key',categories:[legacyPositive,{...good,name:'Nourishment'}]};
+const renamed=migrateSettings(renameInput);
+assert.equal(renamed.changed,true);
+assert.deepEqual(renamed.settings,{...renameInput,categories:[{...legacyPositive,name:'Good post'},{...good,name:'Nourishment'}]});
+assert.equal(scoringKey(renamed.settings),scoringKey(renameInput));
+assert.equal(migrateSettings(renamed.settings).changed,false,'rename is idempotent');
+assert.equal(migrateSettings({...renameInput,categories:[{...legacyPositive,name:'Useful reading'}]}).settings.categories[0].name,'Useful reading','custom names survive');
+assert.equal(migrateSettings({schema:1,categories:[legacyPositive]}).settings.categories[0].name,'Good post','legacy schema receives the name too');
+let renameWrites=0;const renameStore={...renameInput};
+const renameArea={get:async q=>({...q,...renameStore}),set:async v=>{renameWrites++;Object.assign(renameStore,v);},remove:async()=>{}};
+await loadSettings(renameArea);await loadSettings(renameArea);
+assert.equal(renameWrites,1,'persist the name once');
+assert.equal(renameStore.jevKey,renameInput.jevKey);
 // loadSettings writes a migration back and removes the old keys, once.
 const store={rule:'R',threshold:.6,localThreshold:.9,jevKey:'k'};
 const area={get:async q=>({...q,...store}),set:async v=>Object.assign(store,v),remove:async keys=>{for(const k of [].concat(keys))delete store[k];}};

@@ -6,9 +6,9 @@ The revised defaults judge the substance of extracted post text. They do not cla
 | --- | --- | --- |
 | Slop | Interchangeable platitudes, circular restatement, padded generic advice or a stock lesson without experience or an argument. Rhetorical tropes support the label only when they replace substance. | Useful explanations, evidence, grounded opinions, specific experiences, news, jobs, practical announcements, sincere milestones, grief and jokes. Punctuation, grammar, non-native phrasing, emojis or one trope are insufficient. |
 | Brainrot | Empty reaction farming, coercive share/comment challenges, context-free meme repetition, unsupported outrage hooks or status rankings with little payoff. | Sincere humor, meaningful satire, celebrations, real news, supported criticism, substantive disagreement and relevant questions. Slang or strong emotion alone is insufficient. |
-| Advert | A material commercial or promotional pitch, including free marketing lead magnets. | Neutral brand news, a brief incidental signature/link, job/grant openings and a purely charitable appeal. A useful tutorial with a material pitch can also be Nourishment. |
+| Advert | A material commercial or promotional pitch, including free marketing lead magnets. | Neutral brand news, a brief incidental signature/link, job/grant openings and a purely charitable appeal. A useful tutorial with a material pitch can also be Good post. |
 | Opportunity | A specific opening available to the reader, identifiable work and an application/contact route or deadline. Unpaid community contributions can qualify. | Closed/filled openings, the author's job celebration, paid-course sales, generic networking and vague future teasers. |
-| Nourishment | A concrete explanation, usable method, supported argument, contextualised news or a transferable lesson shown in the post itself. | Sincerity, grief, celebrations, encouragement and job announcements alone. Absence of Nourishment never implies Slop or Brainrot. Short explanations and imperfect English can qualify. |
+| Good post | A concrete explanation, usable method, supported argument, contextualised news or a transferable lesson shown in the post itself. | Sincerity, grief, celebrations, encouragement and job announcements alone. Absence of Good post never implies Slop or Brainrot. Short explanations and imperfect English can qualify. |
 
 The complete frozen definitions are in [`tests/fixtures/rubrics/revised.json`](../tests/fixtures/rubrics/revised.json), matching `DEFAULT_CATEGORIES` and `DEFAULT_RUBRIC_VERSION` in `core/settings.mjs`. Every definition includes the untrusted-post guard. The five definitions fit both the 2,000-character per-category cap and the 6,000-character serialized local-rubric limit (5,349 characters). Custom categories share the same limits.
 
@@ -16,7 +16,7 @@ The complete frozen definitions are in [`tests/fixtures/rubrics/revised.json`](.
 
 Fresh installs and an explicit restore of default categories use revision `2026-10-10`. Existing saved definitions, including the previous unedited defaults, remain unchanged. Loading settings does not infer that an old definition should be replaced. Legacy Slop rules and custom category definitions remain intact during schema migration.
 
-Restoring default categories is deliberate and can replace custom settings; review the settings-page preview before saving. Changing an instruction changes the scoring key, so scores from previous definitions are not reused. Actions and thresholds are unchanged by this rubric revision: Slop hides; Brainrot/Advert label; Opportunity/Nourishment highlight. Every category still supports every action, and a score must be **strictly greater** than its threshold. The default 80% cutoff has not been calibrated on the user's feed or any cloud provider.
+Restoring default categories is deliberate and can replace custom settings; review the settings-page preview before saving. Changing an instruction changes the scoring key, so scores from previous definitions are not reused. Actions and thresholds are unchanged by this rubric revision: Slop hides; Brainrot/Advert label; Opportunity/Good post highlight. Every category still supports every action, and a score must be **strictly greater** than its threshold. The default 80% cutoff has not been calibrated on the user's feed or any cloud provider.
 
 ## Recorded local evidence
 
@@ -29,13 +29,13 @@ The historical run used local Ollama `qwen3.5:4b-q4_K_M`, temperature 0, a 4,096
 | 24 development posts | 16 complete five-category matches | 19 matches | 22 matches |
 | 12 fresh synthetic validation posts | 9 complete matches | Not run | 10 matches |
 
-All 96 historical requests returned complete valid scores. These are small synthetic agreement counts, not representative or independent accuracy estimates. Slop false positives were zero under both previous and final definitions on these samples; the same development Slop miss remained. Most gains concerned Opportunity and Nourishment boundaries. Better Slop hiding, real-feed performance and Jev/OpenAI quality have not been established.
+All 96 historical requests returned complete valid scores. These are small synthetic agreement counts, not representative or independent accuracy estimates. Slop false positives were zero under both previous and final definitions on these samples; the same development Slop miss remained. Most gains concerned Opportunity and Good post boundaries. Better Slop hiding, real-feed performance and Jev/OpenAI quality have not been established.
 
 Remaining disagreements are retained in the row-level records:
 
 - A reaction-bait development case expected to overlap Slop was labelled Brainrot only.
 - A vague job teaser was still marked Opportunity.
-- The fresh validation run missed Nourishment on a simple useful recommendation and on an explanation with a paid pitch.
+- The fresh validation run missed Good post on a simple useful recommendation and on an explanation with a paid pitch.
 
 The original annotations contain independent category decisions only, with no separate usefulness judgement. The report therefore shows usefulness metrics as unavailable rather than calling every non-Slop post useful. Under default Slop-only hiding, there were zero incorrectly hidden posts and one expected fold left visible in development for both previous/final rubrics; there were no fold disagreements in validation. Applying the explicit Less noise actions to the same archived scores produces no fold disagreements in either corpus for either rubric, because the missed Slop example still matches Brainrot. That observation is limited to these samples and chosen actions.
 
