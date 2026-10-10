@@ -75,9 +75,14 @@ assert.match((await send({type:"showEverything",value:true},popup)).error,/feed 
 assert.deepEqual(await send({type:"openSettings",section:"categories"}),{ok:true});
 assert.equal(opened,0);
 assert.deepEqual(settingsTabs,["chrome-extension://test-extension/options.html#categories"]);
+assert.deepEqual(await send({type:"openSettings",section:"feed"}),{ok:true});
+assert.equal(settingsTabs.at(-1),"chrome-extension://test-extension/options.html#feed","feed settings selects its panel even when options previously showed categories");
 await send({type:"openSettings",section:"https://attacker.example/"});
 assert.equal(opened,1,"unknown sections only open this extension's default settings");
-assert.equal(settingsTabs.length,1,"arbitrary settings URLs are never opened");
+assert.equal(settingsTabs.length,2,"arbitrary settings URLs are never opened");
+await send({type:"openSettings"},popup);
+assert.equal(opened,2,"unspecified popup settings keep the standard options-page behavior");
+rejected({type:"openSettings",section:"categories"},{url:"https://www.linkedin.com/messaging/"});
 assert.equal((await send({type:"folded"})).ok,true);
 assert.equal((await send({type:"usage"},trusted)).folded,1);
 rejected({type:"folded"},trusted);

@@ -330,7 +330,7 @@
     }
     if(summaryPost){const record=records.get(summaryPost);(summaryTarget||[record.show,record.detailsButton,toolbar?.all].find(e=>e?.isConnected&&e.getClientRects().length))?.focus({preventScroll:true});}
   }
-  async function openSettings(){try{await send({type:"openSettings",section:"categories"});}catch{}}
+  async function openSettings(section="categories"){try{await send({type:"openSettings",section});}catch{}}
   function setExperience(next) {
     if(stopped||!next||!next.appearance)return;
     const a=next.appearance;
@@ -343,9 +343,10 @@
       const element=shell("lsf-feed-toolbar");element.setAttribute("role","region");element.setAttribute("aria-label","Feed filter controls");
       const main=node("div","lsf-toolbar-main"),title=node("span","lsf-toolbar-title","Feed filter");
       const all=button("Show everything",async()=>{try{setExperience(await send({type:"showEverything",value:!experience.showEverything}));schedulePaint();}catch{} });
-      const manage=button("Settings",()=>openSettings(),"lsf-button lsf-flat");
+      const categories=button("Categories",()=>openSettings("categories"),"lsf-button lsf-flat");
+      const manage=button("Settings",()=>openSettings("feed"),"lsf-button lsf-flat");
       const status=node("p","lsf-toolbar-status");status.setAttribute("role","status");
-      main.append(title,all,manage);element.append(main,status);first.before(element);
+      main.append(title,all,categories,manage);element.append(main,status);first.before(element);
       toolbar={element,all,status};
     }
     attr(toolbar.element,"data-lsf-theme",experience.appearance.theme);
