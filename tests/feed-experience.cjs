@@ -69,16 +69,16 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.locator('#compact .lsf-bar button').click();await page.waitForSelector('#compact.lsf-folded');assert.equal(await page.locator('#compact .lsf-panel, #compact .lsf-tools').count(),0,'re-hide removes the menu');assert.equal(await row.locator('button').evaluate(e=>e===document.activeElement),true);
   assert.equal(await page.evaluate(()=>window.corrections.length),0,'reading scores and cancelling never stores a post');assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
  }
- // A late result keeps the reader's actual paragraph and original native controls in place.
+ // A late result folds the visible hovered post immediately, with reversible reveal/re-hide.
  {
   const {page,errors}=await fixture([{id:'late',long:80,hold:true,scores:allScores({slop:.95})}]);
   await page.waitForFunction(()=>!!window.releases.late);
-  const paragraph=page.locator('#late .update-components-text p').nth(1);
-  const before=await paragraph.evaluate(e=>e.getBoundingClientRect().top);
-  await page.evaluate(()=>window.releases.late());await page.waitForSelector('#late .lsf-arrived:not([hidden])');await settle(page);
-  assert.equal(await folded(page,'late'),false);assert.ok(Math.abs((await paragraph.evaluate(e=>e.getBoundingClientRect().top))-before)<=2);
-  assert.equal(await page.locator('#late a').isVisible(),true);assert.equal(await page.locator('#late .native-controls button').first().isVisible(),true);
-  await atTop(page,'late',-2500);await page.waitForSelector('#late.lsf-folded');await atTop(page,'late',100);await settle(page);
+  await page.locator('#late .update-components-text p').first().hover();
+  assert.equal(await page.locator('#late').evaluate(e=>e.getBoundingClientRect().top>=0&&e.matches(':hover')),true);
+  await page.evaluate(()=>window.releases.late());await page.waitForSelector('#late.lsf-folded');await settle(page);
+  assert.equal(await page.locator('#late a').isVisible(),false);assert.equal(await page.locator('#late .native-controls button').first().isVisible(),false);
+  assert.equal(await page.locator('#late .lsf-arrived').count(),0);
+  await atTop(page,'late',100);await settle(page);
   assert.equal(await page.locator('#late .lsf-fold-name').innerText(),'Slop','hidden rows show category names without scores');
   const rowTop=await page.locator('#late').evaluate(e=>e.getBoundingClientRect().top);
   await page.locator('#late .lsf-bar button').filter({hasText:'Show post'}).click();await settle(page);
@@ -103,13 +103,13 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   const footer=page.locator('#clipped .lsf-tools button').filter({hasText:/^Hide post again$/});await footer.scrollIntoViewIfNeeded();await footer.focus();await settle(page);const before=await footer.evaluate(e=>e.getBoundingClientRect().top);
   await page.keyboard.press('Enter');await settle(page);const show=page.locator('#clipped .lsf-bar button').filter({hasText:'Show post'});assert.equal(await folded(page,'clipped'),true);assert.equal(await show.evaluate(e=>e===document.activeElement),true);assert.ok(Math.abs((await show.evaluate(e=>e.getBoundingClientRect().top))-before)<=2,'footer collapse retains the originating control position');assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
  }
- // Category menu controls keep their identity and focus when a pending result updates the scores.
+ // A Hide result closes an open category menu and transfers focus to Show post.
  for(const offscreen of [false,true]){
   const {page,errors}=await fixture([{id:'detailfocus',long:true,hold:true,scores:allScores({slop:.95})},{id:'detailreader',long:true}]);await page.waitForFunction(()=>!!window.releases.detailfocus);
-  await page.locator('#detailfocus .lsf-tools button').filter({hasText:/^Categories$/}).click();const manage=page.locator('#detailfocus .lsf-panel button').filter({hasText:'Manage category rules'});await manage.focus();await manage.evaluate(e=>window.originalManage=e);
+  await page.locator('#detailfocus .lsf-tools button').filter({hasText:/^Categories$/}).click();const manage=page.locator('#detailfocus .lsf-panel button').filter({hasText:'Manage category rules'});await manage.focus();
   if(offscreen)await atTop(page,'detailreader',-150);
-  await page.evaluate(()=>window.releases.detailfocus());await page.waitForFunction(()=>document.querySelector('#detailfocus .lsf-score-table td:nth-child(2)')?.textContent==='95%');await settle(page);
-  assert.equal(await manage.evaluate(e=>e===document.activeElement&&e===window.originalManage),true);assert.equal(await folded(page,'detailfocus'),false,'a focused category panel cannot be folded by its arriving result');assert.deepEqual(errors,[]);
+  await page.evaluate(()=>window.releases.detailfocus());await page.waitForSelector('#detailfocus.lsf-folded');await settle(page);
+  assert.equal(await page.locator('#detailfocus .lsf-panel').count(),0);assert.equal(await page.locator('#detailfocus .lsf-bar button').evaluate(e=>e===document.activeElement),true);assert.equal(await page.evaluate(()=>window.corrections.length),0);assert.deepEqual(errors,[]);
  }
  // A rejected obsolete request cannot postpone scoring the current questions.
  {
@@ -123,10 +123,10 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.evaluate(()=>{window.enabled=false;});await page.waitForFunction(()=>document.querySelector('.lsf-toolbar-status')?.textContent.includes('paused'));await page.evaluate(()=>window.releases.resumed());await page.waitForFunction(()=>window.inflight===0);assert.equal(await page.evaluate(()=>window.calls.length),1);
   await page.evaluate(()=>window.enabled=true);await page.waitForFunction(()=>window.calls.length===2);await page.waitForFunction(()=>document.querySelector('#resumed .lsf-badge')?.textContent==='No category');assert.deepEqual(errors,[]);
  }
- // Resuming global filtering does not collapse a scored post the reader opened while paused.
+ // Resuming global filtering immediately reapplies valid Hide scores without another request.
  {
   const {page,errors}=await fixture([{id:'pausedread',long:true,scores:allScores({slop:.95})}],{top:900});await page.waitForSelector('#pausedread.lsf-folded');await page.evaluate(()=>window.enabled=false);await page.waitForFunction(()=>!document.getElementById('pausedread').classList.contains('lsf-folded'));await atTop(page,'pausedread',60);
-  await page.evaluate(()=>window.enabled=true);await page.waitForFunction(()=>document.querySelector('#pausedread .lsf-arrived')?.textContent.includes('result arrived'));assert.equal(await folded(page,'pausedread'),false);assert.equal(await page.locator('#pausedread .update-components-text').isVisible(),true);assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
+  await page.evaluate(()=>window.enabled=true);await page.waitForSelector('#pausedread.lsf-folded');assert.equal(await page.locator('#pausedread .update-components-text').isVisible(),false);assert.equal(await page.evaluate(()=>window.calls.length),1);assert.deepEqual(errors,[]);
  }
  // The popup probe accepts only this extension, returns no post data, and follows SPA navigation.
  {
@@ -139,14 +139,15 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.evaluate(()=>{history.pushState({},'', '/messaging/');document.querySelector('#feed').insertAdjacentHTML('beforeend','<article class="feed-shared-update-v2"><div class="update-components-text">SYNTHETIC PRIVATE MESSAGE MUST NOT BE SCORED</div></article>');});
   await page.waitForFunction(()=>document.querySelectorAll('.lsf-feed-card,.lsf-feed-toolbar').length===0);await settle(page);assert.equal(await page.evaluate(()=>window.calls.length),1,'navigation away never extracts or scores private-page content');assert.deepEqual(errors,[]);
  }
- // Keyboard focus still protects an offscreen card, then leaving focus permits its fold.
+ // Keyboard focus cannot defer an offscreen Hide result; Show post receives focus without scrolling.
  {
   const {page,errors}=await fixture([{id:'focus',hold:true,long:true,scores:allScores({slop:.95})},{id:'reader',long:true}]);
   await page.waitForFunction(()=>!!window.releases.focus);
-  await page.locator('#focus .native-controls button').first().focus();await atTop(page,'reader',-40);await page.evaluate(()=>window.releases.focus());
-  await page.waitForFunction(()=>document.querySelector('#focus .lsf-arrived')?.textContent.includes('result arrived'));
-  assert.equal(await folded(page,'focus'),false);assert.equal(await page.locator('#focus .native-controls button').first().evaluate(e=>e===document.activeElement),true);
-  await page.locator('#global-nav').evaluate(e=>{e.tabIndex=-1;e.focus({preventScroll:true});});await page.waitForSelector('#focus.lsf-folded');assert.deepEqual(errors,[]);
+  await page.locator('#focus .native-controls button').first().focus();await atTop(page,'reader',-40);
+  const readerTop=await page.locator('#reader').evaluate(e=>e.getBoundingClientRect().top);
+  await page.evaluate(()=>window.releases.focus());
+  await page.waitForSelector('#focus.lsf-folded');await settle(page);
+  assert.equal(await page.locator('#focus .lsf-bar button').evaluate(e=>e===document.activeElement),true);assert.ok(Math.abs((await page.locator('#reader').evaluate(e=>e.getBoundingClientRect().top))-readerTop)<=2);assert.deepEqual(errors,[]);
  }
  // Several settings-driven folds above the reader are batched and stay within 2px,
  // both with native anchoring and when the measured fallback is required.
@@ -242,7 +243,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.waitForFunction(()=>!!window.releases.edit&&!!document.querySelector('#edit .lsf-correction input[value=fresh]'));
   assert.equal(await page.locator('#edit .lsf-correction input[value=advert]').count(),0);assert.equal(await page.locator('#edit .lsf-correction .lsf-panel-heading').evaluate(e=>e===document.activeElement),true);
   assert.equal(await page.locator('#edit .lsf-correction input[value=slop]').isChecked(),true);assert.equal(await folded(page,'edit'),false,'new questions cannot use stale scores to hide');
-  await page.evaluate(()=>window.releases.edit());await page.waitForFunction(()=>document.querySelector('#edit .lsf-correction .lsf-note')&&document.querySelector('#edit .lsf-correction').textContent.includes('Partly scored'));assert.equal(await folded(page,'edit'),false,'focused correction protects the replacement result');
+  await page.evaluate(()=>window.releases.edit());await page.waitForFunction(()=>document.querySelector('#edit .lsf-correction .lsf-note')&&document.querySelector('#edit .lsf-correction').textContent.includes('Partly scored'));assert.equal(await folded(page,'edit'),false,'explicit Show post keeps the replacement result visible');
   await page.locator('#edit .lsf-correction button').filter({hasText:'Cancel'}).click();assert.equal(await page.locator('#edit .lsf-tools button').filter({hasText:/^Categories$/}).evaluate(e=>e===document.activeElement),true);assert.equal(await page.evaluate(()=>window.corrections.length),0);assert.deepEqual(errors,[]);
  }
  // Score precision explains strict boundary matches rather than displaying equal percentages.
@@ -319,5 +320,5 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.waitForFunction(()=>document.querySelectorAll('[data-lsf-ui]').length===0);assert.deepEqual(errors,[]);
  }
  for(const page of pages)await page.close();await browser.close();
- console.log('PASS: native feed appearance, independent Hide precedence, visible/focused deferral, paragraph anchoring (native/fallback), reveal/re-hide focus including clipped long cards, category menu/group focus, stale rejection and pause recovery, trusted feed probe, one-shot folded usage, grouping/order, temporary recovery, multi-label/none corrections, partial/fail-open, bounded priority queue, responsive/dark/reduced motion');
+ console.log('PASS: native feed appearance, independent Hide precedence, immediate visible/hovered/focused folding, paragraph anchoring (native/fallback), reveal/re-hide focus including clipped long cards, category menu/group focus, stale rejection and pause recovery, trusted feed probe, one-shot folded usage, grouping/order, temporary recovery, multi-label/none corrections, partial/fail-open, bounded priority queue, responsive/dark/reduced motion');
 })().catch(e=>{console.error(e);process.exit(1);});

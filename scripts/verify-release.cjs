@@ -45,13 +45,12 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   const activeFeedTab=(await worker.evaluate(()=>chrome.tabs.query({active:true,currentWindow:true})))[0];
   assert.equal(Number.isInteger(activeFeedTab.id),true);
   assert.equal(typeof activeFeedTab.url,'undefined','existing permissions expose the tab id, not its URL');
-  await feed.waitForSelector('#brainrot .lsf-arrived:not([hidden])');
+  await feed.waitForSelector('#brainrot.lsf-folded');
   assert.match(await feed.locator('[data-lsf-ui]').first().evaluate(e=>getComputedStyle(e).fontFamily),/Segoe UI/,'feed controls use system typography');
-  assert.equal(await feed.locator('#brainrot.lsf-folded').count(),0,'a visible newly scored card stays readable');
+  assert.equal(await feed.locator('#brainrot.lsf-folded').count(),1,'a visible newly scored card folds immediately');
   for(const id of ['brainrot','slop-one','slop-two','advert','slop-three']){
    await feed.locator('#'+id).scrollIntoViewIfNeeded();
-   await feed.waitForFunction(id=>document.getElementById(id).classList.contains('lsf-folded')||!!document.querySelector('#'+id+' .lsf-arrived:not([hidden])'),id);
-   if(!await feed.locator('#'+id+'.lsf-folded').count())await feed.locator('#'+id+' .lsf-actions button').filter({hasText:/^Hide post$/}).click();
+   await feed.waitForSelector('#'+id+'.lsf-folded');
   }
   await feed.locator('#useful').scrollIntoViewIfNeeded();
   await feed.waitForFunction(()=>document.getElementById('useful').classList.contains('lsf-highlight'));
@@ -175,6 +174,6 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   assert.deepEqual(errors,[]);
   assert.deepEqual(consoleErrors,[],'no console errors throughout the unpacked runtime and reload check');
   assert.deepEqual(failedResources,[],'no failed extension resources throughout the unpacked runtime and reload check');
-  console.log('PASS: actual unpacked worker/feed/settings/popup; native appearance, visible deferral, reversible groups, temporary recovery, multi-label corrections, no text-bearing ordinary cache, missing-key fail-open, 320px and dark/reduced-motion layouts; real extension reload restores originals, stops stale controls and reconnects after page reload. Console errors: 0. Failed extension resources: 0. Provider calls: 0.');
+  console.log('PASS: actual unpacked worker/feed/settings/popup; native appearance, immediate visible folding, reversible groups, temporary recovery, multi-label corrections, no text-bearing ordinary cache, missing-key fail-open, 320px and dark/reduced-motion layouts; real extension reload restores originals, stops stale controls and reconnects after page reload. Console errors: 0. Failed extension resources: 0. Provider calls: 0.');
  }finally{try{if(context)await context.close();}finally{fs.rmSync(profile,{recursive:true,force:true});}}
 })().catch(error=>{console.error('Release QA failed: '+error.message);process.exitCode=1;});

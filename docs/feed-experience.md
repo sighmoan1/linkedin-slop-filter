@@ -6,7 +6,7 @@ The feed uses one Native appearance that keeps familiar LinkedIn cards. Individu
 
 Show reveals one original post in place. Hide again reverses that action. Show everything temporarily reveals the current feed without changing saved rules. Disabling filtering pauses scoring and restores posts. Corrections are explicit local records, separate from ordinary reveals.
 
-New results must leave a visible, hovered or keyboard-focused card open until it leaves view or the reader chooses Hide now. Offscreen layout changes and deliberate reveals keep the reading position stable. The Categories menu shows actual model scores, thresholds and actions, including missing answers; they do not invent model explanations or establish AI authorship.
+Current results above a Hide category’s threshold fold immediately, including visible, hovered and keyboard-focused cards. Explicitly revealed posts and temporary Show everything remain open. When a focused card folds, focus moves to Show post. Offscreen layout changes and deliberate reveals keep the reading position stable. The Categories menu shows actual model scores, thresholds and actions, including missing answers; they do not invent model explanations or establish AI authorship.
 
 ## Release checks
 
@@ -22,7 +22,7 @@ Set `QA_OUTPUT_DIR` to a local directory when running that command to retain scr
 
 On 10 October 2026, the combined `npm test` suite and `npm run verify:release` both passed. The unpacked-extension check used the actual service worker, content script, settings and popup with seven authored posts and seeded scores. It made zero provider requests. Desktop and 320px layouts, Native/Punchy/Reader, dark mode, reduced motion, multi-label correction storage, temporary recovery, missing-key failure and feed-only scope passed. The popup recovered the feed using the existing permissions even when Chrome supplied a tab id without its URL.
 
-The simulated-feed suite passed reading-position checks within 2px with native browser anchoring enabled and disabled, keyboard reveal/re-hide, visible/hovered/focused result deferral, recycled cards, partial answers and reversible groups. LinkedIn's own overflow containers can prevent a revealed post's header from sticking; long posts therefore also have a Hide again control at their end. These checks cover authored browser fixtures, not every current LinkedIn layout.
+The simulated-feed suite passed reading-position checks within 2px with native browser anchoring enabled and disabled, keyboard reveal/re-hide, immediate visible/hovered/focused result folding, recycled cards, partial answers and reversible groups. LinkedIn's own overflow containers can prevent a revealed post's header from sticking; long posts therefore also have a Hide again control at their end. These checks cover authored browser fixtures, not every current LinkedIn layout.
 
 Version 2.0.1 repeated both complete checks successfully after the readability and route fixes. The unpacked check additionally exercised For You/Network routes and loaded both bundled font faces. The signed-in check confirmed feed discovery, live OpenAI scoring and folding on the owner's current For You feed. Its observations are recorded without real post bodies or screenshots.
 
