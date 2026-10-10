@@ -320,11 +320,12 @@
       if(record.bar.className!=="lsf-bar")record.bar.className="lsf-bar";
       textOf(record.show,"Show post");
       const author=experience.appearance.showAuthor?postAuthor(post):"";
-      const categories=hiding.map(c=>{
-        const score=record.scores?.[c.id];
-        return c.name+(!c.corrected&&Number.isFinite(score)?" • "+Math.round(score*100)+"% confidence":"");
-      }).join(" • ");
-      const label=categories+(author?" • "+author:"");
+      // Keep all matches for decisions/review, but summarize the strongest Hide match.
+      // Equal or unavailable scores retain the existing category order.
+      const confidence=c=>Number.isFinite(record.scores?.[c.id])?record.scores[c.id]:-1;
+      const strongest=hiding.reduce((best,c)=>confidence(c)>confidence(best)?c:best);
+      const score=record.scores?.[strongest.id];
+      const label=strongest.name+(!strongest.corrected&&Number.isFinite(score)?" • "+Math.round(score*100)+"% confidence":"")+(author?" • "+author:"");
       textOf(record.foldLabel,label);
       attr(record.bar,"data-label",label);
       attr(record.foldLabel,"title",label+". "+status(record,hits).title);

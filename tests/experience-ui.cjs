@@ -2,6 +2,7 @@ const {chromium}=require('playwright');
 const fs=require('node:fs');
 const path=require('node:path');
 const assert=require('node:assert/strict');
+const {audit,controlStates,textSpacing}=require('./accessibility.cjs');
 const root=path.join(__dirname,'..');
 const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.ttf':'font/ttf'};
 (async()=>{
@@ -217,9 +218,9 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
    const navigationContrast=await page.locator('.sidebar nav button').evaluateAll(buttons=>{const rgb=value=>value.match(/[\d.]+/g).map(Number),luminance=values=>values.slice(0,3).map(value=>{const s=value/255;return s<=.04045?s/12.92:((s+.055)/1.055)**2.4;}).reduce((sum,value,index)=>sum+value*[.2126,.7152,.0722][index],0);return buttons.map(button=>{let background=button;while(getComputedStyle(background).backgroundColor==='rgba(0, 0, 0, 0)'&&background.parentElement)background=background.parentElement;const foreground=luminance(rgb(getComputedStyle(button).color)),surface=luminance(rgb(getComputedStyle(background).backgroundColor));return (Math.max(foreground,surface)+.05)/(Math.min(foreground,surface)+.05);});});assert(navigationContrast.every(ratio=>ratio>=4.5),'navigation text has accessible contrast in '+colorScheme);
    for(const width of [1280,736,360,320]) {
     await page.setViewportSize({width,height:900});
-    for(const panel of ['feed','categories','provider','corrections','playground']) {await navigate(panel);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false,`${panel} fits ${width}px ${colorScheme}`);}
+    for(const panel of ['feed','people','categories','provider','corrections','playground']) {await navigate(panel);if(width===1280||width===320)await audit(page);if(width===320)await textSpacing(page);if(width===1280)await controlStates(page,'button');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false,`${panel} fits ${width}px ${colorScheme}`);}
    }
-   await popup.setViewportSize({width:320,height:640});assert.equal(await popup.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false,'popup fits 320px '+colorScheme);
+   await popup.setViewportSize({width:320,height:640});await audit(popup);await controlStates(popup,'button');await textSpacing(popup);assert.equal(await popup.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),false,'popup fits 320px '+colorScheme);
   }
   if(process.env.LSF_UI_SCREENSHOTS){
    await page.emulateMedia({colorScheme:'light'});await page.setViewportSize({width:1280,height:900});await navigate('feed');await page.screenshot({path:process.env.LSF_UI_SCREENSHOTS+'-feed.png'});await navigate('categories');await page.screenshot({path:process.env.LSF_UI_SCREENSHOTS+'-categories.png'});

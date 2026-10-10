@@ -32,7 +32,7 @@
 .popup-stats span{display:inline;font-size:14px;color:var(--muted);margin:0}
 .popup-usage>.note{font-size:14px;line-height:1.5;margin-bottom:10px}
 .popup-usage details{border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:10px;background:var(--surface)}
-.popup-usage summary{font-size:14px;cursor:pointer}
+.popup-usage summary{font-size:14px;cursor:pointer;min-height:44px;padding:10px 0}
 .popup-footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:12px;margin-top:12px;font-size:14px}
 .popup-footer a{font-weight:500;min-height:32px;text-decoration:none}
 .popup-footer a:hover{text-decoration:underline}

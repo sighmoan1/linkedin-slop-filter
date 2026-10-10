@@ -31,6 +31,7 @@
     "test:images": "node tests/images.mjs && node tests/images-ui.cjs && node tests/images-extension.cjs"
   },
   "devDependencies": {
+    "axe-core": "^4.14.0",
     "playwright": "1.64.0"
   }
 }

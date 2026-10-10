@@ -2,6 +2,7 @@ const {chromium}=require('playwright');
 const fs=require('node:fs');
 const path=require('node:path');
 const assert=require('node:assert/strict');
+const {audit}=require('./accessibility.cjs');
 const root=path.join(__dirname,'..');
 const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css'};
 const ALLOWED_HOSTS=new Set(['openrouter.ai','platform.openai.com','developers.openai.com','github.com']);
@@ -81,6 +82,7 @@ const ALLOWED_HOSTS=new Set(['openrouter.ai','platform.openai.com','developers.o
      })
     };
    });
+   await audit(page);
    assert.equal(appearance.overflow,false,`${colorScheme} guide overflows at ${width}px`);
    for(const {tag,ratio} of appearance.contrast)assert.ok(ratio>=4.5,`${colorScheme} ${tag} contrast ${ratio.toFixed(2)} at ${width}px`);
   }
