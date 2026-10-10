@@ -7,6 +7,7 @@
 <div class="app-layout">
 <aside class="sidebar"><nav aria-label="Settings sections"><button type="button" data-panel="feed" aria-controls="panel-feed" aria-current="page"><span aria-hidden="true">◫</span> Feed</button><button type="button" data-panel="categories" aria-controls="panel-categories"><span aria-hidden="true">☷</span> Categories</button><button type="button" data-panel="provider" aria-controls="panel-provider"><span aria-hidden="true">◎</span> Provider</button><button type="button" data-panel="corrections" aria-controls="panel-corrections"><span aria-hidden="true">↺</span> Corrections</button><button type="button" data-panel="playground" aria-controls="panel-playground"><span aria-hidden="true">▷</span> Try a post</button></nav><p class="sidebar-note">Hidden posts stay in their original place. You can always show them.</p></aside>
 <form id="settings" novalidate>
+<fieldset id="editableSettings">
 <section id="panel-feed" class="settings-panel" aria-labelledby="feed-heading">
 <header class="section-heading"><p class="eyebrow">Your reading space</p><h1 id="feed-heading" tabindex="-1">Shape your feed.</h1><p>Choose how your feed feels. Category rules decide which posts get hidden.</p></header>
 <div class="surface control-card"><label class="enable-line" for="enabled"><span><strong>Enable filtering</strong><span>Pause to keep every post visible and stop new scoring requests.</span></span><input id="enabled" type="checkbox" role="switch"></label></div>
@@ -57,6 +58,7 @@
 <div class="callout compact"><p>This uses your <strong>saved provider and definitions</strong>. Save any edits first. Pressing Classify sends the text to that provider and counts against the same session cap as feed scoring; cached scores may be reused. Cloud requests can be billed, even with filtering paused.</p></div>
 <label>Post text<textarea id="playgroundText" rows="8" maxlength="8000" placeholder="Paste a post or write a synthetic example…"></textarea></label><div class="button-row"><button type="button" id="classifyPost">Classify this post</button><button type="button" class="secondary" id="clearPlayground">Clear</button><span id="playgroundStatus" role="status" aria-live="polite"></span></div><section id="playgroundResult" class="surface playground-result" aria-label="Classification result" hidden></section><p class="note">This is a test, not a saved correction. Scores are the provider's judgement; the extension does not generate explanations or verify facts.</p>
 </section>
+</fieldset>
 <footer class="save-bar"><div><span id="saveState">Saved settings</span><p id="status" role="status" aria-live="polite"></p></div><button type="submit">Save settings <span aria-hidden="true">↗</span></button></footer>
 </form>
 </div>

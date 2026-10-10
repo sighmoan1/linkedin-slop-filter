@@ -22,7 +22,7 @@
     "test:local": "node tests/local.mjs && node tests/evaluation.mjs && node tests/rubrics.mjs",
     "test:localui": "node tests/local-dom.cjs && node tests/local-options.cjs",
     "test:catui": "node tests/categories-ui.cjs",
-    "test:experienceui": "node tests/experience-ui.cjs",
+    "test:experienceui": "node tests/experience-ui.cjs && node tests/experience-service-ui.cjs",
     "report:rubrics": "node scripts/report-rubrics.mjs",
     "evaluate:categories": "node scripts/evaluate-categories.mjs"
   },

@@ -31,8 +31,9 @@ function selectPanel(id,focus=false){
 for (const button of document.querySelectorAll("[data-panel]")) button.addEventListener("click",()=>selectPanel(button.dataset.panel,true));
 window.addEventListener("hashchange",()=>selectPanel(location.hash.slice(1)));
 selectPanel(location.hash.slice(1));
-function markDirty(){dirty=true;$("saveState").textContent="Unsaved changes";}
+function markDirty(){dirty=true;$("saveState").textContent="Unsaved changes";$("status").textContent="";}
 function clearUndo(){undo=null;$("undoPreset").hidden=true;}
+function invalidatePreviews(){preset=null;revisedDefinitions=null;$("presetPreview").hidden=true;$("definitionPreview").hidden=true;}
 function updateSavedProvider(){$("savedProvider").textContent=providerName(savedSettings.provider);}
 for (const id of FIELDS) {
   if (id==="enabled") $(id).checked=savedSettings[id];
@@ -104,10 +105,10 @@ function updateBudget(){
   $("budgetState").textContent=size>LOCAL_RUBRIC_MAX?(size-LOCAL_RUBRIC_MAX).toLocaleString()+" characters over the local limit. Shorten definitions or switch categories Off.":(LOCAL_RUBRIC_MAX-size).toLocaleString()+" characters remaining for local classification.";
   $("budgetMeter").closest(".definition-budget").classList.toggle("budget-over",size>LOCAL_RUBRIC_MAX);
 }
-function categoryEdit(){clearUndo();markDirty();updateBudget();}
+function categoryEdit(){clearUndo();invalidatePreviews();markDirty();updateBudget();}
 function move(c,step){
-  const i=cats.indexOf(c),j=i+step;if(j<0||j>=cats.length)return;
-  [cats[i],cats[j]]=[cats[j],cats[i]];clearUndo();markDirty();renderCats();
+  const i=cats.indexOf(c),j=i+step;if(i<0||j<0||j>=cats.length)return;
+  [cats[i],cats[j]]=[cats[j],cats[i]];clearUndo();invalidatePreviews();markDirty();renderCats();
   listEl.querySelector(`.cat[data-id="${c.id}"] .cat-${step<0?"up":"down"}`)?.focus();
 }
 function renderCats(){
@@ -129,7 +130,7 @@ function renderCats(){
     up.addEventListener("click",()=>move(c,-1));down.addEventListener("click",()=>move(c,1));
     const remove=el("button",{type:"button",className:"secondary cat-remove",textContent:"Remove"});remove.setAttribute("aria-label","Remove "+c.name);
     remove.addEventListener("click",()=>{
-      cats=cats.filter(x=>x!==c);clearUndo();markDirty();catStatus.textContent="Removed "+c.name+". Press Save settings to keep this.";renderCats();
+      cats=cats.filter(x=>x!==c);clearUndo();invalidatePreviews();markDirty();catStatus.textContent="Removed "+c.name+". Press Save settings to keep this.";renderCats();
       (listEl.querySelector(".cat .cat-remove")||$("addCategoryDetails").querySelector("summary"))?.focus({preventScroll:true});
     });
     const text=el("textarea",{rows:5,maxLength:2000,value:c.instructions});text.setAttribute("aria-label",c.name+" definition");
@@ -147,11 +148,11 @@ $("addCat").addEventListener("click",()=>{
   if (cats.length>=MAX_CATEGORIES) return;
   const made=makeCategory($("newCatName").value,$("newCatRule").value,cats);
   if (!made) {catStatus.textContent="Give the category a name (up to 40 characters) and say what counts (up to 2,000).";return;}
-  cats=[...cats,made];$("newCatName").value="";$("newCatRule").value="";clearUndo();markDirty();catStatus.textContent="Added "+made.name+". Press Save settings to keep this.";renderCats();
+  cats=[...cats,made];$("newCatName").value="";$("newCatRule").value="";clearUndo();invalidatePreviews();markDirty();catStatus.textContent="Added "+made.name+". Press Save settings to keep this.";renderCats();
   listEl.querySelector(`.cat[data-id="${made.id}"] .cat-name`)?.focus({preventScroll:true});
 });
 function previewPreset(mode){
-  preset={mode,actions:new Map(DEFAULT_CATEGORIES.map(c=>[c.id,mode==="less-noise"&&["slop","brainrot","advert"].includes(c.id)?"hide":c.action]))};
+  invalidatePreviews();preset={mode,actions:new Map(DEFAULT_CATEGORIES.map(c=>[c.id,mode==="less-noise"&&["slop","brainrot","advert"].includes(c.id)?"hide":c.action]))};
   const changes=cats.filter(c=>preset.actions.has(c.id)&&c.action!==preset.actions.get(c.id));
   $("presetTitle").textContent=mode==="less-noise"?"Less noise: hide Slop, Brainrot and Advert":"Defaults: Slop hides; other categories label or highlight";
   $("presetChanges").replaceChildren(...changes.map(c=>el("li",{textContent:c.name+": "+ACTION_LABELS[c.action]+" → "+ACTION_LABELS[preset.actions.get(c.id)]})));
@@ -164,10 +165,10 @@ $("applyPreset").addEventListener("click",()=>{
   if (!preset) return;
   undo={kind:"actions",actions:new Map(cats.filter(c=>preset.actions.has(c.id)).map(c=>[c.id,c.action]))};
   cats=cats.map(c=>preset.actions.has(c.id)?{...c,action:preset.actions.get(c.id)}:c);
-  $("presetPreview").hidden=true;preset=null;markDirty();renderCats();$("undoPreset").hidden=false;$("undoPreset").textContent="Undo preset";catStatus.textContent="Preset applied to this draft. Press Save settings to keep it.";
+  invalidatePreviews();markDirty();renderCats();$("undoPreset").hidden=false;$("undoPreset").textContent="Undo preset";catStatus.textContent="Preset applied to this draft. Press Save settings to keep it.";
 });
 $("previewDefinitions").addEventListener("click",()=>{
-  const defaults=new Map(DEFAULT_CATEGORIES.map(c=>[c.id,c.instructions]));
+  invalidatePreviews();const defaults=new Map(DEFAULT_CATEGORIES.map(c=>[c.id,c.instructions]));
   const changed=cats.filter(c=>defaults.has(c.id)&&c.instructions!==defaults.get(c.id));
   revisedDefinitions=new Map(changed.map(c=>[c.id,defaults.get(c.id)]));
   $("definitionChanges").replaceChildren(...changed.map(c=>el("details",{className:"definition-comparison"},el("summary",{textContent:c.name}),el("div",{className:"details-body"},el("p",{className:"note",textContent:"Current wording"}),el("p",{className:"definition-wording",textContent:c.instructions}),el("p",{className:"note",textContent:"Revised wording"}),el("p",{className:"definition-wording",textContent:defaults.get(c.id)})))));
@@ -179,16 +180,16 @@ $("applyDefinitions").addEventListener("click",()=>{
   if (!revisedDefinitions) return;
   undo={kind:"definitions",instructions:new Map(cats.filter(c=>revisedDefinitions.has(c.id)).map(c=>[c.id,c.instructions]))};
   cats=cats.map(c=>revisedDefinitions.has(c.id)?{...c,instructions:revisedDefinitions.get(c.id)}:c);
-  revisedDefinitions=null;$("definitionPreview").hidden=true;markDirty();renderCats();$("undoPreset").hidden=false;$("undoPreset").textContent="Undo definition update";
+  invalidatePreviews();markDirty();renderCats();$("undoPreset").hidden=false;$("undoPreset").textContent="Undo definition update";
   catStatus.textContent="Revised definitions applied to this draft. Save settings to use them and request fresh scores.";
 });
 $("resetCats").addEventListener("click",()=>{
-  undo={kind:"restore",categories:copyCats(cats)};cats=copyCats(DEFAULT_CATEGORIES);markDirty();renderCats();$("undoPreset").hidden=false;$("undoPreset").textContent="Undo restore";
+  invalidatePreviews();undo={kind:"restore",categories:copyCats(cats)};cats=copyCats(DEFAULT_CATEGORIES);markDirty();renderCats();$("undoPreset").hidden=false;$("undoPreset").textContent="Undo restore";
   catStatus.textContent="Default categories and definitions restored in this draft. Press Save settings to keep this.";
 });
 $("undoPreset").addEventListener("click",()=>{
   if (!undo) return;
-  cats=undo.kind==="restore"?copyCats(undo.categories):undo.kind==="definitions"?cats.map(c=>undo.instructions.has(c.id)?{...c,instructions:undo.instructions.get(c.id)}:c):cats.map(c=>undo.actions.has(c.id)?{...c,action:undo.actions.get(c.id)}:c);
+  invalidatePreviews();cats=undo.kind==="restore"?copyCats(undo.categories):undo.kind==="definitions"?cats.map(c=>undo.instructions.has(c.id)?{...c,instructions:undo.instructions.get(c.id)}:c):cats.map(c=>undo.actions.has(c.id)?{...c,action:undo.actions.get(c.id)}:c);
   clearUndo();markDirty();renderCats();catStatus.textContent="Undone in this draft. Press Save settings to keep this.";
 });
 
@@ -204,14 +205,19 @@ $("settings").addEventListener("submit",async event=>{
   if (next.enabled&&next.provider!=="ollama"&&!(next.provider==="jev"?next.jevKey:next.openaiKey)) {selectPanel("provider");status.textContent="Add a key for the selected provider first.";return;}
   try {if (next.enabled) requestFor(next,"Settings validation");}
   catch(error){selectPanel(next.provider==="ollama"&&error.message.includes("definitions")?"categories":"provider");status.textContent=error.message;return;}
+  const saveButton=$("settings").querySelector('button[type="submit"]'),restoreSaveFocus=document.activeElement===saveButton;saveButton.disabled=true;$("editableSettings").disabled=true;$("status").textContent="Saving…";let rulesSaved=false;
   try {
-    await chrome.storage.local.set({...next,schema:DEFAULTS.schema});
+    await chrome.storage.local.set({...next,schema:DEFAULTS.schema});rulesSaved=true;
+    savedSettings={...next,schema:DEFAULTS.schema};cats=copyCats(next.categories);renderCats();updateSavedProvider();void refreshCorrections();
     if (bridgeAvailable) appearance=safeAppearance((await send({type:"appearance",appearance})).appearance);
     else await chrome.storage.local.set({appearance:safeAppearance(appearance)});
-    await chrome.storage.local.remove("lastError");$("error").textContent="";
-    savedSettings={...next,schema:DEFAULTS.schema};cats=copyCats(next.categories);void refreshCorrections();dirty=false;clearUndo();updateSavedProvider();renderAppearance();$("saveState").textContent="Saved settings";
+    await chrome.storage.local.remove("lastError").catch(()=>{});$("error").textContent="";
+    dirty=false;clearUndo();renderAppearance();$("saveState").textContent="Saved settings";
     status.textContent="Saved. Open feeds pick up the change within a few seconds.";
-  } catch(error) {status.textContent="Category and provider settings were saved, but appearance could not be saved. "+error.message;}
+  } catch(error) {
+    dirty=true;$("saveState").textContent=rulesSaved?"Appearance not saved":"Unsaved changes";
+    status.textContent=rulesSaved?"Category and provider settings saved. Appearance was not saved; try again. "+error.message:"Could not save settings. Your saved settings have not changed. Try again.";
+  } finally {saveButton.disabled=false;$("editableSettings").disabled=false;if(restoreSaveFocus&&document.activeElement===document.body)saveButton.focus({preventScroll:true});}
 });
 $("forget").addEventListener("click",async()=>{
   await chrome.storage.local.set({enabled:false,jevKey:"",openaiKey:""});await chrome.storage.local.remove("keyCheck");
@@ -262,6 +268,7 @@ $("exportCorrections").addEventListener("click",()=>{
   $("correctionStatus").textContent="Exported the corrections you explicitly saved, including their post text.";
 });
 
+const percent=value=>(value*100).toLocaleString(undefined,{maximumFractionDigits:6})+"%";
 function renderPlayground(result){
   const available=result.scores||{},categories=result.categories||[],active=categories.filter(c=>c.action!=="off");
   const hasScore=c=>typeof available[c.id]==="number"&&Number.isFinite(available[c.id])&&available[c.id]>=0&&available[c.id]<=1;
@@ -272,19 +279,35 @@ function renderPlayground(result){
   const shown=[...categories,...savedSettings.categories.filter(c=>c.action==="off"&&!categories.some(x=>x.id===c.id)).map(({id,name,action,threshold})=>({id,name,action,threshold}))];
   const table=el("table",{className:"results-table"},el("thead",{},el("tr",{},... ["Category","Score","Rule","Result"].map(value=>el("th",{textContent:value})))),el("tbody",{},...shown.map(c=>{
     const scored=hasScore(c),match=scored&&available[c.id]>c.threshold&&c.action!=="off";
-    return el("tr",{className:match?"matched":""},el("td",{textContent:c.name}),el("td",{textContent:c.action==="off"?"Not asked":scored?Math.round(available[c.id]*100)+"%":"Missing"}),el("td",{textContent:c.action==="off"?"Off":ACTION_LABELS[c.action]+" above "+Math.round(c.threshold*100)+"%"}),el("td",{textContent:c.action==="off"?"Inactive":!scored?"Not scored":match?"Matches":"No match"}));
+    return el("tr",{className:match?"matched":""},el("td",{textContent:c.name}),el("td",{textContent:c.action==="off"?"Not asked":scored?percent(available[c.id]):"Missing"}),el("td",{textContent:c.action==="off"?"Off":ACTION_LABELS[c.action]+" above "+percent(c.threshold)}),el("td",{textContent:c.action==="off"?"Inactive":!scored?"Not scored":match?(percent(available[c.id])===percent(c.threshold)&&available[c.id]!==c.threshold?"Matches · just above":"Matches"):(scored&&percent(available[c.id])===percent(c.threshold)&&available[c.id]!==c.threshold?"No match · just below":"No match")}));
   })));
   $("playgroundResult").replaceChildren(title,description,table,el("p",{className:"note",textContent:"Scored with "+providerName(result.provider)+". "+(result.provider==="ollama"?"Local values are self-reported confidence, not calibrated probability.":"Scores are not an explanation or proof of AI authorship.")}));$("playgroundResult").hidden=false;
 }
+let playgroundGeneration=0,playgroundPending=false;
+function invalidatePlayground(message=""){playgroundGeneration++;$("playgroundResult").hidden=true;$("playgroundStatus").textContent=message;}
+$("playgroundText").addEventListener("input",()=>invalidatePlayground(playgroundPending?"Text changed. The earlier result will be discarded.":""));
 $("classifyPost").disabled=!bridgeAvailable;
 if (!bridgeAvailable) $("playgroundStatus").textContent="The extension service is unavailable. Reopen settings or reload the extension to classify a post.";
 $("classifyPost").addEventListener("click",async()=>{
   const text=$("playgroundText").value.trim();
   if (!text) {$("playgroundStatus").textContent="Enter some post text first.";return;}
+  const generation=++playgroundGeneration;playgroundPending=true;
   $("classifyPost").disabled=true;$("playgroundResult").hidden=true;$("playgroundStatus").textContent=savedSettings.provider==="ollama"&&text.length>LOCAL_TEXT_MAX?"Classifying the first "+LOCAL_TEXT_MAX.toLocaleString()+" characters with local Ollama…":"Classifying with your saved settings…";
-  try {const result=await send({type:"playground",text});renderPlayground(result);$("playgroundStatus").textContent=dirty?"Finished using saved settings. Your unsaved edits were not used.":"Finished. This test was not saved as a correction.";}
-  catch(error){$("playgroundStatus").textContent=error.message;}
-  finally {$("classifyPost").disabled=false;await updateUsage();}
+  try {
+    const result=await send({type:"playground",text});if(generation!==playgroundGeneration)return;
+    if(result.disabled)throw new Error("This post was not scored because the saved settings changed while it was waiting. Try again with the current settings.");
+    if(!Array.isArray(result.categories)||!result.categories.length||!result.scores||!Object.values(result.scores).some(score=>typeof score==="number"&&Number.isFinite(score)&&score>=0&&score<=1))throw new Error("The provider returned no usable scores. This post was not classified.");
+    renderPlayground(result);$("playgroundStatus").textContent=dirty?"Finished using saved settings. Your unsaved edits were not used.":"Finished. This test was not saved as a correction.";
+  } catch(error){if(generation===playgroundGeneration)$("playgroundStatus").textContent=error.message;}
+  finally {playgroundPending=false;$("classifyPost").disabled=false;await updateUsage();}
 });
-$("clearPlayground").addEventListener("click",()=>{$("playgroundText").value="";$("playgroundResult").hidden=true;$("playgroundStatus").textContent="";$("playgroundText").focus();});
+$("clearPlayground").addEventListener("click",()=>{$("playgroundText").value="";invalidatePlayground();$("playgroundText").focus();});
+// Keep focused fields above the persistent footer, including at narrow widths and long status messages.
+function keepFocusedFieldVisible(){
+  const focused=document.activeElement;if(!focused||!$("settings").contains(focused)||focused.closest(".save-bar"))return;
+  const bottom=focused.getBoundingClientRect().bottom,footer=document.querySelector(".save-bar").getBoundingClientRect().top;
+  if(bottom>footer-12)window.scrollBy(0,bottom-footer+16);
+}
+document.addEventListener("focusin",()=>requestAnimationFrame(keepFocusedFieldVisible));
+new ResizeObserver(()=>{const height=document.querySelector(".save-bar").getBoundingClientRect().height;document.documentElement.style.scrollPaddingBottom=(height+28)+"px";document.querySelector(".settings-app").style.paddingBottom=Math.max(120,height+40)+"px";keepFocusedFieldVisible();}).observe(document.querySelector(".save-bar"));
 document.documentElement.dataset.settingsReady="true";

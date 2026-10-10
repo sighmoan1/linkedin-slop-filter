@@ -33,7 +33,7 @@ const KEY='sk-or-SECRET-TEST-KEY';
    return {ok:m.status>=200&&m.status<300,status:m.status,json:async()=>url.includes('openai.com')?good.openai:good.jev};
   };
  });
- const open=async()=>{await page.goto('https://ext.test/options.html#provider');await page.waitForFunction(()=>document.querySelectorAll('.cat').length>0);};
+ const open=async()=>{if(page.url().startsWith('https://ext.test/options.html'))await page.reload();else await page.goto('https://ext.test/options.html#provider');await page.waitForFunction(()=>document.documentElement.dataset.settingsReady==='true');await page.click('[data-panel=provider]');};
  const text=id=>page.locator('#'+id).innerText();
  await open();
 
