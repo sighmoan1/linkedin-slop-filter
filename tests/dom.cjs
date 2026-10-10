@@ -83,6 +83,30 @@ const assert=require('node:assert/strict');
  assert.equal(await badge('dynamic').count(),1);
  assert.equal(await page.locator('#dynamic .lsf-bar').count(),0);
 
+ // A connected recycled card with no body drops every trace of its preceding result.
+ await card('gone','SLOP body that will disappear');
+ await page.waitForSelector('#gone.lsf-folded');
+ await page.evaluate(()=>document.querySelector('#gone .update-components-text').remove());
+ await page.waitForFunction(()=>!document.querySelector('#gone').classList.contains('lsf-folded')&&!document.querySelector('#gone .lsf-bar, #gone .lsf-badge'));
+ assert.equal(await page.locator('#gone').evaluate(e=>e.classList.contains('lsf-highlight')),false);
+
+ // A pending answer cannot restore old scores after the textless card has been forgotten.
+ await card('pendinggone','SLOW SLOP obsolete pending body');
+ await waitBadge('pendinggone',/Scoring…/);
+ await page.waitForFunction(()=>typeof window.releaseSlow==='function');
+ await page.evaluate(()=>{window.releaseObsolete=window.releaseSlow;document.querySelector('#pendinggone .update-components-text').remove();});
+ await page.waitForFunction(()=>!document.querySelector('#pendinggone .lsf-bar, #pendinggone .lsf-badge'));
+ await page.evaluate(()=>window.releaseObsolete());
+ await page.waitForTimeout(300);
+ assert.equal(await page.locator('#pendinggone.lsf-folded, #pendinggone .lsf-bar, #pendinggone .lsf-badge').count(),0,'obsolete pending response cannot hide a textless replacement');
+
+ // Adding a new body later starts a fresh classification exactly once.
+ const beforeRefill=await page.evaluate(()=>window.calls.length);
+ await page.evaluate(()=>{const t=document.createElement('div');t.className='update-components-text';t.textContent='LOW replacement after the body vanished';document.getElementById('pendinggone').append(t);});
+ await waitBadge('pendinggone',/^No category$/);
+ assert.equal(await page.evaluate(()=>window.calls.length),beforeRefill+1);
+ assert.equal(await page.locator('#pendinggone .lsf-bar').count(),0);
+
  // The badge must not retrigger the page-wide observer: nothing changes while idle, and it is never duplicated.
  const stable=await page.evaluate(async()=>{
   const first=document.querySelector('#edge .lsf-badge');let mutations=0;
