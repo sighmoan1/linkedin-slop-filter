@@ -13,6 +13,8 @@ Jev through OpenRouter is the default provider. OpenAI Decisions and downloaded 
 
 After updating an unpacked installation, press **Reload** on its card in `chrome://extensions`, then reload the feed. Chrome does not automatically reload an extension when Git changes its files.
 
+The popup reports **Feed connected** and the number of readable posts found. Home, **For you** and **Network** feed routes are supported; individual post pages are excluded. If you navigate to the feed from another LinkedIn page and controls are missing, reload the feed. A disconnected popup offers **Reload current tab** when it can safely identify a candidate tab.
+
 Existing category definitions are preserved. To adopt revised built-in prompts, use **Review revised definitions** in Categories, review, apply and save. This keeps custom categories, names, actions, thresholds and order. **Restore defaults** is a separate, deliberate reset of the whole category draft.
 
 Cloud API billing is separate from ChatGPT subscriptions. No key is included. Key tests make one tiny real request using the key as entered; they do not count against the feed/playground session limit. Their result verifies access, not filtering quality.
@@ -40,9 +42,11 @@ An empty category list or all categories Off can be saved while filtering is dis
 | --- | --- |
 | Native | Familiar typography, neutral cards and compact hidden rows. |
 | Punchy | Prominent category names and restrained colors. Useful posts remain open in full. |
-| Reader | A warm paper-like surface, serif post text and quiet divider rows. |
+| Reader | A warm paper-like surface, larger sans-serif post text and quiet divider rows. |
 
 Theme changes do not change actions, thresholds, definitions or requests. Styling is confined to the feed and leaves original links and controls in place. **Group consecutive hidden posts** is a separate option, off by default. Groups show a count and category composition, retain individual reveal controls and never span a visible post. Labels on visible posts can be switched off independently.
+
+The interface follows the owner's [whenisbins stylesheet reference](https://whenisbins.com/styles-new.css): warm paper, dark ink, teal buttons, substantial borders and a yellow/ink keyboard focus ring. Lexend Deca is bundled locally from [Google Fonts](https://github.com/google/fonts/tree/main/ofl/lexenddeca), with its [SIL Open Font License](assets/fonts/OFL.txt). Settings use 19px body text; feed controls and popup text use 17px, with at least 16px supporting text and large button targets. No fonts or styles are fetched at runtime.
 
 - **Show** reveals one original post in place for that card's lifetime. **Hide again** reverses it. Neither makes another request or saves a correction.
 - **Show everything** temporarily reveals the current feed without modifying saved rules. **Restore filtering** ends that override.
@@ -93,8 +97,8 @@ The suite checks provider schemas, response validation, strict thresholds, migra
 
 Optional provider checks are `npm run smoke:ollama`, `npm run smoke:extension` and `npm run smoke:jev`. The Jev smoke requires your `OPENROUTER_API_KEY` environment variable and makes one billed synthetic request; never put the key in a file, issue, log or commit. Local checks require the downloaded model/service. Neither establishes live-feed compatibility or accuracy.
 
-Configured cloud contracts are Jev `typesafe/jev-1.13` through OpenRouter's alpha Decisions endpoint and OpenAI `gpt-6-luna` through `/v1/decisions`. These are source configuration, not a claim that account access, billing or live multi-category calls have been verified. Local Ollama uses an HTTP loopback origin and rejects cloud model tags.
+Configured cloud contracts are Jev `typesafe/jev-1.13` through OpenRouter's alpha Decisions endpoint and OpenAI `gpt-6-luna` through `/v1/decisions`. On 10 October 2026, the owner's installed Brave extension successfully scored its signed-in For You feed with OpenAI: the popup reported three requests and two folded posts. This limited observation verifies that account's live path, not Jev access, billing details, fallback behavior or representative accuracy. Local Ollama uses an HTTP loopback origin and rejects cloud model tags.
 
 LinkedIn's DOM and virtualization change frequently. Current selectors support older feed classes and `role="listitem"`/`componentkey="update-card…"` cards with expandable text boxes. If arriving through navigation from a page where the script was not injected, reload the feed. Profiles and search results are not scanned.
 
-Release checks use synthetic Chromium feeds and a real unpacked extension in a temporary profile. Signed-in LinkedIn compatibility, cloud API calls and representative real-post accuracy remain unverified; track [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3). A prior real local Qwen3.5 4B synthetic smoke passed; see [local evidence](docs/local-ollama.md).
+Release checks use synthetic Chromium feeds and a real unpacked extension in a temporary profile. Version 2.0.1 also received a limited signed-in Brave/OpenAI For You check; see [#58 and its evidence](docs/readable-feed.md). Wider signed-in compatibility, other cloud accounts/providers and representative real-post accuracy remain open verification work in [#1](https://github.com/sighmoan1/linkedin-slop-filter/issues/1), [#2](https://github.com/sighmoan1/linkedin-slop-filter/issues/2) and [#3](https://github.com/sighmoan1/linkedin-slop-filter/issues/3). A prior real local Qwen3.5 4B synthetic smoke passed; see [local evidence](docs/local-ollama.md).

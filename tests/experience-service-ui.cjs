@@ -41,7 +41,7 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   await context.addInitScript(()=>{
    if(location.origin!=='https://ext.test')return;
    const area=name=>({get:value=>window.lsfStorage(name,'get',value),set:value=>window.lsfStorage(name,'set',value),remove:value=>window.lsfStorage(name,'remove',value)});
-   window.chrome={storage:{local:area('local'),session:area('session')},tabs:{query:async()=>[{id:7,url:'https://www.linkedin.com/feed/'}]},runtime:{sendMessage:message=>window.lsfRuntime(message),openOptionsPage:()=>window.lsfOpenSettings()}};
+   window.chrome={storage:{local:area('local'),session:area('session')},tabs:{query:async()=>[{id:7,url:'https://www.linkedin.com/feed/foryou/'}],sendMessage:async()=>({isFeed:true,posts:8})},runtime:{sendMessage:message=>window.lsfRuntime(message),openOptionsPage:()=>window.lsfOpenSettings()}};
   });
   const page=await context.newPage();await page.goto('https://ext.test/options.html');await page.waitForFunction(()=>document.documentElement.dataset.settingsReady==='true');
   await page.locator('[data-panel=playground]').click();await page.fill('#playgroundText','Synthetic ordinary post body, never stored as text.');

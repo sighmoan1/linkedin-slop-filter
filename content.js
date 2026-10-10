@@ -8,9 +8,11 @@
   let settings = {enabled:false,categories:[]};
   let experience = {appearance:{...defaults},showEverything:false};
   let toolbar, timer, frame, activeRequest, nextId = 0, scrollIntent = 0;
-  const isFeed = () => location.pathname === "/feed" || location.pathname === "/feed/";
+  // Same allowlist as core/feed.mjs; route tests check content, popup and worker.
+  const feedPaths = ["/feed", "/feed/", "/feed/foryou", "/feed/foryou/", "/feed/network", "/feed/network/"];
+  const isFeed = () => location.origin === "https://www.linkedin.com" && feedPaths.includes(location.pathname);
   chrome.runtime.onMessage?.addListener((message,sender,reply)=>{
-    if(chrome.runtime.id&&sender?.id===chrome.runtime.id&&message?.type==="feedStatus")reply({isFeed:isFeed()});
+    if(chrome.runtime.id&&sender?.id===chrome.runtime.id&&message?.type==="feedStatus")reply(isFeed()?{isFeed:true,posts:records.size}:{isFeed:false});
   });
   const pct = p => (p * 100).toFixed(6).replace(/\.?0+$/,"") + "%";
   const scoreText = (p,threshold) => pct(p)+(p!==threshold&&pct(p)===pct(threshold)?p>threshold?" (just above)":" (just below)":"");

@@ -39,11 +39,12 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   await worker.evaluate(storage=>chrome.storage.local.set(storage),{...s,...entries,appearance:{theme:'native',groupHidden:false,labels:'matches'}});
   const feed=await context.newPage();
   await feed.route('https://www.linkedin.com/**',r=>r.fulfill({contentType:'text/html',body:fixture}));
-  await feed.goto('https://www.linkedin.com/feed/');
+  await feed.goto('https://www.linkedin.com/feed/foryou/');
   const activeFeedTab=(await worker.evaluate(()=>chrome.tabs.query({active:true,currentWindow:true})))[0];
   assert.equal(Number.isInteger(activeFeedTab.id),true);
   assert.equal(typeof activeFeedTab.url,'undefined','existing permissions expose the tab id, not its URL');
   await feed.waitForSelector('#brainrot .lsf-arrived:not([hidden])');
+  assert.ok((await feed.evaluate(()=>document.fonts.load('17px "Slop Filter Lexend"'))).length>0,'the locally shipped feed font loads');
   assert.equal(await feed.locator('#brainrot.lsf-folded').count(),0,'a visible newly scored card stays readable');
   for(const id of ['brainrot','slop-one','slop-two','advert','slop-three']){
    await feed.locator('#'+id).scrollIntoViewIfNeeded();
@@ -119,6 +120,8 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   const popup=await popupReady;await popup.setViewportSize({width:360,height:760});
   await popup.waitForSelector('#requests');
   await popup.waitForFunction(()=>document.getElementById('showEverything').disabled===false);
+  assert.match(await popup.locator('#feedConnection').innerText(),/7 posts found/);
+  assert.ok((await options.evaluate(()=>document.fonts.load('19px "Lexend Deca"'))).length>0,'the locally shipped settings font loads');
   await popup.locator('#showEverything').click();
   await feed.waitForFunction(()=>document.querySelectorAll('.lsf-folded').length===0);
   await popup.locator('#showEverything').click();
@@ -139,6 +142,8 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   assert.equal(state.requests,0,'seeded scores and missing credentials make no provider request');
   assert.deepEqual(providerRequests,[],'release QA makes no cloud request');
   assert.equal(state.usage.folded,5,'first folds count once, reveals/recovery do not add events');
+  await feed.evaluate(()=>history.pushState(null,'','/feed/network/'));
+  assert.deepEqual(await worker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:true,posts:7},'the Network tab is a feed');
   await feed.evaluate(()=>history.pushState(null,'','/feed/update/synthetic/'));
   assert.deepEqual(await worker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'feedStatus'}),activeFeedTab.id),{isFeed:false},'a nested route is not the feed');
   await feed.waitForFunction(()=>document.querySelectorAll('.lsf-feed-card,.lsf-feed-toolbar').length===0);

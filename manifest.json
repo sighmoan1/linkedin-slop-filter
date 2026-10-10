@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Slop Filter",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Make low-value feed posts reversible with independent categories and three feed themes.",
   "permissions": ["storage"],
   "host_permissions": ["https://openrouter.ai/*", "https://api.openai.com/*", "http://127.0.0.1/*", "http://localhost/*"],
@@ -9,9 +9,13 @@
   "action": {"default_popup": "popup.html", "default_title": "LinkedIn Slop Filter"},
   "options_page": "options.html",
   "content_scripts": [{
-    "matches": ["https://www.linkedin.com/feed/*"],
+    "matches": ["https://www.linkedin.com/feed", "https://www.linkedin.com/feed/*"],
     "js": ["content.js"],
     "css": ["content.css"],
     "run_at": "document_idle"
+  }],
+  "web_accessible_resources": [{
+    "resources": ["assets/fonts/LexendDeca.ttf"],
+    "matches": ["https://www.linkedin.com/*"]
   }]
 }
