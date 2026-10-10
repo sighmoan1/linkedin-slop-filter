@@ -373,7 +373,7 @@ label.inline select,label.inline input,.cat-head input.cat-name{font-size:18px}
 .theme-name{font-size:18px}
 .theme-copy{font-size:16px}
 .brand strong{font-size:20px}
-.brand div>span{font-size:14px}
+.brand div>span{font-size:16px}
 .brand-mark{width:32px;height:32px}
 .app-header .provider-tag{display:none}
 }
