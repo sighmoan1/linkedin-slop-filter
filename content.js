@@ -2,6 +2,7 @@
   const POST = '[role="listitem"][componentkey^="update-card"], .feed-shared-update-v2, [data-urn^="urn:li:activity:"]';
   const TEXT = '[data-testid="expandable-text-box"], .update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
   const IMAGES = '.update-components-image img, .feed-shared-image img, img.update-components-image__image, img.feed-shared-image__image, [data-testid="feed-image"] img, img[data-testid="feed-image"], [data-view-name="feed-image"] img';
+  const CURRENT_IMAGES = 'a[href*="/feed/"] > figure img[src*="/feedshare-shrink"], a[href*="/feed/"] > figure img[srcset*="/feedshare-shrink"]';
   const UI = '[data-lsf-ui]';
   const records = new Map();
   const openGroups = new Set();
@@ -95,8 +96,16 @@
   function imageElements(post) {
     if(!settings.images?.enabled)return [];
     // Attachment elements only, never a broad img query over a post or page.
-    return [...post.querySelectorAll(IMAGES)].filter(img=>img.closest(POST)===post&&
-      !img.closest('[data-lsf-ui], .comments-comments-list, .comments-comment-item, .update-components-actor, .feed-shared-actor, .update-components-article, .feed-shared-article'));
+    return [...post.querySelectorAll(IMAGES+", "+CURRENT_IMAGES)].filter(img=>{
+      if(img.closest(POST)!==post||img.closest('[data-lsf-ui], .comments-comments-list, .comments-comment-item, .update-components-actor, .feed-shared-actor, .update-components-article, .feed-shared-article, [data-vjs-player], [data-view-name*="comment"], [componentkey^="comment"]'))return false;
+      if(img.matches(IMAGES))return true;
+      // Current cards wrap direct attachments in feed figure links. Limit
+      // ancestry so embedded/reposted cards and deep comment images are excluded.
+      const link=new URL(img.closest("a").href);
+      if(link.origin!=="https://www.linkedin.com"||!/^\/feed\/(?:update\/|foryou\/?$|network\/?$|$)/.test(link.pathname)||img.closest('[role="listitem"]')!==post)return false;
+      let depth=0;for(let e=img;e&&e!==post;e=e.parentElement)if(++depth>8)return false;
+      return true;
+    });
   }
   function imageUrls(post) {
     const urls=[];
