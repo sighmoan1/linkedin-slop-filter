@@ -118,9 +118,54 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   await navigate('corrections');assert.equal(await page.locator('.correction').count(),2);assert.equal(await page.locator('#correctionList img').count(),0);
   assert.deepEqual(await page.locator('.correction').first().locator('.correction-labels span').allTextContents(),['Low substance','Advert']);
   assert.equal(await page.locator('.correction').nth(1).locator('.correction-labels').innerText(),'None · keep visible');
+  // Analysis uses saved configuration, covers exclusions, and only copies suggestions to a draft.
+  const originalCorrections=await page.evaluate(()=>JSON.parse(localStorage.getItem('corrections')));
+  await page.evaluate(async()=>{
+    const {scoringKey}=await import('/core.mjs'),settings=JSON.parse(localStorage.getItem('chromeStore'));
+    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(scoringKey(settings)));
+    const configuration=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+    const records=Array.from({length:10},(_,i)=>({id:'feedback-'+i,text:'Synthetic feedback '+i,at:1700000000000+i,provider:settings.provider,configuration,categoryIds:i<5?[]:['slop'],scores:{slop:i<5?.9:.97}}));
+    records.push({...records[0],id:'stale',text:'Old configuration',configuration:'b'.repeat(64)});
+    localStorage.setItem('corrections',JSON.stringify(records));
+  });
+  const beforeSuggestion=await state();
+  const providerCallsBefore=await page.evaluate(()=>window.runtimeCalls.filter(call=>call.type==='playground').length);
+  await page.click('#refreshCorrections');await page.waitForFunction(()=>document.getElementById('feedbackCoverage').textContent.includes('10 comparable posts'));
+  assert.match(await page.locator('#feedbackCoverage').innerText(),/1 excluded/);
+  const slopFeedback=page.locator('.feedback-row[data-category="slop"]');
+  assert.match(await slopFeedback.innerText(),/5 false matches.*0 missed matches/);
+  assert.match(await slopFeedback.innerText(),/Try above 90%: 0 false matches and 0 misses/);
+  assert.match(await page.locator('#feedbackHiding').innerText(),/10 posts lack a Hide score/);
+  await page.setViewportSize({width:320,height:720});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'populated feedback fits narrow screens');
+  await slopFeedback.getByRole('button',{name:'Copy Low substance threshold suggestion to category draft'}).click();
+  assert.equal(await page.locator('#panel-categories').isVisible(),true);
+  assert.equal((await rows()).find(row=>row.id==='slop').threshold,.9);
+  assert.deepEqual(await state(),beforeSuggestion,'copying a suggestion does not persist settings');
+  await navigate('corrections');await page.waitForFunction(()=>document.getElementById('feedbackCoverage').textContent.includes('10 comparable posts'));
+  assert.equal(await slopFeedback.locator('button').isDisabled(),true,'existing unsaved edits block another suggestion');
+  await save();await page.waitForFunction(()=>document.querySelector('.feedback-row[data-category="slop"]').textContent.includes('0 false matches'));
+  assert.equal((await state()).categories.find(c=>c.id==='slop').threshold,.9);
+  assert.equal(await slopFeedback.locator('button').count(),0,'the saved threshold no longer needs this suggestion');
+  assert.equal(await page.evaluate(()=>window.runtimeCalls.filter(call=>call.type==='playground').length),providerCallsBefore,'local analysis and copying a suggestion do not classify');
+  await page.setViewportSize({width:1280,height:900});
+  await page.evaluate(records=>localStorage.setItem('corrections',JSON.stringify(records)),originalCorrections);
+  await page.click('#refreshCorrections');await page.waitForFunction(()=>document.getElementById('correctionCount').textContent==='2 saved corrections');
   const downloadEvent=page.waitForEvent('download');await page.click('#exportCorrections');const download=await downloadEvent;
   const exported=JSON.parse(fs.readFileSync(await download.path(),'utf8'));assert.equal(exported.corrections.length,2);assert.deepEqual(exported.corrections[0].categoryIds,['slop','advert']);
+  await page.evaluate(()=>{
+    const original=chrome.runtime.sendMessage;
+    chrome.runtime.sendMessage=async message=>{
+      const reply=await original(message);
+      if(message.type==='corrections'&&message.action==='list'&&!window.correctionRefreshHeld){window.correctionRefreshHeld=true;await new Promise(resolve=>window.releaseCorrectionRefresh=resolve);}
+      return reply;
+    };
+  });
+  await page.click('#refreshCorrections');await page.waitForFunction(()=>typeof window.releaseCorrectionRefresh==='function');
   await page.locator('.correction .text-button').first().click();assert.equal(await page.locator('.correction').count(),1);
+  await page.evaluate(()=>window.releaseCorrectionRefresh());await page.waitForTimeout(100);
+  await page.waitForFunction(()=>document.getElementById('correctionStatus').textContent.includes('Correction removed'));
+  assert.equal(await page.locator('.correction').count(),1,'a pending refresh cannot resurrect a removed correction');
   await page.click('#clearCorrections');await page.click('#cancelClearCorrections');assert.equal(await page.locator('.correction').count(),1);
   await page.click('#clearCorrections');await page.click('#confirmClearCorrections');assert.equal(await page.locator('.correction').count(),0);assert.match(await page.locator('#correctionList').innerText(),/No corrections yet/);
   // Compact popup keeps temporary reveal, global pause and appearance independent.

@@ -1,4 +1,4 @@
-import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX} from "./core.mjs";
+import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary} from "./core.mjs";
 const FIELDS=["enabled","provider","jevKey","openaiKey","ollamaEndpoint","ollamaModel","limit"];
 const ACTION_LABELS={hide:"Hide",highlight:"Highlight",label:"Label",off:"Off"};
 const ACTION_HELP={hide:"Replace matching posts with a row you can show.",highlight:"Keep the full post with a subtle accent.",label:"Keep the full post with a quiet category name.",off:"Do not ask the model about this category."};
@@ -7,8 +7,10 @@ const $=id=>document.getElementById(id);
 const el=(tag,props={},...children)=>{const node=Object.assign(document.createElement(tag),props);node.append(...children);return node;};
 const copyCats=list=>list.map(c=>({...c}));
 let savedSettings=await loadSettings(chrome.storage.local), cats=copyCats(savedSettings.categories), dirty=false, preset=null, undo=null, corrections=[], revisedDefinitions=null;
+let feedbackConfiguration="", correctionRefresh=0;
 let appearance={theme:"native",groupHidden:false,labels:"matches"};
 const bridgeAvailable=Boolean(chrome.runtime?.sendMessage);
+const percent=value=>(value*100).toLocaleString(undefined,{maximumFractionDigits:6})+"%";
 const providerName=id=>({jev:"Jev · OpenRouter",openai:"OpenAI Decisions",ollama:"Local Ollama"}[id]||"Unknown provider");
 function safeAppearance(value){return {theme:["native","punchy","reader"].includes(value?.theme)?value.theme:"native",groupHidden:value?.groupHidden===true,labels:value?.labels==="off"?"off":"matches"};}
 async function send(message){
@@ -31,7 +33,7 @@ function selectPanel(id,focus=false){
 for (const button of document.querySelectorAll("[data-panel]")) button.addEventListener("click",()=>selectPanel(button.dataset.panel,true));
 window.addEventListener("hashchange",()=>selectPanel(location.hash.slice(1)));
 selectPanel(location.hash.slice(1));
-function markDirty(){dirty=true;$("saveState").textContent="Unsaved changes";$("status").textContent="";}
+function markDirty(){dirty=true;for(const button of document.querySelectorAll("[data-feedback-apply]"))button.disabled=true;$("saveState").textContent="Unsaved changes";$("status").textContent="";}
 function clearUndo(){undo=null;$("undoPreset").hidden=true;}
 function invalidatePreviews(){preset=null;revisedDefinitions=null;$("presetPreview").hidden=true;$("definitionPreview").hidden=true;}
 function updateSavedProvider(){$("savedProvider").textContent=providerName(savedSettings.provider);}
@@ -233,14 +235,44 @@ $("clearCache").addEventListener("click",async()=>{
   const count=keys.length+sessionKeys.length;$("cacheStatus").textContent="Cleared "+count+" cached score"+(count===1?"":"s")+". Open feeds rescore as you scroll.";
 });
 
+function renderFeedback(){
+  const summary=feedbackSummary(corrections,savedSettings.categories,{provider:savedSettings.provider,configuration:feedbackConfiguration});
+  $("feedbackCoverage").textContent=`${summary.comparable} comparable posts · ${summary.excluded} excluded for a different provider or scoring configuration · ${summary.duplicates} earlier duplicate corrections ignored. Unsaved edits are not used.`;
+  const hiding=summary.hiding;
+  $("feedbackHiding").textContent=hiding.active?`All Hide rules together: ${hiding.falseHides} false hides · ${hiding.missedHides} missed hides across ${hiding.complete} posts with every Hide score. ${hiding.missing} posts lack a Hide score. These are predictions under saved rules, not a record of actual folds.`:"No saved Hide rules are active.";
+  $("feedbackRows").replaceChildren();
+  for(const row of summary.rows){
+    const card=el("article",{className:"feedback-row"},el("h3",{textContent:row.name}));
+    card.dataset.category=row.id;
+    card.append(el("p",{textContent:row.action==="off"?"Off · not analysed":`${ACTION_LABELS[row.action]} above ${percent(row.threshold)} · ${row.scored} scored · ${row.missing} missing` }));
+    if(row.action!=="off"){
+      card.append(el("p",{textContent:`${row.falseMatches} false matches${row.action==="hide"?" (would trigger Hide)":""} · ${row.misses} missed matches · ${row.positives} chosen / ${row.scored-row.positives} unchosen examples` }));
+      if(row.suggestion){
+        const suggestion=row.suggestion;
+        card.append(el("p",{textContent:`Try above ${Math.round(suggestion.threshold*100)}%: ${suggestion.falseMatches} false matches and ${suggestion.misses} misses on these same examples.`}));
+        const apply=el("button",{type:"button",className:"secondary",textContent:"Copy to category draft",disabled:dirty});
+        apply.dataset.feedbackApply=row.id;apply.setAttribute("aria-label",`Copy ${row.name} threshold suggestion to category draft`);
+        apply.addEventListener("click",()=>{
+          if(dirty)return;
+          const category=cats.find(c=>c.id===row.id);if(!category)return;
+          invalidatePreviews();clearUndo();category.threshold=suggestion.threshold;markDirty();renderCats();selectPanel("categories",true);
+          catStatus.textContent=`${row.name} threshold set to ${Math.round(suggestion.threshold*100)}% in your draft. Review and Save settings to apply. This suggestion fits selected corrections, not measured feed accuracy.`;
+        });
+        card.append(apply,el("p",{className:"note",textContent:dirty?"Save your existing edits before copying a suggestion.":"Review in Categories before saving."}));
+      }else card.append(el("p",{className:"note",textContent:row.positives<5||row.scored-row.positives<5?"More chosen and unchosen scored examples are needed for a suggestion.":"No whole-percent threshold reduces disagreements without increasing false matches on these examples."}));
+    }
+    $("feedbackRows").append(card);
+  }
+}
 function renderCorrections(){
+  renderFeedback();
   $("correctionCount").textContent=corrections.length+" saved correction"+(corrections.length===1?"":"s");
   const names=new Map(savedSettings.categories.map(c=>[c.id,c.name]));
   $("correctionList").replaceChildren();
   for (const correction of corrections) {
     const remove=el("button",{type:"button",className:"text-button",textContent:"Remove"});remove.setAttribute("aria-label","Remove correction from "+new Date(correction.at).toLocaleString());
     remove.addEventListener("click",async()=>{
-      try {corrections=(await send({type:"corrections",action:"remove",id:correction.id})).corrections;renderCorrections();$("correctionStatus").textContent="Correction removed from this profile.";}
+      try {const result=await send({type:"corrections",action:"remove",id:correction.id});correctionRefresh++;corrections=result.corrections;renderCorrections();$("correctionStatus").textContent="Correction removed from this profile.";}
       catch(error){$("correctionStatus").textContent=error.message;}
     });
     const labels=correction.categoryIds.length?correction.categoryIds.map(id=>names.get(id)||id):["None · keep visible"];
@@ -252,14 +284,21 @@ function renderCorrections(){
   $("exportCorrections").disabled=!corrections.length;$("clearCorrections").disabled=!corrections.length;
 }
 async function refreshCorrections(){
-  try {corrections=(await send({type:"corrections",action:"list"})).corrections;renderCorrections();}
-  catch(error){$("correctionList").replaceChildren(el("p",{className:"empty-state",textContent:"Corrections are unavailable. Reopen settings or reload the extension. Saved corrections have not been cleared."}));$("correctionStatus").textContent=error.message;}
+  const refresh=++correctionRefresh, snapshot=savedSettings;
+  try {
+    const records=(await send({type:"corrections",action:"list"})).corrections;
+    const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(scoringKey(snapshot)));
+    if(refresh!==correctionRefresh||snapshot!==savedSettings)return;
+    feedbackConfiguration=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+    corrections=records;renderCorrections();
+  }
+  catch(error){if(refresh!==correctionRefresh)return;$("feedbackRows").replaceChildren();$("feedbackHiding").textContent="";$("feedbackCoverage").textContent="Correction analysis is unavailable.";$("correctionList").replaceChildren(el("p",{className:"empty-state",textContent:"Corrections are unavailable. Reopen settings or reload the extension. Saved corrections have not been cleared."}));$("correctionStatus").textContent=error.message;}
 }
 $("refreshCorrections").addEventListener("click",refreshCorrections);await refreshCorrections();
 $("clearCorrections").addEventListener("click",()=>{$("clearCorrectionConfirm").hidden=false;});
 $("cancelClearCorrections").addEventListener("click",()=>{$("clearCorrectionConfirm").hidden=true;});
 $("confirmClearCorrections").addEventListener("click",async()=>{
-  try {corrections=(await send({type:"corrections",action:"clear"})).corrections;renderCorrections();$("clearCorrectionConfirm").hidden=true;$("correctionStatus").textContent="All corrections cleared from this profile.";}
+  try {const result=await send({type:"corrections",action:"clear"});correctionRefresh++;corrections=result.corrections;renderCorrections();$("clearCorrectionConfirm").hidden=true;$("correctionStatus").textContent="All corrections cleared from this profile.";}
   catch(error){$("correctionStatus").textContent=error.message;}
 });
 $("exportCorrections").addEventListener("click",()=>{
@@ -268,7 +307,6 @@ $("exportCorrections").addEventListener("click",()=>{
   $("correctionStatus").textContent="Exported the corrections you explicitly saved, including their post text.";
 });
 
-const percent=value=>(value*100).toLocaleString(undefined,{maximumFractionDigits:6})+"%";
 function renderPlayground(result){
   const available=result.scores||{},categories=result.categories||[],active=categories.filter(c=>c.action!=="off");
   const hasScore=c=>typeof available[c.id]==="number"&&Number.isFinite(available[c.id])&&available[c.id]>=0&&available[c.id]<=1;
