@@ -126,6 +126,30 @@ assert.equal(local.corrections.length,1);
 await send({type:"corrections",action:"clear"},trusted);
 assert.equal(local.corrections.length,0);
 
+// Durable exceptions retain hashes only, are serialized, and expose no corpus to the feed.
+rejected({type:"postExceptions",action:"list"});
+const identity="urn:li:activity:123456789";
+assert.deepEqual(await send({type:"postException",action:"check",identity}),{kept:false});
+const untouched=JSON.stringify({settings:local.jevKey,corrections:local.corrections});
+const [choiceA,choiceB]=await Promise.all([send({type:"postException",action:"set",identity,value:true,text:"DO NOT STORE THIS",author:"DO NOT STORE AUTHOR"}),send({type:"postException",action:"set",identity:"urn:li:ugcPost:456",value:true})]);
+assert.equal(choiceA.kept,true);assert.equal(choiceB.kept,true);
+assert.equal(local.postExceptions.length,2);
+assert.deepEqual(Object.keys(local.postExceptions[0]).sort(),["at","id"]);
+assert.equal(JSON.stringify(local.postExceptions).includes(identity),false);
+assert.equal(JSON.stringify(local.postExceptions).includes("DO NOT STORE"),false);
+assert.equal(JSON.stringify({settings:local.jevKey,corrections:local.corrections}),untouched);
+assert.deepEqual(await send({type:"postException",action:"check",identity}),{kept:true});
+assert.match((await send({type:"postException",action:"set",identity:"https://www.linkedin.com/in/someone",value:true})).error,/stable identifier/);
+const records=(await send({type:"postExceptions",action:"list"},trusted)).postExceptions;
+await send({type:"postExceptions",action:"remove",id:records[0].id},trusted);
+assert.deepEqual(await send({type:"postException",action:"check",identity}),{kept:false});
+await send({type:"postExceptions",action:"clear"},trusted);
+assert.equal(local.postExceptions.length,0);
+const sanitized=core.normalizePostExceptions([{id:"a".repeat(64),at:123,text:"secret"},{id:"bad",at:123}]);
+assert.deepEqual(sanitized,[{id:"a".repeat(64),at:123}]);
+assert.throws(()=>core.postIdentity("urn:li:activity:"+"1".repeat(31)));
+assert.equal(core.normalizePostExceptions(Array.from({length:501},(_,i)=>({id:i.toString(16).padStart(64,"0"),at:123}))).length,500);
+
 // A deliberate playground request works while feed filtering is paused, stays serial,
 // shares the request cap and never saves its input text.
 local.enabled = false;

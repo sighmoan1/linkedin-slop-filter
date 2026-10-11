@@ -1,4 +1,5 @@
 import {installDefinitionRewrite} from "./options-rewrite.mjs";
+import {installPostExceptions} from "./options-post-exceptions.mjs";
 import {installImageComparison} from "./options-images.mjs";
 import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, verifyOllama, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary, normalizeImages, visualCategory, IMAGE_PERMISSION, VISUAL_ID, EXAMPLE_SELECTION_KEY, exampleCategoryKey, selectedExamples} from "./core.mjs";
 const FIELDS=["enabled","provider","jevKey","openaiKey","ollamaEndpoint","ollamaModel","limit"];
@@ -22,6 +23,7 @@ async function send(message){
   return result;
 }
 installImageComparison(send);
+const refreshPostExceptions=installPostExceptions(send);
 function selectPanel(id,focus=false){
   if (!PANEL_IDS.includes(id)) id="feed";
   for (const panel of PANEL_IDS) $("panel-"+panel).hidden=panel!==id;
@@ -31,7 +33,7 @@ function selectPanel(id,focus=false){
   }
   if (focus) $(id+"-heading").focus({preventScroll:true});
   if (id==="corrections"&&document.documentElement.dataset.settingsReady==="true") void refreshCorrections();
-  if (id==="people") void refreshPeople();
+  if (id==="people") {void refreshPeople();void refreshPostExceptions();}
   history.replaceState(null,"","#"+id);
 }
 for (const button of document.querySelectorAll("[data-panel]")) button.addEventListener("click",()=>selectPanel(button.dataset.panel,true));

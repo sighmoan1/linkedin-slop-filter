@@ -35,6 +35,12 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
    window.chrome={storage:{local:{get:async query=>query===null?read():typeof query==='string'?{[query]:read()[query]}:{...query,...read()},set:async value=>{if(window.rejectSave&&'categories'in value)throw new Error('Synthetic storage failure');if(window.holdSave&&'categories'in value)await new Promise(resolve=>window.releaseSave=resolve);write({...read(),...value});},remove:async keys=>{const data=read();for(const key of [].concat(keys))delete data[key];write(data);}}},tabs:{query:async()=>[{id:9,url:'https://www.linkedin.com/feed/'}],sendMessage:async()=>({isFeed:true,posts:8}),reload:async id=>{(window.reloadCalls??=[]).push(id);}},runtime:{openOptionsPage:async()=>{window.optionsOpened++;},sendMessage:async message=>{
     window.runtimeCalls.push(message);
     const experience=()=>({appearance:read().appearance,showEverything:localStorage.getItem('showEverything')==='true'});
+    if(message.type==='postExceptions'){
+     let rows=JSON.parse(localStorage.getItem('postExceptions')||'[]');
+     if(message.action==='remove')rows=rows.filter(row=>row.id!==message.id);
+     if(message.action==='clear')rows=[];
+     localStorage.setItem('postExceptions',JSON.stringify(rows));return {postExceptions:rows};
+    }
     if(message.type==='experience')return experience();
     if(message.type==='appearance'){if(window.rejectAppearance)return {error:'Synthetic appearance failure'};write({...read(),appearance:message.appearance});return experience();}
     if(message.type==='showEverything'){localStorage.setItem('showEverything',String(message.value));return experience();}
@@ -245,6 +251,13 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
    await page.emulateMedia({colorScheme:'dark'});await page.setViewportSize({width:1280,height:900});await navigate('feed');await page.screenshot({path:process.env.LSF_UI_SCREENSHOTS+'-dark.png'});await popup.emulateMedia({colorScheme:'dark'});await popup.screenshot({path:process.env.LSF_UI_SCREENSHOTS+'-popup-dark.png'});
   }
   await page.setViewportSize({width:320,height:600});await navigate('categories');await page.locator('#addCategoryDetails summary').click();await page.locator('#newCatName').focus();await page.waitForFunction(()=>document.getElementById('newCatName').getBoundingClientRect().bottom<=document.querySelector('.save-bar').getBoundingClientRect().top-10);assert.equal(await page.evaluate(()=>document.activeElement.id),'newCatName','focused fields stay above the persistent footer');
+  await page.evaluate(()=>localStorage.setItem('postExceptions',JSON.stringify([{id:'a'.repeat(64),at:1700000000000},{id:'b'.repeat(64),at:1700000001000}])));
+  await navigate('people');await page.waitForFunction(()=>document.querySelectorAll('#postExceptionList button').length===2);
+  assert.equal(await page.locator('#postExceptionList').innerText().then(t=>t.includes('aaaaaaaa')),true);
+  await page.locator('#postExceptionList button').first().click();await page.waitForFunction(()=>document.querySelectorAll('#postExceptionList button').length===1);
+  await page.locator('#clearPostExceptions').click();await page.waitForFunction(()=>document.getElementById('postExceptionList').textContent==='No saved post choices.');
+  assert.equal(await page.locator('#clearPostExceptions').isDisabled(),true);
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('postExceptions')).length),0);
   const permissions=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'))).permissions;assert.deepEqual(permissions,['storage']);
   assert.deepEqual(remote,[],'no remote assets');assert.deepEqual(errors,[],'no runtime errors');
   console.log('PASS: focused settings/popup, native appearance/rule independence, preset preview/Undo, safe definition adoption, strict and partial playground, explicit correction export/remove/clear, fail-open messages, light/dark responsive views and no secrets/assets');

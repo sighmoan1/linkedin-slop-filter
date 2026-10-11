@@ -1,4 +1,4 @@
-import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE, normalizeImages, visualCategory, imageScoringKey, imageRequest, prepareAttachment, attachmentUrl, IMAGE_PERMISSION, IMAGE_MODELS, VISUAL_ID, EXAMPLE_SELECTION_KEY, MAX_PROMPT_EXAMPLES, exampleCategoryKey, selectedExamples, rewriteRequest, rewrittenDefinition} from "./core.mjs";
+import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE, normalizeImages, visualCategory, imageScoringKey, imageRequest, prepareAttachment, attachmentUrl, IMAGE_PERMISSION, IMAGE_MODELS, VISUAL_ID, EXAMPLE_SELECTION_KEY, MAX_PROMPT_EXAMPLES, exampleCategoryKey, selectedExamples, rewriteRequest, rewrittenDefinition, POST_EXCEPTIONS_KEY, MAX_POST_EXCEPTIONS, postIdentity, normalizePostExceptions} from "./core.mjs";
 // API keys remain in trusted extension contexts.
 chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
@@ -319,6 +319,33 @@ async function handle(message, sender, kind) {
     } catch {results.push({model,error:"Image check unavailable. Check provider status, request limit and input limits.",durationMs:Date.now()-started});}}
     return {results};
   }
+  if (["postException","postExceptions"].includes(message.type)) {
+    const id = message.type === "postException" ? await hash("post-exception-v1:" + postIdentity(message.identity)) : message.id;
+    const job = edits.then(async () => {
+      const stored = await chrome.storage.local.get(POST_EXCEPTIONS_KEY);
+      let records = normalizePostExceptions(stored[POST_EXCEPTIONS_KEY]);
+      if (message.type === "postException") {
+        if (message.action === "set") {
+          if (typeof message.value !== "boolean") throw new Error("Choose whether to keep this post visible.");
+          records = records.filter(record => record.id !== id);
+          if (message.value) {
+            if (records.length >= MAX_POST_EXCEPTIONS) throw new Error("Saved post choices are full. Remove a choice in settings first.");
+            records.push({id,at:Date.now()});
+          }
+        } else if (message.action !== "check") throw new Error("Unknown post choice action.");
+      } else {
+        if (message.action === "remove") {
+          if (typeof id !== "string" || !/^[a-f0-9]{64}$/.test(id)) throw new Error("Choose a saved post choice to remove.");
+          records = records.filter(record => record.id !== id);
+        } else if (message.action === "clear") records = [];
+        else if (message.action !== "list") throw new Error("Unknown saved post choice action.");
+      }
+      if (!["list","check"].includes(message.action)) await chrome.storage.local.set({[POST_EXCEPTIONS_KEY]:records});
+      return message.type === "postException" ? {kept:records.some(record => record.id === id)} : {postExceptions:records};
+    });
+    edits = job.catch(() => {});
+    return job;
+  }
   if (message.type === "settings") return view(await load());
   if (message.type === "experience") return experience(tabId);
   if (message.type === "appearance") {
@@ -406,8 +433,8 @@ async function handle(message, sender, kind) {
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const kind = senderKind(sender);
   if (!kind || !message || typeof message !== "object") return false;
-  const shared = ["settings","experience","appearance","showEverything","openSettings","correction"];
-  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","promptExample","playground","compareImages","rewriteDefinition"];
+  const shared = ["settings","experience","appearance","showEverything","openSettings","correction","postException"];
+  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","promptExample","playground","compareImages","rewriteDefinition","postExceptions"];
   if (kind === "people" && message.type !== "people") return false;
   if (message.type === "people") {
     if (kind === "feed" && message.action !== "list") return false;
