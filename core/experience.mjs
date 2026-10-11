@@ -33,6 +33,7 @@ export function makeCorrection(input, categories, context) {
   }
   return {
     id: context.id, at: context.at, text: input.text.trim(), categoryIds, scores,
+    labelledCategoryIds: categories.filter(c=>c.action!=="off").map(c=>c.id),
     ...(typeof input.imageFingerprint==="string"&&/^[a-f0-9]{64}$/.test(input.imageFingerprint)?{imageFingerprint:input.imageFingerprint}:{}),
     configuration: /^[a-f0-9]{64}$/.test(input.configuration ?? "") ? input.configuration : context.configuration,
     provider: ["jev", "openai", "ollama"].includes(input.provider) ? input.provider : context.provider

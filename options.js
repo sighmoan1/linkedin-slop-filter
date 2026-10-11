@@ -1,5 +1,5 @@
 import {installImageComparison} from "./options-images.mjs";
-import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, verifyOllama, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary, normalizeImages, visualCategory, IMAGE_PERMISSION, VISUAL_ID} from "./core.mjs";
+import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, verifyOllama, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary, normalizeImages, visualCategory, IMAGE_PERMISSION, VISUAL_ID, EXAMPLE_SELECTION_KEY, exampleCategoryKey, selectedExamples} from "./core.mjs";
 const FIELDS=["enabled","provider","jevKey","openaiKey","ollamaEndpoint","ollamaModel","limit"];
 const ACTION_LABELS={hide:"Hide",highlight:"Highlight",label:"Label",off:"Off"};
 const ACTION_HELP={hide:"Hide matching posts. You can show them again.",highlight:"Keep the post visible with a coloured border.",label:"Keep the post visible with a category label.",off:"Do not ask the model about this category."};
@@ -253,7 +253,7 @@ $("settings").addEventListener("submit",async event=>{
   }
   if (next.enabled&&!activeCategories(next.categories).length) {selectPanel("categories");status.textContent="Switch at least one category on before enabling filtering.";return;}
   if (next.enabled&&next.provider!=="ollama"&&!(next.provider==="jev"?next.jevKey:next.openaiKey)) {selectPanel("provider");status.textContent="Add a key for the selected provider first.";return;}
-  try {if (next.enabled) requestFor(next,"Settings validation");}
+  try {if (next.enabled) requestFor({...next,promptExamples:selectedExamples(corrections,savedSettings[EXAMPLE_SELECTION_KEY],next.categories)},"Settings validation");}
   catch(error){selectPanel(next.provider==="ollama"&&error.message.includes("definitions")?"categories":"provider");status.textContent=error.message;return;}
   const saveButton=$("settings").querySelector('button[type="submit"]'),restoreSaveFocus=document.activeElement===saveButton;saveButton.disabled=true;$("editableSettings").disabled=true;$("status").textContent="Saving…";let rulesSaved=false;
   try {
@@ -331,16 +331,29 @@ function renderCorrections(){
       try {const result=await send({type:"corrections",action:"remove",id:correction.id});correctionRefresh++;corrections=result.corrections;renderCorrections();$("correctionStatus").textContent="Correction removed from this profile.";}
       catch(error){$("correctionStatus").textContent=error.message;}
     });
+    const select=el("input",{type:"checkbox"});
+    const signature=exampleCategoryKey(savedSettings.categories);
+    select.checked=(savedSettings[EXAMPLE_SELECTION_KEY]||[]).some(e=>e.id===correction.id&&e.categories===signature);
+    select.setAttribute("aria-label","Use correction from "+new Date(correction.at).toLocaleString()+" as a prompt example");
+    select.addEventListener("change",async()=>{
+      select.disabled=true;
+      try {await send({type:"promptExample",id:correction.id,selected:select.checked});await refreshCorrections();$("correctionStatus").textContent="Prompt examples updated. Future text checks use the selected examples.";}
+      catch(error){select.checked=!select.checked;select.disabled=false;$("correctionStatus").textContent=error.message;}
+    });
+    const selection=el("label",{},select,el("span",{textContent:"Use as a prompt example"}));
     const labels=correction.categoryIds.length?correction.categoryIds.map(id=>names.get(id)||id):["None · keep visible"];
     const preview=correction.text.length>260?correction.text.slice(0,260)+"…":correction.text;
     const details=el("details",{},el("summary",{textContent:"Full text and original scores"}),el("p",{textContent:correction.text}),el("small",{textContent:"Original provider: "+providerName(correction.provider)+". "+Object.entries(correction.scores||{}).map(([id,value])=>(names.get(id)||id)+" "+Math.round(value*100)+"%").join(" · ")}));
-    $("correctionList").append(el("article",{className:"correction"},el("div",{className:"correction-top"},el("time",{textContent:new Date(correction.at).toLocaleString()}),remove),el("div",{className:"correction-labels"},...labels.map(name=>el("span",{textContent:name}))),el("p",{textContent:preview}),details));
+    $("correctionList").append(el("article",{className:"correction"},el("div",{className:"correction-top"},el("time",{textContent:new Date(correction.at).toLocaleString()}),remove),el("div",{className:"correction-labels"},...labels.map(name=>el("span",{textContent:name}))),el("p",{textContent:preview}),selection,details));
   }
   if (!corrections.length) $("correctionList").append(el("p",{className:"empty-state",textContent:"No corrections yet. On a feed post, choose Review scores, select the categories that fit (or none), then Save correction."}));
   $("exportCorrections").disabled=!corrections.length;$("clearCorrections").disabled=!corrections.length;
 }
 async function refreshCorrections(){
-  const refresh=++correctionRefresh, snapshot=savedSettings;
+  const refresh=++correctionRefresh;
+  const snapshot=await loadSettings(chrome.storage.local);
+  if(refresh!==correctionRefresh)return;
+  savedSettings=snapshot;
   try {
     const records=(await send({type:"corrections",action:"list"})).corrections;
     const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(scoringKey(snapshot)));

@@ -1,4 +1,4 @@
-import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE, normalizeImages, visualCategory, imageScoringKey, imageRequest, prepareAttachment, attachmentUrl, IMAGE_PERMISSION, IMAGE_MODELS, VISUAL_ID} from "./core.mjs";
+import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE, normalizeImages, visualCategory, imageScoringKey, imageRequest, prepareAttachment, attachmentUrl, IMAGE_PERMISSION, IMAGE_MODELS, VISUAL_ID, EXAMPLE_SELECTION_KEY, MAX_PROMPT_EXAMPLES, exampleCategoryKey, selectedExamples} from "./core.mjs";
 // API keys remain in trusted extension contexts.
 chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
@@ -330,6 +330,24 @@ async function handle(message, sender, kind) {
     await job;
     return {ok:true,id:correction.id};
   }
+  if (message.type === "promptExample") {
+    const job = edits.then(async () => {
+      const s=await load(), stored=await chrome.storage.local.get(CORRECTIONS_KEY);
+      const records=normalizeCorrections(stored[CORRECTIONS_KEY]), signature=exampleCategoryKey(categoryList(s));
+      if(typeof message.id!=="string"||typeof message.selected!=="boolean"||!records.some(c=>c.id===message.id))throw new Error("Choose a saved correction.");
+      let selections=(Array.isArray(s[EXAMPLE_SELECTION_KEY])?s[EXAMPLE_SELECTION_KEY]:[]).filter(e=>e.categories===signature&&records.some(c=>c.id===e.id)&&e.id!==message.id);
+      if(message.selected) {
+        if(selections.length>=MAX_PROMPT_EXAMPLES)throw new Error("Choose at most four prompt examples. Remove one first.");
+        const record=records.find(c=>c.id===message.id), known=new Set(categoryList(s).map(c=>c.id));
+        if(record.categoryIds.some(id=>!known.has(id)))throw new Error("This correction refers to a removed category. Save a new correction first.");
+        selections.push({id:message.id,categories:signature});
+      }
+      if(selectedExamples(records,selections,categoryList(s)).length!==selections.length)throw new Error("Selected examples exceed the prompt context limit. Remove one first.");
+      await chrome.storage.local.set({[EXAMPLE_SELECTION_KEY]:selections});
+      return {ok:true};
+    });
+    edits=job.catch(()=>{});return job;
+  }
   if (message.type === "corrections") {
     const job = edits.then(async () => {
       const stored = await chrome.storage.local.get(CORRECTIONS_KEY);
@@ -339,7 +357,11 @@ async function handle(message, sender, kind) {
         corrections = corrections.filter(c => c.id !== message.id);
       } else if (message.action === "clear") corrections = [];
       else if (message.action !== "list") throw new Error("Unknown correction action.");
-      if (message.action !== "list") await chrome.storage.local.set({[CORRECTIONS_KEY]:corrections});
+      if (message.action !== "list") {
+        const s=await load();
+        const selections=(Array.isArray(s[EXAMPLE_SELECTION_KEY])?s[EXAMPLE_SELECTION_KEY]:[]).filter(e=>corrections.some(c=>c.id===e.id));
+        await chrome.storage.local.set({[CORRECTIONS_KEY]:corrections,[EXAMPLE_SELECTION_KEY]:selections});
+      }
       return {corrections};
     });
     edits = job.catch(() => {});
@@ -358,7 +380,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const kind = senderKind(sender);
   if (!kind || !message || typeof message !== "object") return false;
   const shared = ["settings","experience","appearance","showEverything","openSettings","correction"];
-  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","playground","compareImages"];
+  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","promptExample","playground","compareImages"];
   if (kind === "people" && message.type !== "people") return false;
   if (message.type === "people") {
     if (kind === "feed" && message.action !== "list") return false;

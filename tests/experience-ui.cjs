@@ -40,6 +40,12 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
     if(message.type==='showEverything'){localStorage.setItem('showEverything',String(message.value));return experience();}
     if(message.type==='usage')return {...window.usage};
     if(message.type==='resetUsage'){if(window.holdReset)await new Promise(resolve=>window.releaseReset=resolve);window.usage={requests:0,limit:read().limit,scored:0,folded:0,cacheHits:0,errors:0,imageScored:0,imageErrors:0,lastError:''};return {...window.usage};}
+    if(message.type==='promptExample'){
+     if(window.rejectExample)return {error:'Synthetic selection failure'};
+     const state=read(), categories=JSON.stringify(state.categories.map(c=>[c.id,c.instructions]).sort((a,b)=>a[0].localeCompare(b[0])));
+     const selections=(state.promptExampleSelections||[]).filter(e=>e.id!==message.id);
+     if(message.selected)selections.push({id:message.id,categories});write({...state,promptExampleSelections:selections});return {ok:true};
+    }
     if(message.type==='corrections'){
      let rows=readCorrections();
      if(message.action==='remove')rows=rows.filter(row=>row.id!==message.id);
@@ -117,7 +123,16 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   await page.evaluate(()=>window.classifyMode='changed');await page.click('#classifyPost');await page.waitForFunction(()=>document.getElementById('playgroundStatus').textContent.includes('saved settings changed'));assert.equal(await page.locator('#playgroundResult').isVisible(),false,'stale requests are unscored, not negatives');
   await page.evaluate(()=>window.classifyMode='invalid');await page.click('#classifyPost');await page.waitForFunction(()=>document.getElementById('playgroundStatus').textContent.includes('no usable scores'));assert.equal(await page.locator('#playgroundResult').isVisible(),false);
   // Explicit corrections remain text-only, multilabel or none, exportable and removable.
+  await navigate('categories');const originalDraft=await page.locator('[data-id=slop] .cat-name').inputValue();await page.locator('[data-id=slop] .cat-name').fill(originalDraft+' UNSAVED DRAFT');
   await navigate('corrections');assert.equal(await page.locator('.correction').count(),2);assert.equal(await page.locator('#correctionList img').count(),0);
+  assert.equal(await page.locator('.correction input[type=checkbox]:checked').count(),0);
+  await page.locator('.correction input[type=checkbox]').first().check();await page.waitForFunction(()=>document.getElementById('correctionStatus').textContent.startsWith('Prompt examples updated'));
+  assert.equal(await page.locator('.correction input[type=checkbox]:checked').count(),1);
+  await page.evaluate(()=>window.rejectExample=true);await page.locator('.correction input[type=checkbox]').first().click();await page.waitForFunction(()=>document.getElementById('correctionStatus').textContent==='Synthetic selection failure');
+  assert.equal(await page.locator('.correction input[type=checkbox]:checked').count(),1);await page.evaluate(()=>window.rejectExample=false);
+  await page.locator('.correction input[type=checkbox]').first().uncheck();await page.waitForFunction(()=>document.getElementById('correctionStatus').textContent.startsWith('Prompt examples updated'));
+  assert.equal(await page.locator('.correction input[type=checkbox]:checked').count(),0);
+  await navigate('categories');assert.equal(await page.locator('[data-id=slop] .cat-name').inputValue(),originalDraft+' UNSAVED DRAFT','example refresh preserves category draft');await page.locator('[data-id=slop] .cat-name').fill(originalDraft);await save();await navigate('corrections');
   assert.deepEqual(await page.locator('.correction').first().locator('.correction-labels span').allTextContents(),['Low substance','Advert']);
   assert.equal(await page.locator('.correction').nth(1).locator('.correction-labels').innerText(),'None · keep visible');
   assert.equal(await page.locator('.feedback-table').isVisible(),false,'old configurations do not show a comparison of empty scores');

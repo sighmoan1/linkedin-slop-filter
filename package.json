@@ -7,7 +7,7 @@
     "smoke:jev": "node scripts/smoke.mjs",
     "test:core": "node tests/check.mjs",
     "test:categories": "node tests/categories.mjs",
-    "test:background": "node tests/background.mjs && node tests/experience.mjs && node tests/feedback.mjs && node tests/experience-background.mjs",
+    "test:background": "node tests/background.mjs && node tests/experience.mjs && node tests/feedback.mjs && node tests/experience-background.mjs && node tests/prompt-examples.mjs",
     "test:syntax": "node tests/syntax.mjs",
     "test:feed": "node tests/dom.cjs",
     "test": "npm run test:core && npm run test:categories && npm run test:verify && npm run test:cache && npm run test:background && npm run test:syntax && npm run test:feed && npm run test:feedexperience && npm run test:options && npm run test:setup && npm run test:cacheui && npm run test:local && npm run test:localui && npm run test:catui && npm run test:experienceui && npm run test:people && npm run test:images",
