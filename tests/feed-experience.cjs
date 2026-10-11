@@ -22,18 +22,19 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
  async function fixture(posts,{top=0,theme='native',groupHidden=false,anchor=true,width=1000,clipCard=false,route='/feed/'}={}) {
   const page=await browser.newPage({viewport:{width,height:720}});pages.push(page);page.setDefaultTimeout(10000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const cards=posts.map(p=>`<article id="${p.id}" class="feed-shared-update-v2"><header class="native-header"><span class="avatar">A</span><div><strong>Avery Example</strong><div>Researcher · synthetic demonstration</div></div></header><div class="update-components-text"><p>[${p.id}] ${escape(p.text||'A useful original post with specific detail.')}</p>${p.long?'<p>'+escape('Here is the original paragraph the reader is following. '.repeat(typeof p.long==='number'?p.long:8))+'</p>':''}<p><a href="https://example.com/example">Original post link</a></p></div><div class="native-controls"><button>Like</button><button>Comment</button></div><section class="native-comments">COMMENT TEXT — excluded from classification</section></article>`).join('');
+  const cards=posts.map(p=>`<article id="${p.id}" class="feed-shared-update-v2" ${p.identity?`data-urn="${p.identity}"`:""}><header class="native-header"><span class="avatar">A</span><div><strong>Avery Example</strong><div>Researcher · synthetic demonstration</div></div></header><div class="update-components-text"><p>[${p.id}] ${escape(p.text||'A useful original post with specific detail.')}</p>${p.long?'<p>'+escape('Here is the original paragraph the reader is following. '.repeat(typeof p.long==='number'?p.long:8))+'</p>':''}<p><a href="https://example.com/example">Original post link</a></p></div><div class="native-controls"><button>Like</button><button>Comment</button></div><section class="native-comments">COMMENT TEXT — excluded from classification</section></article>`).join('');
   const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${!anchor?'html{overflow-anchor:none}':''}body{margin:0;background:#f4f2ee;color:#263238;font:14px/1.55 system-ui,sans-serif}nav{height:52px;padding:12px 24px;background:white;border-bottom:1px solid #ddd;box-sizing:border-box}main{max-width:620px;margin:24px auto;padding:0 12px;padding-top:${top}px}.feed-shared-update-v2{${clipCard?'overflow:hidden;':''}margin-bottom:12px;border:1px solid #d9dee2;border-radius:9px;background:#fff}.native-header{display:flex;gap:10px;align-items:center;padding:16px}.native-header strong{display:block}.native-header div div{font-size:12px;color:#64727a}.avatar{display:grid;place-items:center;width:34px;height:34px;background:#e8edf1;border-radius:50%;color:#456}.update-components-text{padding:0 18px}.update-components-text p{margin:0 0 16px}.native-controls{display:flex;gap:12px;padding:10px 18px;border-top:1px solid #eee}.native-controls button{background:transparent;border:0;padding:4px;font:inherit;color:#64727a}.native-comments{padding:10px 18px;font:12px/1.5 system-ui;color:#64727a}#outside{padding:20px;font:14px system-ui}a{color:#0a66c2}</style></head><body><nav id="global-nav">LinkedIn · Home · My network · Messages</nav><main id="feed">${cards}<div style="height:2000px"></div></main><aside id="outside">Messages and profiles stay unchanged.</aside></body></html>`;
   await page.route('https://www.linkedin.com/**',r=>r.fulfill({contentType:'text/html',body:html}));await page.goto('https://www.linkedin.com'+route);
   await page.addStyleTag({content:fs.readFileSync(path.join(__dirname,'../content.css'),'utf8')});
   await page.evaluate(({posts,cats,theme,groupHidden})=>{
-   window.calls=[];window.messages=[];window.corrections=[];window.releases={};window.inflight=0;window.maxInFlight=0;
+   window.postChoices={};window.choiceError=false;window.calls=[];window.messages=[];window.corrections=[];window.releases={};window.inflight=0;window.maxInFlight=0;
    window.config='c1';window.enabled=true;window.categories=cats;window.experience={appearance:{theme,groupHidden,labels:'matches'},showEverything:false};window.plan=Object.fromEntries(posts.map(p=>[p.id,p]));
    const copy=v=>JSON.parse(JSON.stringify(v));
    const interval=window.setInterval.bind(window);window.setInterval=(fn,ms)=>interval(fn,ms===5000?80:ms);
    const view=()=>({enabled:window.enabled,provider:'ollama',configuration:window.config,categories:copy(window.categories.filter(c=>c.action!=='off'))});
    window.chrome={runtime:{id:'test-extension',onMessage:{addListener(fn){window.feedStatusListener=fn;}},sendMessage:async m=>{
     window.messages.push(copy(m));
+    if(m.type==='postException'){if(window.choiceError)throw new Error('Lookup failed');if(m.action==='set')window.postChoices[m.identity]=m.value;const kept=window.postChoices[m.identity]===true;if(m.action==='check'&&window.holdChoiceLookup){window.holdChoiceLookup=false;await new Promise(resolve=>window.releaseChoiceLookup=resolve);}return {kept};}
     if(m.type==='settings')return view();
     if(m.type==='experience')return copy(window.experience);
     if(m.type==='appearance'){window.experience.appearance=copy(m.appearance);return copy(window.experience);}
@@ -50,6 +51,65 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   },{posts:posts.map(p=>({...p,scores:p.scores||allScores()})),cats,theme,groupHidden});
   await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../content.js'),'utf8')});
   await page.waitForSelector('.lsf-feed-toolbar');await settle(page);return {page,errors};
+ }
+ // Explicit durable choice differs from reveal, survives equivalent cards, and blocks requests.
+ {
+  const identity='urn:li:activity:123456789';
+  const {page,errors}=await fixture([{id:'durable',identity,scores:allScores({slop:.95})}]);
+  await page.waitForSelector('#durable.lsf-folded');
+  await page.locator('#durable .lsf-bar button').click();
+  assert.equal(await page.evaluate(()=>Object.keys(window.postChoices).length),0,'ordinary reveal is ephemeral');
+  await page.getByRole('button',{name:'Review scores',exact:true}).click();
+  await page.evaluate(()=>window.holdChoiceLookup=true);
+  await page.waitForFunction(()=>typeof window.releaseChoiceLookup==='function');
+  await page.getByRole('button',{name:'Always keep this post visible',exact:true}).click();
+  await page.waitForFunction(()=>window.postChoices['urn:li:activity:123456789']===true);
+  await page.waitForFunction(()=>document.querySelector('#durable .lsf-badge')?.textContent==='Kept visible');
+  await page.evaluate(()=>window.releaseChoiceLookup());await settle(page);
+  assert.equal(await page.locator('#durable').evaluate(e=>e.classList.contains('lsf-folded')),false,'old lookup cannot overwrite successful explicit save');
+  assert.equal(await page.locator('#durable').evaluate(e=>e.classList.contains('lsf-folded')),false);
+  assert.equal(await page.evaluate(()=>window.corrections.length),0,'durable choice saves no correction/text');
+  await page.waitForFunction(()=>document.querySelector('#durable .lsf-badge')?.textContent==='Kept visible');
+  assert.equal(await page.locator('#durable button:visible').filter({hasText:/^Hide post again$/}).count(),0);
+  const calls=await page.evaluate(()=>window.calls.length);
+  // Equivalent DOM card after feed reload, with changed caption but same stable identity.
+  await page.evaluate(()=>{const old=document.getElementById('durable'),replacement=old.cloneNode(true);replacement.querySelectorAll('[data-lsf-ui]').forEach(e=>e.remove());replacement.querySelector('.update-components-text p').textContent='[durable] Changed caption after reload';old.replaceWith(replacement);});
+  await settle(page);
+  assert.equal(await page.evaluate(()=>window.calls.length),calls,'saved post skips new provider checks');
+  assert.equal(await page.locator('#durable .lsf-badge').innerText(),'Kept visible');
+  // Settings deletion becomes effective on the next refresh and classification resumes.
+  await page.evaluate(()=>window.postChoices={});
+  await page.waitForSelector('#durable.lsf-folded');
+  assert.equal(await page.evaluate(()=>window.calls.length),calls+1);
+  await page.locator('#durable .lsf-bar button').click();await page.getByRole('button',{name:'Review scores',exact:true}).click();
+  await page.getByRole('button',{name:'Always keep this post visible',exact:true}).click();
+  await page.waitForFunction(()=>window.postChoices['urn:li:activity:123456789']===true);
+  // Recycled card with identical text but a different ID must not inherit the exception.
+  await page.evaluate(()=>document.getElementById('durable').setAttribute('data-urn','urn:li:activity:987654321'));
+  await atTop(page,'durable',60);await page.waitForSelector('#durable.lsf-folded');assert.equal(await page.evaluate(()=>window.calls.length),calls+2);
+  await page.evaluate(()=>{window.choiceError=true;document.getElementById('durable').setAttribute('data-urn','urn:li:activity:7654321');});
+  await settle(page);assert.equal(await page.locator('#durable').evaluate(e=>e.classList.contains('lsf-folded')),false,'lookup failure leaves post visible');
+  assert.equal(await page.evaluate(()=>window.calls.length),calls+2,'failed lookup does not dispatch classification');
+  assert.deepEqual(errors,[]);
+ }
+ // A referenced post in the caption/comments is never the outer post identity.
+ {
+  const {page,errors}=await fixture([{id:'reference'}]);
+  await page.evaluate(()=>{
+   const post=document.getElementById('reference');
+   post.querySelector('.update-components-text').insertAdjacentHTML('beforeend','<a href="https://www.linkedin.com/feed/update/urn:li:activity:999/">Referenced post</a>');
+   post.insertAdjacentHTML('beforeend','<div class="update-components-mini-update-v2"><header><a href="https://www.linkedin.com/feed/update/urn:li:activity:444/">Reposted timestamp</a></header></div>');
+   post.querySelector('.native-comments').classList.add('comments-comments-list');
+   post.querySelector('.native-comments').insertAdjacentHTML('beforeend','<a href="https://www.linkedin.com/feed/update/urn:li:activity:888/">Comment link</a>');
+  });await settle(page);
+  await page.getByRole('button',{name:'Review scores',exact:true}).click();
+  assert.equal(await page.getByRole('button',{name:'Always keep this post visible',exact:true}).isDisabled(),true);
+  assert.equal(await page.evaluate(()=>window.messages.some(m=>m.type==='postException')),false);
+  // A real outer timestamp permalink supplies the modern card identity.
+  await page.evaluate(()=>document.querySelector('#reference header').insertAdjacentHTML('beforeend','<a href="https://www.linkedin.com/feed/update/urn:li:activity:777/">1 hour ago</a>'));
+  await settle(page);await page.getByRole('button',{name:'Review scores',exact:true}).click();
+  await page.getByRole('button',{name:'Always keep this post visible',exact:true}).click();
+  await page.waitForFunction(()=>window.postChoices['urn:li:activity:777']===true);assert.deepEqual(errors,[]);
  }
  // Compact hidden rows and one visible-post menu, including draft cancellation and keyboard recovery.
  for(const width of [1000,320]){

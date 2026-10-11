@@ -35,11 +35,23 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
    window.chrome={storage:{local:{get:async query=>query===null?read():typeof query==='string'?{[query]:read()[query]}:{...query,...read()},set:async value=>{if(window.rejectSave&&'categories'in value)throw new Error('Synthetic storage failure');if(window.holdSave&&'categories'in value)await new Promise(resolve=>window.releaseSave=resolve);write({...read(),...value});},remove:async keys=>{const data=read();for(const key of [].concat(keys))delete data[key];write(data);}}},tabs:{query:async()=>[{id:9,url:'https://www.linkedin.com/feed/'}],sendMessage:async()=>({isFeed:true,posts:8}),reload:async id=>{(window.reloadCalls??=[]).push(id);}},runtime:{openOptionsPage:async()=>{window.optionsOpened++;},sendMessage:async message=>{
     window.runtimeCalls.push(message);
     const experience=()=>({appearance:read().appearance,showEverything:localStorage.getItem('showEverything')==='true'});
+    if(message.type==='postExceptions'){
+     let rows=JSON.parse(localStorage.getItem('postExceptions')||'[]');
+     if(message.action==='remove')rows=rows.filter(row=>row.id!==message.id);
+     if(message.action==='clear')rows=[];
+     localStorage.setItem('postExceptions',JSON.stringify(rows));return {postExceptions:rows};
+    }
     if(message.type==='experience')return experience();
     if(message.type==='appearance'){if(window.rejectAppearance)return {error:'Synthetic appearance failure'};write({...read(),appearance:message.appearance});return experience();}
     if(message.type==='showEverything'){localStorage.setItem('showEverything',String(message.value));return experience();}
     if(message.type==='usage')return {...window.usage};
     if(message.type==='resetUsage'){if(window.holdReset)await new Promise(resolve=>window.releaseReset=resolve);window.usage={requests:0,limit:read().limit,scored:0,folded:0,cacheHits:0,errors:0,imageScored:0,imageErrors:0,lastError:''};return {...window.usage};}
+    if(message.type==='promptExample'){
+     if(window.rejectExample)return {error:'Synthetic selection failure'};
+     const state=read(), categories=JSON.stringify(state.categories.map(c=>[c.id,c.instructions]).sort((a,b)=>a[0].localeCompare(b[0])));
+     const selections=(state.promptExampleSelections||[]).filter(e=>e.id!==message.id);
+     if(message.selected)selections.push({id:message.id,categories});write({...state,promptExampleSelections:selections});return {ok:true};
+    }
     if(message.type==='corrections'){
      let rows=readCorrections();
      if(message.action==='remove')rows=rows.filter(row=>row.id!==message.id);
@@ -117,7 +129,16 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
   await page.evaluate(()=>window.classifyMode='changed');await page.click('#classifyPost');await page.waitForFunction(()=>document.getElementById('playgroundStatus').textContent.includes('saved settings changed'));assert.equal(await page.locator('#playgroundResult').isVisible(),false,'stale requests are unscored, not negatives');
   await page.evaluate(()=>window.classifyMode='invalid');await page.click('#classifyPost');await page.waitForFunction(()=>document.getElementById('playgroundStatus').textContent.includes('no usable scores'));assert.equal(await page.locator('#playgroundResult').isVisible(),false);
   // Explicit corrections remain text-only, multilabel or none, exportable and removable.
+  await navigate('categories');const originalDraft=await page.locator('[data-id=slop] .cat-name').inputValue();await page.locator('[data-id=slop] .cat-name').fill(originalDraft+' UNSAVED DRAFT');
   await navigate('corrections');assert.equal(await page.locator('.correction').count(),2);assert.equal(await page.locator('#correctionList img').count(),0);
+  assert.equal(await page.locator('.correction input[type=checkbox]:checked').count(),0);
+  await page.locator('.correction input[type=checkbox]').first().check();await page.waitForFunction(()=>document.getElementById('correctionStatus').textContent.startsWith('Prompt examples updated'));
+  assert.equal(await page.locator('.correction input[type=checkbox]:checked').count(),1);
+  await page.evaluate(()=>window.rejectExample=true);await page.locator('.correction input[type=checkbox]').first().click();await page.waitForFunction(()=>document.getElementById('correctionStatus').textContent==='Synthetic selection failure');
+  assert.equal(await page.locator('.correction input[type=checkbox]:checked').count(),1);await page.evaluate(()=>window.rejectExample=false);
+  await page.locator('.correction input[type=checkbox]').first().uncheck();await page.waitForFunction(()=>document.getElementById('correctionStatus').textContent.startsWith('Prompt examples updated'));
+  assert.equal(await page.locator('.correction input[type=checkbox]:checked').count(),0);
+  await navigate('categories');assert.equal(await page.locator('[data-id=slop] .cat-name').inputValue(),originalDraft+' UNSAVED DRAFT','example refresh preserves category draft');await page.locator('[data-id=slop] .cat-name').fill(originalDraft);await save();await navigate('corrections');
   assert.deepEqual(await page.locator('.correction').first().locator('.correction-labels span').allTextContents(),['Low substance','Advert']);
   assert.equal(await page.locator('.correction').nth(1).locator('.correction-labels').innerText(),'None · keep visible');
   assert.equal(await page.locator('.feedback-table').isVisible(),false,'old configurations do not show a comparison of empty scores');
@@ -230,6 +251,13 @@ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript
    await page.emulateMedia({colorScheme:'dark'});await page.setViewportSize({width:1280,height:900});await navigate('feed');await page.screenshot({path:process.env.LSF_UI_SCREENSHOTS+'-dark.png'});await popup.emulateMedia({colorScheme:'dark'});await popup.screenshot({path:process.env.LSF_UI_SCREENSHOTS+'-popup-dark.png'});
   }
   await page.setViewportSize({width:320,height:600});await navigate('categories');await page.locator('#addCategoryDetails summary').click();await page.locator('#newCatName').focus();await page.waitForFunction(()=>document.getElementById('newCatName').getBoundingClientRect().bottom<=document.querySelector('.save-bar').getBoundingClientRect().top-10);assert.equal(await page.evaluate(()=>document.activeElement.id),'newCatName','focused fields stay above the persistent footer');
+  await page.evaluate(()=>localStorage.setItem('postExceptions',JSON.stringify([{id:'a'.repeat(64),at:1700000000000},{id:'b'.repeat(64),at:1700000001000}])));
+  await navigate('people');await page.waitForFunction(()=>document.querySelectorAll('#postExceptionList button').length===2);
+  assert.equal(await page.locator('#postExceptionList').innerText().then(t=>t.includes('aaaaaaaa')),true);
+  await page.locator('#postExceptionList button').first().click();await page.waitForFunction(()=>document.querySelectorAll('#postExceptionList button').length===1);
+  await page.locator('#clearPostExceptions').click();await page.waitForFunction(()=>document.getElementById('postExceptionList').textContent==='No saved post choices.');
+  assert.equal(await page.locator('#clearPostExceptions').isDisabled(),true);
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('postExceptions')).length),0);
   const permissions=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'))).permissions;assert.deepEqual(permissions,['storage']);
   assert.deepEqual(remote,[],'no remote assets');assert.deepEqual(errors,[],'no runtime errors');
   console.log('PASS: focused settings/popup, native appearance/rule independence, preset preview/Undo, safe definition adoption, strict and partial playground, explicit correction export/remove/clear, fail-open messages, light/dark responsive views and no secrets/assets');

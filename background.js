@@ -1,4 +1,4 @@
-import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE, normalizeImages, visualCategory, imageScoringKey, imageRequest, prepareAttachment, attachmentUrl, IMAGE_PERMISSION, IMAGE_MODELS, VISUAL_ID} from "./core.mjs";
+import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE, normalizeImages, visualCategory, imageScoringKey, imageRequest, prepareAttachment, attachmentUrl, IMAGE_PERMISSION, IMAGE_MODELS, VISUAL_ID, EXAMPLE_SELECTION_KEY, MAX_PROMPT_EXAMPLES, exampleCategoryKey, selectedExamples, rewriteRequest, rewrittenDefinition, POST_EXCEPTIONS_KEY, MAX_POST_EXCEPTIONS, postIdentity, normalizePostExceptions} from "./core.mjs";
 // API keys remain in trusted extension contexts.
 chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
@@ -264,8 +264,35 @@ async function classify(text,manual=false,imageUrls) {
   }
 }
 
+// Explicit local rewrites share the provider queue and cap, but never save definitions.
+async function rewriteDefinition(message) {
+  const saved=await load(), key=scoringKey(saved);
+  const req=rewriteRequest(saved,message.definition,message.guidance);
+  if(typeof message.categoryId!=="string"||!categoryList(saved).some(c=>c.id===message.categoryId))throw new Error("Save this category before requesting a rewrite.");
+  const job=chain.then(async()=>{
+    const current=await load();
+    if(scoringKey(current)!==key)throw new Error("Settings changed. Request a fresh rewrite.");
+    const state=await chrome.storage.session.get({requests:0});
+    if(state.requests>=current.limit)throw new Error("Session request limit reached. Definition unchanged.");
+    await chrome.storage.session.set({requests:state.requests+1});
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
+    try {
+      let response;
+      try {response=await fetch(req.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(req.body),signal:controller.signal,credentials:"omit",redirect:"error"});}
+      catch {throw new Error("Local rewrite unavailable or timed out. Check Ollama access and the downloaded model. Definition unchanged.");}
+      if(!response.ok)throw new Error("Ollama rewrite failed (HTTP "+response.status+"). Definition unchanged.");
+      let data;try{data=await response.json();}catch{throw new Error("Ollama returned invalid rewrite JSON. Definition unchanged.");}
+      const definition=rewrittenDefinition(data);
+      if(scoringKey(await load())!==key)throw new Error("Settings changed. Discarded the rewrite; request a fresh one.");
+      return {definition};
+    } finally {clearTimeout(timer);}
+  });
+  chain=job.catch(()=>{});return job;
+}
+
 async function handle(message, sender, kind) {
   const tabId = tabFor(kind, sender, message);
+  if(message.type==="rewriteDefinition")return rewriteDefinition(message);
   if (message.type === "people") {
     const job = edits.then(async () => {
       let people = normalizePeople((await chrome.storage.local.get(PEOPLE_KEY))[PEOPLE_KEY]);
@@ -291,6 +318,33 @@ async function handle(message, sender, kind) {
       results.push({model,...result,durationMs:Date.now()-started});
     } catch {results.push({model,error:"Image check unavailable. Check provider status, request limit and input limits.",durationMs:Date.now()-started});}}
     return {results};
+  }
+  if (["postException","postExceptions"].includes(message.type)) {
+    const id = message.type === "postException" ? await hash("post-exception-v1:" + postIdentity(message.identity)) : message.id;
+    const job = edits.then(async () => {
+      const stored = await chrome.storage.local.get(POST_EXCEPTIONS_KEY);
+      let records = normalizePostExceptions(stored[POST_EXCEPTIONS_KEY]);
+      if (message.type === "postException") {
+        if (message.action === "set") {
+          if (typeof message.value !== "boolean") throw new Error("Choose whether to keep this post visible.");
+          records = records.filter(record => record.id !== id);
+          if (message.value) {
+            if (records.length >= MAX_POST_EXCEPTIONS) throw new Error("Saved post choices are full. Remove a choice in settings first.");
+            records.push({id,at:Date.now()});
+          }
+        } else if (message.action !== "check") throw new Error("Unknown post choice action.");
+      } else {
+        if (message.action === "remove") {
+          if (typeof id !== "string" || !/^[a-f0-9]{64}$/.test(id)) throw new Error("Choose a saved post choice to remove.");
+          records = records.filter(record => record.id !== id);
+        } else if (message.action === "clear") records = [];
+        else if (message.action !== "list") throw new Error("Unknown saved post choice action.");
+      }
+      if (!["list","check"].includes(message.action)) await chrome.storage.local.set({[POST_EXCEPTIONS_KEY]:records});
+      return message.type === "postException" ? {kept:records.some(record => record.id === id)} : {postExceptions:records};
+    });
+    edits = job.catch(() => {});
+    return job;
   }
   if (message.type === "settings") return view(await load());
   if (message.type === "experience") return experience(tabId);
@@ -330,6 +384,24 @@ async function handle(message, sender, kind) {
     await job;
     return {ok:true,id:correction.id};
   }
+  if (message.type === "promptExample") {
+    const job = edits.then(async () => {
+      const s=await load(), stored=await chrome.storage.local.get(CORRECTIONS_KEY);
+      const records=normalizeCorrections(stored[CORRECTIONS_KEY]), signature=exampleCategoryKey(categoryList(s));
+      if(typeof message.id!=="string"||typeof message.selected!=="boolean"||!records.some(c=>c.id===message.id))throw new Error("Choose a saved correction.");
+      let selections=(Array.isArray(s[EXAMPLE_SELECTION_KEY])?s[EXAMPLE_SELECTION_KEY]:[]).filter(e=>e.categories===signature&&records.some(c=>c.id===e.id)&&e.id!==message.id);
+      if(message.selected) {
+        if(selections.length>=MAX_PROMPT_EXAMPLES)throw new Error("Choose at most four prompt examples. Remove one first.");
+        const record=records.find(c=>c.id===message.id), known=new Set(categoryList(s).map(c=>c.id));
+        if(record.categoryIds.some(id=>!known.has(id)))throw new Error("This correction refers to a removed category. Save a new correction first.");
+        selections.push({id:message.id,categories:signature});
+      }
+      if(selectedExamples(records,selections,categoryList(s)).length!==selections.length)throw new Error("Selected examples exceed the prompt context limit. Remove one first.");
+      await chrome.storage.local.set({[EXAMPLE_SELECTION_KEY]:selections});
+      return {ok:true};
+    });
+    edits=job.catch(()=>{});return job;
+  }
   if (message.type === "corrections") {
     const job = edits.then(async () => {
       const stored = await chrome.storage.local.get(CORRECTIONS_KEY);
@@ -339,7 +411,11 @@ async function handle(message, sender, kind) {
         corrections = corrections.filter(c => c.id !== message.id);
       } else if (message.action === "clear") corrections = [];
       else if (message.action !== "list") throw new Error("Unknown correction action.");
-      if (message.action !== "list") await chrome.storage.local.set({[CORRECTIONS_KEY]:corrections});
+      if (message.action !== "list") {
+        const s=await load();
+        const selections=(Array.isArray(s[EXAMPLE_SELECTION_KEY])?s[EXAMPLE_SELECTION_KEY]:[]).filter(e=>corrections.some(c=>c.id===e.id));
+        await chrome.storage.local.set({[CORRECTIONS_KEY]:corrections,[EXAMPLE_SELECTION_KEY]:selections});
+      }
       return {corrections};
     });
     edits = job.catch(() => {});
@@ -357,8 +433,8 @@ async function handle(message, sender, kind) {
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const kind = senderKind(sender);
   if (!kind || !message || typeof message !== "object") return false;
-  const shared = ["settings","experience","appearance","showEverything","openSettings","correction"];
-  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","playground","compareImages"];
+  const shared = ["settings","experience","appearance","showEverything","openSettings","correction","postException"];
+  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","promptExample","playground","compareImages","rewriteDefinition","postExceptions"];
   if (kind === "people" && message.type !== "people") return false;
   if (message.type === "people") {
     if (kind === "feed" && message.action !== "list") return false;

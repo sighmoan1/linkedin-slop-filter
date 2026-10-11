@@ -1,10 +1,12 @@
+import {EXAMPLE_SELECTION_KEY, selectedExamples, exampleCategoryKey} from "./examples.mjs";
+import {CORRECTIONS_KEY, normalizeCorrections} from "./experience.mjs";
 // Settings and categories. Every category is the same kind of thing: a yes/no question the model answers with
 // a probability, plus what to do when the answer is strictly above that category's threshold.
 export const SCHEMA = 2;
 export const DEFAULTS = {
   enabled: false, provider: "jev", jevKey: "", openaiKey: "", limit: 100,
   ollamaEndpoint: "http://127.0.0.1:11434", ollamaModel: "qwen3.5:4b-q4_K_M",
-  schema: SCHEMA, categories: null, imageAnalysis: null
+  schema: SCHEMA, categories: null, imageAnalysis: null, [EXAMPLE_SELECTION_KEY]: []
 };
 // Settings from before schema 2. Read only to migrate them, then removed.
 export const LEGACY_DEFAULTS = {rule: null, threshold: null, openaiThreshold: null, localThreshold: null};
@@ -97,6 +99,13 @@ export async function loadSettings(area) {
   if (changed) {
     await area.set({schema: SCHEMA, categories: settings.categories});
     await area.remove(Object.keys(LEGACY_DEFAULTS));
+  }
+  const selections=settings[EXAMPLE_SELECTION_KEY], categories=categoryList(settings);
+  const signature=exampleCategoryKey(categories);
+  settings.promptExamples=[];
+  if(Array.isArray(selections)&&selections.some(e=>e?.categories===signature)) {
+    const records = await area.get(CORRECTIONS_KEY);
+    settings.promptExamples = selectedExamples(normalizeCorrections(records[CORRECTIONS_KEY]), selections, categories);
   }
   return settings;
 }

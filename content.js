@@ -117,7 +117,7 @@
     return urls;
   }
   const imageIdentityFor = post => JSON.stringify(imageElements(post).map(img=>[img.getAttribute("src"),img.getAttribute("srcset"),img.currentSrc]));
-  const samePost = (post,record) => bodyText(post)===record.text&&imageIdentityFor(post)===record.imageIdentity;
+  const samePost = (post,record) => bodyText(post)===record.text&&imageIdentityFor(post)===record.imageIdentity&&stablePostIdentity(post)===record.identity;
   // Match only the outer post actor, never a mention, comment or embedded repost.
   function exempt(post) {
     const actor = post.querySelector('.update-components-actor__meta-link, .feed-shared-actor__meta-link, [data-testid="actor-name"] a, a[data-testid="actor-name"]');
@@ -220,6 +220,33 @@
     if(record.error)return {text:"Not scored",level:"lsf-muted",title:"The post stays visible. Check provider status in extension settings."};
     return {text:"Waiting to score",level:"lsf-muted",title:"Posts are scored a short distance ahead of the reader."};
   }
+  function stablePostIdentity(post) {
+    const component=post.getAttribute("componentkey")||"";
+    const componentUrn=component.match(/^update-card[-_](urn:li:(?:activity|share|ugcPost):[0-9]{1,30})$/);
+    if(componentUrn)return componentUrn[1];
+    const candidates=[post,...post.querySelectorAll("a[href*='urn:li:']")];
+    for(const candidate of candidates) {
+      if(candidate!==post&&(!candidate.closest("header, .update-components-actor, .feed-shared-actor, [data-view-name='feed-actor']")||candidate.closest(POST)!==post||candidate.closest(TEXT)||candidate.closest(".comments-comments-list, .comments-comment-item, [data-view-name*='comment'], [componentkey^='comment'], .update-components-article, .feed-shared-article, .update-components-mini-update-v2, .feed-shared-mini-update-v2, [data-view-name*='repost']")))continue;
+      const urn=candidate.getAttribute("data-urn");
+      if(/^urn:li:(activity|share|ugcPost):[0-9]{1,30}$/.test(urn||""))return urn;
+      if(candidate.tagName!=="A")continue;
+      try {const url=new URL(candidate.href);if(url.origin!=="https://www.linkedin.com")continue;
+        const match=decodeURIComponent(url.pathname).match(/^\/feed\/update\/(urn:li:(?:activity|share|ugcPost):[0-9]{1,30})\/?$/);if(match)return match[1];
+      }catch{}
+    }
+    return null;
+  }
+  async function refreshPostChoice(post,record) {
+    if(!record.identity){record.choiceChecked=true;return;}
+    if(record.choiceSaving)return;
+    const revision=record.choiceRevision=(record.choiceRevision||0)+1;
+    try {const reply=await send({type:"postException",action:"check",identity:record.identity});
+      if(!connected()||records.get(post)!==record||!samePost(post,record)||revision!==record.choiceRevision)return;
+      if(typeof reply?.kept!=="boolean")throw new Error("Saved post choice lookup unavailable.");
+      record.kept=reply.kept;
+    }catch{if(connected()&&records.get(post)===record&&samePost(post,record)&&revision===record.choiceRevision){record.choiceChecked=false;schedulePaint();}return;}
+    record.choiceChecked=true;schedulePaint();
+  }
   function ensureTools(post,record) {
     if(record.tools)return;
     const tools=shell("lsf-tools");
@@ -269,10 +296,25 @@
       save.disabled=!record.text.trim();if(save.disabled)textOf(message,"Image-only posts can be revealed; saved corrections require a caption.");
       const cancel=button("Cancel",()=>act(post,record,()=>{record.correcting=false;},"cancel"),"lsf-button lsf-flat");
       const manage=button("Edit post rules",()=>openSettings(),"lsf-button lsf-flat");
-      const actions=node("div","lsf-panel-actions");actions.append(save,cancel,manage);
+      const keep=button(record.kept?"Remove saved keep-visible choice":"Always keep this post visible",async()=>{
+        if(!samePost(post,record))return;
+        keep.disabled=true;record.choiceSaving=true;
+        const revision=record.choiceRevision=(record.choiceRevision||0)+1;
+        try {const reply=await send({type:"postException",action:"set",identity:record.identity,value:!record.kept});
+          if(!connected()||records.get(post)!==record||!samePost(post,record)||revision!==record.choiceRevision)return;
+          if(typeof reply?.kept!=="boolean")throw new Error("not saved");
+          record.kept=reply.kept;textOf(keep,record.kept?"Remove saved keep-visible choice":"Always keep this post visible");
+          textOf(message,record.kept?"Saved locally. This post stays visible across reloads; no post text was saved.":"Saved choice removed. Normal filtering applies again.");schedulePaint();
+        }catch{textOf(message,"Could not save this choice. Try again or open settings.");}finally{record.choiceSaving=false;keep.disabled=!record.identity;}
+      });
+      record.keepChoice=keep;
+      keep.disabled=!record.identity;
+      keep.title=record.identity?"Saves only a hashed post identifier in this browser profile.":"No stable post identifier is available. Showing this post remains temporary.";
+      const actions=node("div","lsf-panel-actions");actions.append(save,cancel,manage,keep);
       form.addEventListener("keydown",e=>{if(e.key==="Escape"){e.preventDefault();e.stopPropagation();act(post,record,()=>{record.correcting=false;},"cancel");}});
       form.append(scoreStatus,table,help,message,actions);post.append(form);record.correction=form;
     }
+    textOf(record.keepChoice,record.kept?"Remove saved keep-visible choice":"Always keep this post visible");
     const stale=record.scores&&record.configuration!==settings.configuration;
     const missing=settings.categories.some(c=>!(c.id==="lsf-visual-slop"&&["no-image","skipped-hidden"].includes(record.imageStatus))&&typeof record.scores?.[c.id]!=="number");
     textOf(record.scoreStatus,record.imageStatus==="unavailable"?"Image check unavailable. Only text checked.":stale?"Updating scores. Settings have changed.":record.scores?(missing?"Partly scored":"Model scores"):record.pending?"Scoring…":"Not scored");
@@ -293,24 +335,25 @@
   }
   function render(post,record) {
     if(!isFeed()){forget(post,record);return;}
+    if(!samePost(post,record)){clearFold(post,record);scheduleScan();return;}
     toggle(post,"lsf-feed-card",true);
     attr(post,"data-lsf-scheme",hostScheme(post));
     if(post.dataset.lsfTheme!==experience.appearance.theme)post.dataset.lsfTheme=experience.appearance.theme;
     if(!settings.enabled||exempt(post)){clearFold(post,record);clearTools(record);toggle(post,"lsf-highlight",false);if(record.correction)hidden(record.correction,true);return;}
     const hits=applying(record),hiding=hits.filter(c=>c.action==="hide");
-    const folded=hiding.length&&!record.revealed&&!experience.showEverything;
+    const folded=record.choiceChecked&&hiding.length&&!record.kept&&!record.revealed&&!experience.showEverything;
     const moveFocus=folded&&post.contains(document.activeElement)&&!record.bar?.contains(document.activeElement)&&!record.groupBar?.contains(document.activeElement);
     const tone=(hiding[0]||hits[0])?.id||"none";
     if(post.dataset.lsfTone!==tone)post.dataset.lsfTone=tone;
     toggle(post,"lsf-highlight",!hiding.length&&hits.some(c=>c.action==="highlight"));
     if(!folded) {
       ensureTools(post,record);
-      const badge=status(record,hits);
+      const badge=record.kept?{text:"Kept visible",level:"lsf-muted",title:"Your saved choice keeps this post visible across reloads. Remove it in Review scores or Settings → Never hide."}:status(record,hits);
       const cls="lsf-badge "+badge.level;
       if(record.badge.className!==cls)record.badge.className=cls;
       textOf(record.badge,badge.text);if(record.badge.title!==badge.title)record.badge.title=badge.title;
-      hidden(record.badge,experience.appearance.labels==="off"||(record.revealed&&hiding.length&&!experience.showEverything));
-      hidden(record.hideAgain,!(record.revealed&&hiding.length&&!experience.showEverything));
+      hidden(record.badge,experience.appearance.labels==="off"||(!record.kept&&record.revealed&&hiding.length&&!experience.showEverything));
+      hidden(record.hideAgain,record.kept||!(record.revealed&&hiding.length&&!experience.showEverything));
       attr(record.correctButton,"aria-expanded",!!record.correcting);
       if(record.corrected){record.correctButton.title="Correction saved locally; no automatic training";}
     } else clearTools(record);
@@ -334,7 +377,7 @@
       toggle(post,"lsf-folded",true);
       if(moveFocus)record.show.focus({preventScroll:true});
       if(!record.foldCounted){record.foldCounted=true;send({type:"folded"}).catch(()=>{});}
-    } else if(record.revealed&&hiding.length&&!experience.showEverything) {
+    } else if(!record.kept&&record.revealed&&hiding.length&&!experience.showEverything) {
       clearFold(post,record,true);ensureBar(post,record);hidden(record.bar,false);
       if(record.bar.className!=="lsf-bar lsf-revealed-bar")record.bar.className="lsf-bar lsf-revealed-bar";
       textOf(record.foldLabel,"Shown · "+hiding.map(c=>c.name).join(" · "));textOf(record.show,"Hide post again");
@@ -399,7 +442,7 @@
     textOf(toolbar.status,message);
   }
   function eligible(post,record) {
-    if(exempt(post)||!post.isConnected||record.pending||Date.now()<(record.retryAt||0)||(record.scores&&record.configuration===settings.configuration))return false;
+    if(record.kept||record.choiceSaving||!record.choiceChecked||exempt(post)||!post.isConnected||record.pending||Date.now()<(record.retryAt||0)||(record.scores&&record.configuration===settings.configuration))return false;
     const r=post.getBoundingClientRect();return r.height>0&&r.bottom>=-200&&r.top<=innerHeight+700&&samePost(post,record);
   }
   function pump() {
@@ -433,10 +476,11 @@
       if(post.parentElement?.closest(POST))continue;
       const text=bodyText(post),urls=imageUrls(post),imageIdentity=imageIdentityFor(post),old=records.get(post);
       if(!text&&!urls.length){if(old)forget(post,old);continue;}
-      if(old?.text===text&&old.imageIdentity===imageIdentity)continue;
+      if(old?.text===text&&old.imageIdentity===imageIdentity&&old.identity===stablePostIdentity(post))continue;
       if(old)forget(post,old);
       const record={id:++nextId,text,imageUrls:urls,imageIdentity,body:post.querySelector(TEXT),revealed:false};
-      records.set(post,record);observer.observe(post);
+      record.identity=stablePostIdentity(post);record.choiceChecked=!record.identity;
+      records.set(post,record);observer.observe(post);void refreshPostChoice(post,record);
     }
     // Preserve actual DOM order for grouping even if LinkedIn inserts an older card above.
     const ordered=[...records].sort(([a],[b])=>a===b?0:a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1);
@@ -450,10 +494,10 @@
     const appearanceChanged=changes.some(m=>m.type==="attributes"&&!m.target.closest?.(UI)&&
       (m.attributeName!=="class"||nativeClass(m.oldValue)!==nativeClass(m.target.getAttribute("class"))));
     if(appearanceChanged)schedulePaint();
-    const changed=changes.some(m=>!m.target.closest?.(UI)&&([...m.addedNodes,...m.removedNodes].some(n=>n.nodeType!==Node.ELEMENT_NODE||!n.matches?.(UI))||m.type==="characterData"||["src","srcset"].includes(m.attributeName)));
+    const changed=changes.some(m=>!m.target.closest?.(UI)&&([...m.addedNodes,...m.removedNodes].some(n=>n.nodeType!==Node.ELEMENT_NODE||!n.matches?.(UI))||m.type==="characterData"||["data-urn","componentkey","href","src","srcset"].includes(m.attributeName)));
     if(changed)scheduleScan();
   });
-  mutations.observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeOldValue:true,attributeFilter:["class","style","data-theme","data-color-mode","src","srcset"]});
+  mutations.observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeOldValue:true,attributeFilter:["class","style","data-theme","data-color-mode","data-urn","componentkey","href","src","srcset"]});
   listen(document,"load",event=>{if(event.target?.tagName==="IMG")scheduleScan();},true);
   listen(matchMedia("(prefers-color-scheme: dark)"),"change",schedulePaint);
   listen(window,"scroll",schedulePaint,{passive:true});listen(window,"resize",schedulePaint,{passive:true});
@@ -476,6 +520,7 @@
       if (Array.isArray(result?.people)) neverHide = new Set(result.people);
     } catch { /* Keep existing exemptions if the service is temporarily unavailable. */ }
     try{setExperience(await send({type:"experience"}));}catch{}
+    for(const [post,record]of records)void refreshPostChoice(post,record);
     scan();
   }
   poll=setInterval(refresh,5000);refresh();
