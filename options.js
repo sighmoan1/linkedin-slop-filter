@@ -74,16 +74,24 @@ const updateProvider=()=>{
 $("provider").addEventListener("change",updateProvider);updateProvider();
 const storedError=(await chrome.storage.local.get("lastError")).lastError;
 $("error").textContent=typeof storedError==="string"?storedError:"";
+function renderUsage(usage){
+  const count=key=>Number.isFinite(usage[key])?usage[key].toLocaleString():"unavailable";
+  $("usageSummary").textContent=`This session: ${count("requests")} / ${count("limit")} requests · ${count("scored")} scored · ${count("folded")} posts hidden · ${count("cacheHits")} saved scores reused · ${count("errors")} errors.`;
+  $("imageTrialUsage").textContent=`This session: ${usage.imageScored||0} image checks scored · ${usage.imageErrors||0} image checks unavailable.`;
+  $("error").textContent=typeof usage.lastError==="string"?usage.lastError:"";
+}
 async function updateUsage(){
   try {
-    const usage=await send({type:"usage"});
-    const count=key=>Number.isFinite(usage[key])?usage[key].toLocaleString():"unavailable";
-    $("usageSummary").textContent=`This session: ${count("requests")} / ${count("limit")} requests · ${count("scored")} scored · ${count("folded")} posts hidden · ${count("cacheHits")} saved scores reused · ${count("errors")} errors.`;
-    $("imageTrialUsage").textContent=`This session: ${usage.imageScored||0} image checks scored · ${usage.imageErrors||0} image checks unavailable.`;
-    $("error").textContent=typeof usage.lastError==="string"?usage.lastError:"";
-  } catch {$("usageSummary").textContent="Session usage is unavailable. Reopen settings or reload the extension.";}
+    renderUsage(await send({type:"usage"}));$("resetUsage").disabled=false;
+  } catch {$("usageSummary").textContent="Session usage is unavailable. Reopen settings or reload the extension.";$("resetUsage").disabled=true;}
 }
 await updateUsage();
+$("resetUsage").addEventListener("click",async()=>{
+  $("resetUsage").disabled=true;$("resetUsageStatus").textContent="Resetting…";
+  try {renderUsage(await send({type:"resetUsage"}));$("resetUsageStatus").textContent="Counters reset.";}
+  catch(error){$("resetUsageStatus").textContent=error.message;}
+  finally {$("resetUsage").disabled=false;}
+});
 
 // Key tests use the key explicitly entered on this trusted extension page.
 const getChecks=async()=>(await chrome.storage.local.get({keyCheck:{}})).keyCheck;

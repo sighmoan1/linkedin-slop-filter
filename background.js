@@ -4,7 +4,9 @@ chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
 let edits = Promise.resolve();
 let usageEdits = Promise.resolve();
+let serviceStatusEdits = Promise.resolve();
 const pending = new Map();
+const statusRecorded = Symbol("statusRecorded");
 const failure = (message, short, status) => Object.assign(new Error(message), {short, status});
 const load = () => loadSettings(chrome.storage.local);
 const hash = async text => {
@@ -35,6 +37,47 @@ async function badge(message = "") {
     if (message) await chrome.action?.setBadgeBackgroundColor?.({color: "#a34b29"});
     await chrome.action?.setTitle?.({title: message ? "LinkedIn Slop Filter: " + message : "LinkedIn Slop Filter"});
   } catch { /* A toolbar that is unavailable must not affect the feed. */ }
+}
+const classificationMessage = (error, image = false) => error.name === "AbortError" ? (image ? "Image check timed out. Post left visible." : "Classification timed out. Post left visible.") : error.message;
+const recordedStatus = error => error && typeof error === "object" && error[statusRecorded] === true;
+async function recordClassificationFailure(field, message, error) {
+  if (recordedStatus(error)) return;
+  const job = serviceStatusEdits.then(async () => {
+    await bumpUsage(field);
+    await chrome.storage.local.set({lastError:message});
+    await badge(message);
+  });
+  serviceStatusEdits = job.catch(() => {});
+  await job;
+  if (error && typeof error === "object") error[statusRecorded] = true;
+}
+async function waitForServiceStatus() {
+  await usageEdits;
+  await serviceStatusEdits;
+  await usageEdits;
+}
+function usageSnapshot(settings, state, lastError = "") {
+  const usage = state.usage && typeof state.usage === "object" ? state.usage : {};
+  const count = value => Number.isFinite(value) && value >= 0 ? value : 0;
+  return {requests:count(state.requests),limit:settings.limit,scored:count(usage.scored),folded:count(usage.folded),cacheHits:count(usage.cacheHits),errors:count(usage.errors),imageScored:count(usage.imageScored),imageErrors:count(usage.imageErrors),lastError};
+}
+async function currentUsage() {
+  await waitForServiceStatus();
+  const settings = await load();
+  const state = await chrome.storage.session.get({requests:0,usage:{}});
+  const {lastError = ""} = await chrome.storage.local.get("lastError");
+  return usageSnapshot(settings,state,typeof lastError === "string" ? lastError : "");
+}
+function resetUsage() {
+  const job = chain.then(async () => {
+    await waitForServiceStatus();
+    await chrome.storage.session.set({requests:0,usage:{}});
+    await chrome.storage.local.remove("lastError");
+    await badge();
+    return currentUsage();
+  });
+  chain = job.catch(() => {});
+  return job;
 }
 chrome.storage.onChanged?.addListener((changes, area) => {
   if (area === "local" && changes.lastError) badge(changes.lastError.newValue || "");
@@ -88,7 +131,7 @@ async function classifyText(rawText, manual = false) {
     const cached = (await cacheStorage.get(id))[id];
     if (cacheFresh(cached)) {await bumpUsage("cacheHits"); return result(cached.s);}
     if (!pending.has(jobId)) {
-      const job = chain.then(async () => {
+      const baseJob = chain.then(async () => {
         if (!await stillCurrent(s, manual)) return undefined;
         // A feed request and a deliberate playground request may have queued the same text.
         // Reuse the result completed ahead of this job before spending another attempt.
@@ -140,6 +183,10 @@ async function classifyText(rawText, manual = false) {
         if (!fellBack) {await chrome.storage.local.remove("lastError"); await badge();}
         return sc;
       });
+      const job = baseJob.catch(async error => {
+        await recordClassificationFailure("errors", classificationMessage(error), error);
+        throw error;
+      });
       chain = job.catch(()=>{});
       pending.set(jobId,job);
       job.finally(()=>pending.delete(jobId)).catch(()=>{});
@@ -149,12 +196,12 @@ async function classifyText(rawText, manual = false) {
 }
 
 // Same sequential queue and request cap as text. Image bytes live only for the current request.
-async function classifyImages(s,text,urls,{manual=false,model,preparedImages}={}) {
+async function classifyImages(s,text,urls,{manual=false,model,preparedImages,recordFailure=false}={}) {
   if(!preparedImages&&(!Array.isArray(urls)||!urls.length||urls.length>4))throw new Error("Image count exceeds the trial limit. Image check unavailable.");
   const checked=preparedImages?[]:[...new Set(urls.map(attachmentUrl))];
   const images=normalizeImages({...s.imageAnalysis,...(model?{model}:{})}),key=feedKey(s);
   const same = async()=>{const now=await load();return (manual||now.enabled)&&feedKey(now)===key;};
-  const job=chain.then(async()=>{
+  const baseJob=chain.then(async()=>{
     if(!await same())return {disabled:true};
     if(!s.jevKey)throw new Error("Add an OpenRouter API key in Provider settings to check images.");
     if(!preparedImages&&!await chrome.permissions?.contains({origins:[IMAGE_PERMISSION]}))throw new Error("Allow post image access in Settings to check images.");
@@ -193,6 +240,7 @@ async function classifyImages(s,text,urls,{manual=false,model,preparedImages}={}
       return {scores,imageStatus:"scored",imageModel:images.model,imageFingerprint,imageUsage};
     } finally {clearTimeout(timer);}
   });
+  const job=recordFailure?baseJob.catch(async error=>{await recordClassificationFailure(recordFailure,classificationMessage(error,true),error);throw error;}):baseJob;
   chain=job.catch(()=>{});return job;
 }
 async function classify(text,manual=false,imageUrls) {
@@ -207,12 +255,11 @@ async function classify(text,manual=false,imageUrls) {
   if(!imageUrls?.length)return {...result,imageStatus:"no-image"};
   if(activeCategories(categoryList(s)).some(c=>c.action==="hide"&&result.scores[c.id]>c.threshold))return {...result,imageStatus:"skipped-hidden"};
   try {
-    const visual=await classifyImages(s,text.trim(),imageUrls);
+    const visual=await classifyImages(s,text.trim(),imageUrls,{recordFailure:"imageErrors"});
     if(visual.disabled)return visual;
     return {...result,...visual,scores:{...result.scores,...visual.scores}};
   } catch(error) {
-    const message=error.name==="AbortError"?"Image check timed out. Post left visible.":error.message;
-    await bumpUsage("imageErrors");await chrome.storage.local.set({lastError:message});await badge(message);
+    await recordClassificationFailure("imageErrors",classificationMessage(error,true),error);
     return {...result,imageStatus:"unavailable"};
   }
 }
@@ -299,11 +346,10 @@ async function handle(message, sender, kind) {
     return job;
   }
   if (message.type === "usage") {
-    await usageEdits;
-    const s = await load();
-    const state = await chrome.storage.session.get({requests:0,usage:{}});
-    const {lastError = ""} = await chrome.storage.local.get("lastError");
-    return {requests:state.requests,limit:s.limit,scored:state.usage.scored || 0,folded:state.usage.folded || 0,cacheHits:state.usage.cacheHits || 0,errors:state.usage.errors || 0,imageScored:state.usage.imageScored||0,imageErrors:state.usage.imageErrors||0,lastError};
+    return currentUsage();
+  }
+  if (message.type === "resetUsage") {
+    return resetUsage();
   }
   return classify(message.text, message.type === "playground", message.imageUrls);
 }
@@ -312,7 +358,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const kind = senderKind(sender);
   if (!kind || !message || typeof message !== "object") return false;
   const shared = ["settings","experience","appearance","showEverything","openSettings","correction"];
-  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","corrections","playground","compareImages"];
+  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","playground","compareImages"];
   if (kind === "people" && message.type !== "people") return false;
   if (message.type === "people") {
     if (kind === "feed" && message.action !== "list") return false;
@@ -323,11 +369,9 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const isClassification = ["classify","playground"].includes(message.type);
   const work = handle(message, sender, kind);
   work.then(respond).catch(async error => {
-    const message = error.name === "AbortError" ? "Classification timed out. Post left visible." : error.message;
+    const message = classificationMessage(error);
     if (isClassification) {
-      await bumpUsage("errors");
-      await chrome.storage.local.set({lastError:message});
-      await badge(message);
+      await recordClassificationFailure("errors",message,error);
     }
     respond({error:message,short:error.name === "AbortError" ? "timed out" : error.short || "error"});
   });

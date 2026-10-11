@@ -132,6 +132,7 @@ meter::-webkit-meter-optimum-value{background:var(--accent);border-radius:6px}
 .key-help{display:block;font-size:16px;margin:-6px 0 15px}
 .key-test{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:10px 0}
 .key-test button{font-size:16px}
+.usage-tools{margin:12px 0 4px}
 .cache-tools{margin:20px 0}
 .danger-row{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
 .danger-row button{color:var(--danger)}

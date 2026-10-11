@@ -30,6 +30,8 @@
 .popup-stats>div{display:flex;align-items:baseline;gap:5px}
 .popup-stats strong{font-size:18px;font-weight:600;line-height:1.25}
 .popup-stats span{display:inline;font-size:14px;color:var(--muted);margin:0}
+.popup-usage-actions{margin:8px 0 10px}
+.popup-usage-actions button{min-height:44px;padding:7px 10px}
 .popup-usage>.note{font-size:14px;line-height:1.5;margin-bottom:10px}
 .popup-usage details{border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:10px;background:var(--surface)}
 .popup-usage summary{font-size:14px;cursor:pointer;min-height:44px;padding:10px 0}

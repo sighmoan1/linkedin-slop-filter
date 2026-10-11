@@ -1,6 +1,7 @@
 import {loadSettings, activeCategories, requestFor, isFeedUrl} from "./core.mjs";
 const $=id=>document.getElementById(id);
 let settings=await loadSettings(chrome.storage.local), appearance={theme:"native",groupHidden:false,labels:"matches"}, showEverything=false, tabId, activeTabId, knownOtherTab=false, feedPosts=null, experienceAvailable=false, revealPending=false;
+let resetPending=false;
 const status=message=>{$("popupStatus").textContent=message;};
 async function send(message){
   if (!chrome.runtime?.sendMessage) throw new Error("The extension is unavailable. Reopen the popup or reload the extension.");
@@ -21,6 +22,13 @@ function renderExperience(){
   $("showEverything").disabled=!experienceAvailable||!Number.isInteger(tabId)||!settings.enabled||revealPending;
   $("revealNote").textContent=!experienceAvailable?"Feed controls are unavailable. Reopen the popup or reload the extension.":!Number.isInteger(tabId)?"Open this popup from your LinkedIn feed after reloading it.":!settings.enabled?"All posts are already visible while filtering is paused.":showEverything?"All posts visible. Your rules stay saved.":"Temporarily shows every post.";
 }
+function renderUsage(usage){
+  for (const key of ["requests","folded","cacheHits"]) $(key).textContent=Number.isFinite(usage[key])?usage[key].toLocaleString():"—";
+  $("requestLimit").textContent=Number.isFinite(usage.limit)?"/ "+usage.limit.toLocaleString():"";
+  $("usageNote").textContent=usage.requests>=usage.limit?"Session limit reached. New posts stay visible.":"Cloud providers charge your API account.";
+  $("serviceIssue").hidden=!usage.lastError;
+  $("lastError").textContent=typeof usage.lastError==="string"?usage.lastError:"";
+}
 async function refresh(){
   try {
     const experience=await send({type:"experience",...(Number.isInteger(tabId)?{tabId}:{})});
@@ -29,13 +37,8 @@ async function refresh(){
     experienceAvailable=false;renderExperience();
   }
   try {
-    const usage=await send({type:"usage"});
-    for (const key of ["requests","folded","cacheHits"]) $(key).textContent=Number.isFinite(usage[key])?usage[key].toLocaleString():"—";
-    $("requestLimit").textContent=Number.isFinite(usage.limit)?"/ "+usage.limit.toLocaleString():"";
-    $("usageNote").textContent=usage.requests>=usage.limit?"Session limit reached. New posts stay visible.":"Cloud providers charge your API account.";
-    $("serviceIssue").hidden=!usage.lastError;
-    $("lastError").textContent=typeof usage.lastError==="string"?usage.lastError:"";
-  } catch {$("usageNote").textContent="Session usage is unavailable. Reopen the popup or reload the extension.";}
+    renderUsage(await send({type:"usage"}));$("resetUsage").disabled=resetPending;
+  } catch {$("usageNote").textContent="Session usage is unavailable. Reopen the popup or reload the extension.";$("resetUsage").disabled=true;}
 }
 renderFiltering();
 $("usageProvider").textContent={jev:"Jev",openai:"OpenAI",ollama:"Local Ollama"}[settings.provider]||"";
@@ -74,5 +77,12 @@ $("showEverything").addEventListener("click",async()=>{
   try {const result=await send({type:"showEverything",value:!showEverything,tabId});appearance=result.appearance;showEverything=result.showEverything===true;renderExperience();status(showEverything?"Showing everything in this tab.":"Post rules restored in this tab.");}
   catch(error){status(error.message);}
   finally {revealPending=false;renderExperience();}
+});
+$("resetUsage").addEventListener("click",async()=>{
+  if(resetPending)return;
+  resetPending=true;$("resetUsage").disabled=true;status("Resetting counters…");
+  try {renderUsage(await send({type:"resetUsage"}));status("Session counters reset.");}
+  catch(error){status(error.message);}
+  finally {resetPending=false;$("resetUsage").disabled=false;}
 });
 $("openSettings").addEventListener("click",()=>chrome.runtime.openOptionsPage());
