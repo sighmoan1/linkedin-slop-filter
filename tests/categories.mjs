@@ -126,3 +126,5 @@ assert.equal(loaded.jevKey,'k');assert.equal(store.schema,2);assert.equal(store.
 assert.deepEqual(Object.keys(store).sort(),['categories','jevKey','schema']);
 const before=JSON.stringify(store);await loadSettings(area);assert.equal(JSON.stringify(store),before);
 console.log('PASS: categories (defaults, actions, requests for both providers, slop is ordinary, validation, custom ids, scoring key, per-category scores, migration)');
+
+await import("./rewrite.mjs");

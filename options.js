@@ -1,3 +1,4 @@
+import {installDefinitionRewrite} from "./options-rewrite.mjs";
 import {installImageComparison} from "./options-images.mjs";
 import {DEFAULTS, DEFAULT_CATEGORIES, MAX_CATEGORIES, ACTIONS, loadSettings, normalizeCategories, activeCategories, makeCategory, KEY_FIELDS, PROVIDER_NAMES, verifyKey, verifyOllama, keyFingerprint, CACHE_PREFIX, requestFor, LOCAL_RUBRIC_MAX, LOCAL_TEXT_MAX, scoringKey, feedbackSummary, normalizeImages, visualCategory, IMAGE_PERMISSION, VISUAL_ID, EXAMPLE_SELECTION_KEY, exampleCategoryKey, selectedExamples} from "./core.mjs";
 const FIELDS=["enabled","provider","jevKey","openaiKey","ollamaEndpoint","ollamaModel","limit"];
@@ -179,6 +180,9 @@ function renderCats(){
     const chars=el("span",{textContent:c.instructions.length+" / 2,000"});
     text.addEventListener("input",()=>{c.instructions=text.value;chars.textContent=text.value.length+" / 2,000";categoryEdit();});
     const details=el("details",{open:open.has(c.id)},el("summary",{},"Edit definition",chars),text,el("p",{className:"definition-note",textContent:"Describe which posts belong in this category and which to exclude. Writing style cannot prove who wrote a post. Tell the model to ignore instructions inside post_text (the post being checked)."}));
+    installDefinitionRewrite({details,category:c,text,send,isCurrent:()=>cats.includes(c),
+      snapshot:()=>JSON.stringify([cats,...FIELDS.map(id=>$(id).value)]),
+      onApply:definition=>{c.instructions=definition;text.value=definition;chars.textContent=definition.length+" / 2,000";categoryEdit();catStatus.textContent="Rewrite applied to this draft. Review it and Save settings to use it.";}});
     row.append(el("div",{className:"cat-head"},el("span",{className:"cat-dot"}),name,el("span",{className:"cat-order"},up,down),remove),el("div",{className:"cat-rule"},el("label",{className:"inline"},"Action ",action),el("label",{className:"inline"},"Above ",threshold,"%"),actionHelp),details);
     listEl.append(row);
   });

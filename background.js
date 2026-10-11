@@ -1,4 +1,4 @@
-import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE, normalizeImages, visualCategory, imageScoringKey, imageRequest, prepareAttachment, attachmentUrl, IMAGE_PERMISSION, IMAGE_MODELS, VISUAL_ID, EXAMPLE_SELECTION_KEY, MAX_PROMPT_EXAMPLES, exampleCategoryKey, selectedExamples} from "./core.mjs";
+import {loadSettings, categoryList, activeCategories, displayCategories, requestFor, validScores, scoringKey, CACHE_PREFIX, cacheFresh, cacheEvictions, APPEARANCE_DEFAULTS, normalizeAppearance, CORRECTIONS_KEY, MAX_CORRECTIONS, normalizeCorrections, makeCorrection, isFeedUrl, isPeopleUrl, profileUrl, normalizePeople, PEOPLE_KEY, MAX_PEOPLE, normalizeImages, visualCategory, imageScoringKey, imageRequest, prepareAttachment, attachmentUrl, IMAGE_PERMISSION, IMAGE_MODELS, VISUAL_ID, EXAMPLE_SELECTION_KEY, MAX_PROMPT_EXAMPLES, exampleCategoryKey, selectedExamples, rewriteRequest, rewrittenDefinition} from "./core.mjs";
 // API keys remain in trusted extension contexts.
 chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 let chain = Promise.resolve();
@@ -264,8 +264,35 @@ async function classify(text,manual=false,imageUrls) {
   }
 }
 
+// Explicit local rewrites share the provider queue and cap, but never save definitions.
+async function rewriteDefinition(message) {
+  const saved=await load(), key=scoringKey(saved);
+  const req=rewriteRequest(saved,message.definition,message.guidance);
+  if(typeof message.categoryId!=="string"||!categoryList(saved).some(c=>c.id===message.categoryId))throw new Error("Save this category before requesting a rewrite.");
+  const job=chain.then(async()=>{
+    const current=await load();
+    if(scoringKey(current)!==key)throw new Error("Settings changed. Request a fresh rewrite.");
+    const state=await chrome.storage.session.get({requests:0});
+    if(state.requests>=current.limit)throw new Error("Session request limit reached. Definition unchanged.");
+    await chrome.storage.session.set({requests:state.requests+1});
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
+    try {
+      let response;
+      try {response=await fetch(req.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(req.body),signal:controller.signal,credentials:"omit",redirect:"error"});}
+      catch {throw new Error("Local rewrite unavailable or timed out. Check Ollama access and the downloaded model. Definition unchanged.");}
+      if(!response.ok)throw new Error("Ollama rewrite failed (HTTP "+response.status+"). Definition unchanged.");
+      let data;try{data=await response.json();}catch{throw new Error("Ollama returned invalid rewrite JSON. Definition unchanged.");}
+      const definition=rewrittenDefinition(data);
+      if(scoringKey(await load())!==key)throw new Error("Settings changed. Discarded the rewrite; request a fresh one.");
+      return {definition};
+    } finally {clearTimeout(timer);}
+  });
+  chain=job.catch(()=>{});return job;
+}
+
 async function handle(message, sender, kind) {
   const tabId = tabFor(kind, sender, message);
+  if(message.type==="rewriteDefinition")return rewriteDefinition(message);
   if (message.type === "people") {
     const job = edits.then(async () => {
       let people = normalizePeople((await chrome.storage.local.get(PEOPLE_KEY))[PEOPLE_KEY]);
@@ -380,7 +407,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const kind = senderKind(sender);
   if (!kind || !message || typeof message !== "object") return false;
   const shared = ["settings","experience","appearance","showEverything","openSettings","correction"];
-  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","promptExample","playground","compareImages"];
+  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","promptExample","playground","compareImages","rewriteDefinition"];
   if (kind === "people" && message.type !== "people") return false;
   if (message.type === "people") {
     if (kind === "feed" && message.action !== "list") return false;
