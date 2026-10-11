@@ -34,7 +34,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
    const view=()=>({enabled:window.enabled,provider:'ollama',configuration:window.config,categories:copy(window.categories.filter(c=>c.action!=='off'))});
    window.chrome={runtime:{id:'test-extension',onMessage:{addListener(fn){window.feedStatusListener=fn;}},sendMessage:async m=>{
     window.messages.push(copy(m));
-    if(m.type==='postException'){if(window.choiceError)throw new Error('Lookup failed');if(m.action==='set')window.postChoices[m.identity]=m.value;return {kept:window.postChoices[m.identity]===true};}
+    if(m.type==='postException'){if(window.choiceError)throw new Error('Lookup failed');if(m.action==='set')window.postChoices[m.identity]=m.value;const kept=window.postChoices[m.identity]===true;if(m.action==='check'&&window.holdChoiceLookup){window.holdChoiceLookup=false;await new Promise(resolve=>window.releaseChoiceLookup=resolve);}return {kept};}
     if(m.type==='settings')return view();
     if(m.type==='experience')return copy(window.experience);
     if(m.type==='appearance'){window.experience.appearance=copy(m.appearance);return copy(window.experience);}
@@ -60,8 +60,13 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.locator('#durable .lsf-bar button').click();
   assert.equal(await page.evaluate(()=>Object.keys(window.postChoices).length),0,'ordinary reveal is ephemeral');
   await page.getByRole('button',{name:'Review scores',exact:true}).click();
+  await page.evaluate(()=>window.holdChoiceLookup=true);
+  await page.waitForFunction(()=>typeof window.releaseChoiceLookup==='function');
   await page.getByRole('button',{name:'Always keep this post visible',exact:true}).click();
   await page.waitForFunction(()=>window.postChoices['urn:li:activity:123456789']===true);
+  await page.waitForFunction(()=>document.querySelector('#durable .lsf-badge')?.textContent==='Kept visible');
+  await page.evaluate(()=>window.releaseChoiceLookup());await settle(page);
+  assert.equal(await page.locator('#durable').evaluate(e=>e.classList.contains('lsf-folded')),false,'old lookup cannot overwrite successful explicit save');
   assert.equal(await page.locator('#durable').evaluate(e=>e.classList.contains('lsf-folded')),false);
   assert.equal(await page.evaluate(()=>window.corrections.length),0,'durable choice saves no correction/text');
   await page.waitForFunction(()=>document.querySelector('#durable .lsf-badge')?.textContent==='Kept visible');

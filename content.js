@@ -238,11 +238,13 @@
   }
   async function refreshPostChoice(post,record) {
     if(!record.identity){record.choiceChecked=true;return;}
+    if(record.choiceSaving)return;
+    const revision=record.choiceRevision=(record.choiceRevision||0)+1;
     try {const reply=await send({type:"postException",action:"check",identity:record.identity});
-      if(!connected()||records.get(post)!==record||!samePost(post,record))return;
+      if(!connected()||records.get(post)!==record||!samePost(post,record)||revision!==record.choiceRevision)return;
       if(typeof reply?.kept!=="boolean")throw new Error("Saved post choice lookup unavailable.");
       record.kept=reply.kept;
-    }catch{record.choiceChecked=false;schedulePaint();return;}
+    }catch{if(connected()&&records.get(post)===record&&samePost(post,record)&&revision===record.choiceRevision){record.choiceChecked=false;schedulePaint();}return;}
     record.choiceChecked=true;schedulePaint();
   }
   function ensureTools(post,record) {
@@ -296,13 +298,14 @@
       const manage=button("Edit post rules",()=>openSettings(),"lsf-button lsf-flat");
       const keep=button(record.kept?"Remove saved keep-visible choice":"Always keep this post visible",async()=>{
         if(!samePost(post,record))return;
-        keep.disabled=true;
+        keep.disabled=true;record.choiceSaving=true;
+        const revision=record.choiceRevision=(record.choiceRevision||0)+1;
         try {const reply=await send({type:"postException",action:"set",identity:record.identity,value:!record.kept});
-          if(!connected()||records.get(post)!==record||!samePost(post,record))return;
+          if(!connected()||records.get(post)!==record||!samePost(post,record)||revision!==record.choiceRevision)return;
           if(typeof reply?.kept!=="boolean")throw new Error("not saved");
           record.kept=reply.kept;textOf(keep,record.kept?"Remove saved keep-visible choice":"Always keep this post visible");
           textOf(message,record.kept?"Saved locally. This post stays visible across reloads; no post text was saved.":"Saved choice removed. Normal filtering applies again.");schedulePaint();
-        }catch{textOf(message,"Could not save this choice. Try again or open settings.");}finally{keep.disabled=!record.identity;}
+        }catch{textOf(message,"Could not save this choice. Try again or open settings.");}finally{record.choiceSaving=false;keep.disabled=!record.identity;}
       });
       record.keepChoice=keep;
       keep.disabled=!record.identity;
@@ -439,7 +442,7 @@
     textOf(toolbar.status,message);
   }
   function eligible(post,record) {
-    if(record.kept||!record.choiceChecked||exempt(post)||!post.isConnected||record.pending||Date.now()<(record.retryAt||0)||(record.scores&&record.configuration===settings.configuration))return false;
+    if(record.kept||record.choiceSaving||!record.choiceChecked||exempt(post)||!post.isConnected||record.pending||Date.now()<(record.retryAt||0)||(record.scores&&record.configuration===settings.configuration))return false;
     const r=post.getBoundingClientRect();return r.height>0&&r.bottom>=-200&&r.top<=innerHeight+700&&samePost(post,record);
   }
   function pump() {
