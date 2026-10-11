@@ -17,6 +17,14 @@ Several agents may work here at once. Everything below uses GitHub issues, label
 
 Do not merge your own PR unless the owner has asked you to.
 
+## Isolated worktrees are mandatory
+
+- **One issue, one branch, one worktree.** Before editing any tracked files, create a dedicated Git worktree from the current `origin/main` (or a documented dependency branch). Use `git worktree add /absolute/path -b <issue-branch> origin/main`. Each concurrent agent must use a different branch and worktree.
+- **Keep the primary checkout intact.** Do not implement changes, switch branches, reset, stash, clean, or overwrite another contributor's work in the shared primary checkout or another agent's worktree. Run edits, installs, tests, commits and pushes from your assigned worktree, with an explicit working directory.
+- **Record the location.** Include the absolute worktree path and base commit in the GitHub claim and handoff, alongside the unique run ID, branch, expected files and PR. Check `git worktree list`, open PRs and current claims before creating or reusing a worktree. Never take over an existing worktree without a documented handoff.
+- **Coordinate shared files.** Worktrees isolate filesystem edits, not logical conflicts. Agree on file/component ownership or sequencing on GitHub before overlapping work. Rebase or merge dependencies only in your own worktree, and rerun affected checks after integration.
+- **Clean up safely.** Preserve a resumable GitHub handoff and push needed commits before removing a worktree. Inspect its status first; do not force removal, delete uncommitted work, or delete someone else's worktree. Keep unfinished worktrees available for their documented next step.
+
 
 ## Agent continuity, collision prevention and recovery
 
