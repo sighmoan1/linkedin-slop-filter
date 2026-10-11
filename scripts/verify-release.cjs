@@ -88,13 +88,13 @@ body{margin:0;background:#f3f2ef;color:#22303d;font:15px/1.55 system-ui,sans-ser
   await feed.waitForSelector('#brainrot.lsf-folded');
   assert.equal(await feed.locator('#brainrot .lsf-bar button').count(),1,'hidden row only offers reveal');
   await feed.locator('#brainrot .lsf-bar button').filter({hasText:/^Show post$/}).click();
-  await feed.locator('#brainrot .lsf-tools button').filter({hasText:/^Categories$/}).click();
+  await feed.locator('#brainrot .lsf-tools button').filter({hasText:/^Review scores$/}).click();
   assert.equal(await feed.locator('#brainrot .lsf-panel').count(),1,'scores and corrections share one panel');
   const correction=feed.locator('#brainrot .lsf-correction');
   for(const c of before.categories)await correction.locator('input[value="'+c.id+'"]').uncheck();
   await correction.locator('input[value="nourishment"]').check();
   await correction.locator('input[value="advert"]').check();
-  await correction.getByRole('button',{name:'Save categories'}).click();
+  await correction.getByRole('button',{name:'Save correction'}).click();
   await feed.waitForFunction(()=>!document.getElementById('brainrot').classList.contains('lsf-folded'));
   const records=await worker.evaluate(()=>chrome.storage.local.get('corrections'));
   assert.equal(records.corrections.length,1);assert.deepEqual(records.corrections[0].categoryIds,['advert','nourishment']);
