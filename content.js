@@ -224,9 +224,9 @@
     const component=post.getAttribute("componentkey")||"";
     const componentUrn=component.match(/^update-card[-_](urn:li:(?:activity|share|ugcPost):[0-9]{1,30})$/);
     if(componentUrn)return componentUrn[1];
-    const candidates=[post,...post.querySelectorAll("[data-urn], a[href*='urn:li:']")];
+    const candidates=[post,...post.querySelectorAll("a[href*='urn:li:']")];
     for(const candidate of candidates) {
-      if(candidate!==post&&(candidate.closest(POST)!==post||candidate.closest(TEXT)||candidate.closest(".comments-comments-list, .comments-comment-item, [data-view-name*='comment'], [componentkey^='comment'], .update-components-article, .feed-shared-article")))continue;
+      if(candidate!==post&&(!candidate.closest("header, .update-components-actor, .feed-shared-actor, [data-view-name='feed-actor']")||candidate.closest(POST)!==post||candidate.closest(TEXT)||candidate.closest(".comments-comments-list, .comments-comment-item, [data-view-name*='comment'], [componentkey^='comment'], .update-components-article, .feed-shared-article, .update-components-mini-update-v2, .feed-shared-mini-update-v2, [data-view-name*='repost']")))continue;
       const urn=candidate.getAttribute("data-urn");
       if(/^urn:li:(activity|share|ugcPost):[0-9]{1,30}$/.test(urn||""))return urn;
       if(candidate.tagName!=="A")continue;

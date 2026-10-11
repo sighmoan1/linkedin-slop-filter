@@ -93,6 +93,7 @@ const atTop=(page,id,top=60)=>page.locator('#'+id).evaluate((e,top)=>window.scro
   await page.evaluate(()=>{
    const post=document.getElementById('reference');
    post.querySelector('.update-components-text').insertAdjacentHTML('beforeend','<a href="https://www.linkedin.com/feed/update/urn:li:activity:999/">Referenced post</a>');
+   post.insertAdjacentHTML('beforeend','<div class="update-components-mini-update-v2"><header><a href="https://www.linkedin.com/feed/update/urn:li:activity:444/">Reposted timestamp</a></header></div>');
    post.querySelector('.native-comments').classList.add('comments-comments-list');
    post.querySelector('.native-comments').insertAdjacentHTML('beforeend','<a href="https://www.linkedin.com/feed/update/urn:li:activity:888/">Comment link</a>');
   });await settle(page);
