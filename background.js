@@ -36,6 +36,29 @@ async function badge(message = "") {
     await chrome.action?.setTitle?.({title: message ? "LinkedIn Slop Filter: " + message : "LinkedIn Slop Filter"});
   } catch { /* A toolbar that is unavailable must not affect the feed. */ }
 }
+function usageSnapshot(settings, state, lastError = "") {
+  const usage = state.usage && typeof state.usage === "object" ? state.usage : {};
+  const count = value => Number.isFinite(value) && value >= 0 ? value : 0;
+  return {requests:count(state.requests),limit:settings.limit,scored:count(usage.scored),folded:count(usage.folded),cacheHits:count(usage.cacheHits),errors:count(usage.errors),imageScored:count(usage.imageScored),imageErrors:count(usage.imageErrors),lastError};
+}
+async function currentUsage() {
+  await usageEdits;
+  const settings = await load();
+  const state = await chrome.storage.session.get({requests:0,usage:{}});
+  const {lastError = ""} = await chrome.storage.local.get("lastError");
+  return usageSnapshot(settings,state,typeof lastError === "string" ? lastError : "");
+}
+function resetUsage() {
+  const job = chain.then(async () => {
+    await usageEdits;
+    await chrome.storage.session.set({requests:0,usage:{}});
+    await chrome.storage.local.remove("lastError");
+    await badge();
+    return currentUsage();
+  });
+  chain = job.catch(() => {});
+  return job;
+}
 chrome.storage.onChanged?.addListener((changes, area) => {
   if (area === "local" && changes.lastError) badge(changes.lastError.newValue || "");
 });
@@ -299,11 +322,10 @@ async function handle(message, sender, kind) {
     return job;
   }
   if (message.type === "usage") {
-    await usageEdits;
-    const s = await load();
-    const state = await chrome.storage.session.get({requests:0,usage:{}});
-    const {lastError = ""} = await chrome.storage.local.get("lastError");
-    return {requests:state.requests,limit:s.limit,scored:state.usage.scored || 0,folded:state.usage.folded || 0,cacheHits:state.usage.cacheHits || 0,errors:state.usage.errors || 0,imageScored:state.usage.imageScored||0,imageErrors:state.usage.imageErrors||0,lastError};
+    return currentUsage();
+  }
+  if (message.type === "resetUsage") {
+    return resetUsage();
   }
   return classify(message.text, message.type === "playground", message.imageUrls);
 }
@@ -312,7 +334,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const kind = senderKind(sender);
   if (!kind || !message || typeof message !== "object") return false;
   const shared = ["settings","experience","appearance","showEverything","openSettings","correction"];
-  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","corrections","playground","compareImages"];
+  const allowed = kind === "feed" ? [...shared,"classify","folded"] : [...shared,"usage","resetUsage","corrections","playground","compareImages"];
   if (kind === "people" && message.type !== "people") return false;
   if (message.type === "people") {
     if (kind === "feed" && message.action !== "list") return false;
