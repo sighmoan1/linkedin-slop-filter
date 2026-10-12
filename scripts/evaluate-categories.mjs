@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import {createHash} from 'node:crypto';
 import {DEFAULTS, DEFAULT_CATEGORIES, DEFAULT_RUBRIC_VERSION, normalizeCategories, activeCategories, requestFor, validScores} from '../core.mjs';
 import {categoryDecisions, categorySummary, validateCategoryDataset} from './category-evaluation-core.mjs';
+import {corpusFingerprint} from './rubric-comparison-core.mjs';
 
 const [datasetFile, rubricFile] = process.argv.slice(2);
 if (!datasetFile || process.argv.length > 4) {
@@ -47,5 +48,5 @@ for (const post of cases) {
   console.log(JSON.stringify(row));
 }
 console.log(JSON.stringify({provider: 'ollama', model: settings.ollamaModel, rubricVersion: version, rubricHash,
-  options: {temperature: 0, num_ctx: 4096, think: false}, summary: categorySummary(rows, categories)}));
+  corpusHash: corpusFingerprint(cases), options: {temperature: 0, num_ctx: 4096, think: false}, summary: categorySummary(rows, categories)}));
 if (rows.some(row => row.error)) process.exitCode = 1;
