@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import {corpusFingerprint, rubricFingerprint, parseCategoryRun, compareRubricRuns} from '../scripts/rubric-comparison-core.mjs';
+
+const baseline={categories:[
+  {id:'slop',name:'Slop',action:'hide',threshold:.8,instructions:'Old Slop definition'},
+  {id:'brainrot',name:'Brainrot',action:'hide',threshold:.8,instructions:'Old Brainrot definition'},
+  {id:'useful',name:'Good post',action:'highlight',threshold:.8,instructions:'Old Good post definition'}]};
+const candidate={categories:baseline.categories.map(c=>({...c,instructions:'Revised '+c.instructions}))};
+const cases=Array.from({length:24},(_,i)=>({id:`post-${i}`,text:`Sample case ${i}`,yes:i<8?['slop']:i<12?['brainrot']:i<18?['useful']:[],useful:i>=12,ambiguous:false}));
+const corpusHash=corpusFingerprint(cases);
+assert.equal(corpusFingerprint([...cases].reverse()),corpusHash,'corpus order cannot change identity');
+assert.notEqual(corpusFingerprint(cases.map((row,i)=>i===0?{...row,text:'changed'}:row)),corpusHash,'a changed post invalidates comparison');
+const makeRun=(rubric,variant=0)=>({metadata:{provider:'ollama',model:'qwen3.5:4b-q4_K_M',options:{temperature:0},rubricHash:rubricFingerprint(rubric.categories),corpusHash,summary:{}},rows:cases.map((row,i)=>({id:row.id,expected:row.yes,useful:row.useful,ambiguous:row.ambiguous,durationMs:10+i,scores:{slop:i<8?.95:i===14&&!variant?.9:0,brainrot:i>=8&&i<12?1:0,useful:i>=12&&i<18?1:0}}))});
+const a=makeRun(baseline), b=makeRun(candidate,1);
+assert.equal(a.rows[14].scores.slop,.9);
+assert.equal(b.rows[14].scores.slop,0);
+const report=compareRubricRuns(a,b,baseline,candidate);
+assert.equal(report.verdict,'eligible-for-human-review');
+assert.equal(report.baseline.actions.wronglyHidden,1);
+assert.equal(report.candidate.actions.wronglyHidden,0);
+assert.equal(report.sample.usefulAnnotated,12);
+assert.equal(report.candidate.medianDurationMs,22);
+assert.equal(report.eligibleForHumanReview,true);
+assert.ok(!JSON.stringify(report).includes('Sample case'));
+const cliStream=b.rows.map(row=>JSON.stringify(row)).concat(JSON.stringify(b.metadata)).join('\n');
+assert.equal(parseCategoryRun(cliStream).rows.length,24);
+assert.throws(()=>parseCategoryRun(cliStream.replace('"id":"post-1"','"id":"post-0"')),/duplicate|Invalid/);
+assert.throws(()=>parseCategoryRun(cliStream.replace('"id":"post-1"','"id":"post-1","text":"private"')),/privacy/);
+assert.throws(()=>parseCategoryRun(cliStream.replace('"corpusHash":"'+corpusHash+'"','"corpusHash":null')),/corpusHash/);
+assert.throws(()=>compareRubricRuns(a,{...b,metadata:{...b.metadata,corpusHash:'b'.repeat(64)}},baseline,candidate),/fingerprint/);
+assert.throws(()=>compareRubricRuns(a,{...b,metadata:{...b.metadata,provider:'jev'}},baseline,candidate),/Provider/);
+assert.throws(()=>compareRubricRuns(a,{...b,rows:b.rows.map((r,i)=>i===0?{...r,expected:[]}:r)},baseline,candidate),/labels/);
+assert.throws(()=>compareRubricRuns(a,{...b,rows:b.rows.slice(1)},baseline,candidate),/number/);
+assert.throws(()=>compareRubricRuns(a,b,baseline,baseline),/no changed rubric/);
+assert.throws(()=>compareRubricRuns(a,b,baseline,{categories:candidate.categories.map(c=>({...c,threshold:.5}))}),/identical categories/);
+const worsening=makeRun(candidate,1);worsening.rows[20].scores.slop=.9;
+assert.equal(compareRubricRuns(a,worsening,baseline,candidate).verdict,'no-improvement','one false hide removed but another introduced: not demonstrated improvement');
+worsening.rows[21].scores.slop=.91;
+assert.equal(compareRubricRuns(a,worsening,baseline,candidate).verdict,'regression','more false hides blocks eligibility');
+const missing=makeRun(candidate,1);delete missing.rows[0].scores.brainrot;
+assert.equal(compareRubricRuns(a,missing,baseline,candidate).verdict,'insufficient-evidence');
+const failure=makeRun(candidate,1);failure.rows[1]={...failure.rows[1],scores:undefined,error:'Timeout'};
+assert.equal(compareRubricRuns(a,failure,baseline,candidate).verdict,'insufficient-evidence');
+assert.equal(compareRubricRuns({...a,rows:a.rows.slice(0,10)},{...b,rows:b.rows.slice(0,10)},baseline,candidate).verdict,'insufficient-evidence');
+const noUseful=makeRun(candidate,1);const stripped=run=>({...run,rows:run.rows.map(({useful,...rest})=>rest)});
+assert.equal(compareRubricRuns(stripped(a),stripped(noUseful),baseline,candidate).verdict,'insufficient-evidence');
+const boundary=makeRun(candidate,1);boundary.rows[18].scores.slop=.8;
+assert.equal(compareRubricRuns(a,boundary,baseline,candidate).candidate.actions.wronglyHidden,0,'score equal to threshold does not hide');
+const multi=makeRun(candidate,1);multi.rows[15].scores.brainrot=.99;
+assert.equal(compareRubricRuns(a,multi,baseline,candidate).verdict,'no-improvement','an unrelated Hide rule must still hide an incorrectly folded post');
+console.log('PASS: hashed corpus, independent prompt runs, strict thresholds, multi-Hide, incomplete and error coverage, safe gates');
