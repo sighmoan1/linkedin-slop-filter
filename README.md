@@ -93,7 +93,9 @@ Revised prompts matched all five authored labels on 22/24 development cases and 
 npm run report:rubrics
 ```
 
-This replays committed synthetic scores without model calls. The rubric notes document an explicitly invoked local-only evaluator and private-corpus workflow. Keep real labelled data in ignored `.local-data/`. Compare useful posts wrongly hidden under **all** active Hide rules, missing/error coverage and ambiguous examples, not only Slop scores.
+This replays committed synthetic scores without model calls.
+
+**Compare proposed prompt wording before adopting it:** the offline [rubric comparison guide](docs/rubric-comparison.md) explains how to score a separately frozen, held-out labelled corpus under two rubric versions and use `npm run compare:rubrics` to check false hides, errors and coverage. This does not apply any rule or call a model by itself. The rubric notes document an explicitly invoked local-only evaluator and private-corpus workflow. Keep real labelled data in ignored `.local-data/`. Compare useful posts wrongly hidden under **all** active Hide rules, missing/error coverage and ambiguous examples, not only Slop scores.
 
 ## Development and verification
 
