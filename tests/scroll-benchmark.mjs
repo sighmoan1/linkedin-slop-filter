@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {DEFAULT_CATEGORIES} from '../core.mjs';
+import {makeRequest,readScores,attempt,summarize,replay} from '../scripts/scroll-benchmark-core.mjs';
+const all=Object.fromEntries(DEFAULT_CATEGORIES.map(c=>[c.id,.5]));
+const answer={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(all)}]}]};
+assert.deepEqual(readScores('responses',answer),all);
+assert.deepEqual(readScores('responses',{...answer,status:'incomplete'}),{});
+assert.deepEqual(readScores('responses',{status:'completed',output:[{type:'message',content:[{type:'refusal',refusal:'private response'}]}]}),{});
+assert.deepEqual(readScores('responses',{status:'completed',output:[{type:'message',content:[{type:'output_text',text:'not JSON'}]}]}),{});
+assert.deepEqual(readScores('tev1',{answers:Object.fromEntries(DEFAULT_CATEGORIES.map(c=>[c.id,{type:'noul',noul:.5}]))}),all);
+const env={OPENAI_API_KEY:'private-key',OPENROUTER_API_KEY:'private-other'};
+for(const v of ['ollama','tev1','jev','openai','responses']) {
+  const req=makeRequest(v,'x'.repeat(2200),env);
+  assert.ok(JSON.stringify(req.body).includes('x'.repeat(2000)));
+  assert.ok(!JSON.stringify(req.body).includes('x'.repeat(2001)));
+  assert.ok(!JSON.stringify(req.body).includes('private-key'));
+}
+assert.equal(makeRequest('responses','test',env).body.store,false);
+assert.equal(makeRequest('responses','test',env).body.reasoning.effort,'low');
+assert.throws(()=>makeRequest('tev1','test',{OLLAMA_ENDPOINT:'https://remote.example'}));
+let calls=0;
+await assert.rejects(()=>attempt('responses','test',{},()=>{calls++;}));assert.equal(calls,0);
+const complete=await attempt('responses','PRIVATE POST',env,async()=>({ok:true,json:async()=>answer}));assert.equal(complete.status,'complete');
+const partial=await attempt('responses','PRIVATE POST',env,async()=>({ok:true,json:async()=>({...answer,output:[{type:'message',content:[{type:'output_text',text:'{"slop":0.9}'}]}]})}));assert.equal(partial.status,'partial');
+const bad=await attempt('responses','PRIVATE POST',env,async()=>{throw new Error('private-key PRIVATE POST');});assert.equal(bad.status,'error');
+assert.ok(!JSON.stringify(bad).includes('private'));
+const http=await attempt('jev','test',env,async()=>({ok:false,status:429,json:()=>{throw new Error('must not read error body');}}));assert.equal(http.httpStatus,429);
+assert.deepEqual(replay([{status:'complete',durationMs:1500},{status:'error',durationMs:1500},{status:'complete',durationMs:1500}],1000),{intervalMs:1000,deadlineMs:1000,completeOnTime:0,attempts:3,p95CompletionMs:2500,finalBacklogMs:1500});
+assert.equal(replay([{status:'error',durationMs:10}],1000).completeOnTime,0);
+const s=summarize([complete,partial,bad]);assert.equal(s.complete,1);assert.equal(s.partial,1);assert.equal(s.errors,1);
+assert.equal(summarize([]).p95Ms,null);
+console.log('Scroll benchmark contract, privacy, coverage and queue checks passed.');
